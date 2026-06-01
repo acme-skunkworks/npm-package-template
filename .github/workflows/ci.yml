@@ -1,0 +1,166 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Defence-in-depth (ASW-313): the repo default is already read-only, but
+# pin it here so a future org-policy change can't silently widen CI's token.
+permissions:
+  contents: read
+
+jobs:
+  build-and-lint:
+    name: 🔬 Build & Lint
+    # Deliberately NOT skipped on changeset-release/* — this job is the required
+    # status check that gates the version PR (ASW-311). The road-runner-bot
+    # orchestrator reopens the version PR to trigger this run, then merges once
+    # it's green. The version PR's only generated file, CHANGELOG.md, is excluded
+    # from lint:md (see package.json) so changesets output can't redden the gate.
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: ⚙️ Load repo config
+        id: repo
+        uses: ./.github/actions/load-repo-config
+
+      - name: 📦 Install pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v4.4.0
+        with:
+          run_install: false
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ${{ steps.repo.outputs.node_version_file }}
+          cache: pnpm
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🏗️ Build
+        run: pnpm run build
+
+      - name: 🔬 Lint
+        run: pnpm run lint
+
+      - name: 📝 Lint Markdown
+        run: pnpm run lint:md
+
+      # In build-and-lint (not infra) so it also runs on the changeset-release/*
+      # version PR, where finalise-changelog.ts rewrites the entries — that's
+      # exactly where finalised frontmatter/body must be validated before merge.
+      - name: 📓 Validate changelog entries
+        run: pnpm validate:changelog
+
+      - name: 📝 Changeset status
+        run: pnpm changeset status --since=origin/${{ github.base_ref }}
+        continue-on-error: true
+
+  yaml-lint:
+    name: 📝 YAML & Workflows
+    if: ${{ !startsWith(github.head_ref, 'changeset-release/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: 📦 Cache yamllint (pip --user)
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.local
+          # Keyed on the hash-locked requirements file (ASW-327): a version or
+          # transitive-dependency bump busts the cache automatically. No
+          # restore-keys prefix fallback on purpose — a prefix hit would restore
+          # an old ~/.local with yamllint already present, and ensure-yamllint.sh
+          # only installs when `command -v yamllint` fails, so the bumped /
+          # hash-verified version would be silently skipped until the old cache
+          # evicts. Exact-key-or-cold-install keeps the pin honest (CodeRabbit).
+          key: ${{ runner.os }}-python-yamllint-${{ hashFiles('infrastructure/requirements-yamllint.txt') }}
+
+      - name: 📦 Cache actionlint binary
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ./actionlint
+          key: ${{ runner.os }}-actionlint-1.7.5
+          restore-keys: |
+            ${{ runner.os }}-actionlint-
+
+      - name: 📝 Run yamllint
+        # Logic lives in infrastructure/scripts/ensure-yamllint.sh — install
+        # if missing, then run. Tested via bats; see infrastructure/tests/.
+        run: bash infrastructure/scripts/ensure-yamllint.sh
+
+      - name: 🔍 Run actionlint
+        # Logic lives in infrastructure/scripts/ensure-actionlint.sh — download
+        # the pinned binary if missing, then run. Tested via bats.
+        run: bash infrastructure/scripts/ensure-actionlint.sh
+
+  infra:
+    name: 🧪 Infrastructure scripts
+    if: ${{ !startsWith(github.head_ref, 'changeset-release/') }}
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: ⚙️ Load repo config
+        id: repo
+        uses: ./.github/actions/load-repo-config
+
+      - name: 📦 Install pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v4.4.0
+        with:
+          run_install: false
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version-file: ${{ steps.repo.outputs.node_version_file }}
+          cache: pnpm
+
+      - name: 📥 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 📦 Cache bats binary
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.local
+          key: ${{ runner.os }}-bats-1.13.0
+          restore-keys: |
+            ${{ runner.os }}-bats-
+
+      - name: 🐚 Install shellcheck (apt)
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck --version | head -2
+
+      - name: 🐚 Install bats (pinned)
+        # Logic lives in infrastructure/scripts/ensure-bats.sh — bootstraps
+        # bats-core from GitHub releases at the pinned version. Tested via
+        # bats; see infrastructure/tests/ensure-bats.bats.
+        run: bash infrastructure/scripts/ensure-bats.sh
+
+      - name: 🔬 Shellcheck
+        run: pnpm lint:sh
+
+      - name: 🧪 Vitest
+        run: pnpm test
+
+      - name: 🧪 Bats
+        run: pnpm test:sh

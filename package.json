@@ -36,25 +36,74 @@
     "dist"
   ],
   "scripts": {
+    "act:ci": "act pull_request -W .github/workflows/ci.yml --eventpath .github/act-events/pull_request.json",
+    "act:list": "act --list",
+    "act:release:dry": "act push -W .github/workflows/release.yml",
     "build": "tsc",
+    "changelog:finalise": "tsx infrastructure/scripts/finalise-changelog.ts",
+    "changeset:version": "changeset version && pnpm changelog:finalise",
+    "ci:list": "gh run list --limit 10",
+    "ci:view": "gh run view",
+    "ci:watch": "gh run watch $(gh run list -L 1 --json databaseId -q '.[0].databaseId // empty')",
     "clean": "rimraf node_modules dist",
     "format": "prettier --write .",
-    "lint": "eslint 'src/**/*.ts' --cache --cache-location ./.eslintcache",
-    "lint:fix": "eslint 'src/**/*.ts' --fix --cache --cache-location ./.eslintcache",
-    "lint:md": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/CHANGELOG.md'",
-    "lint:md:fix": "markdownlint-cli2 --fix '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/CHANGELOG.md'",
-    "tsc": "tsc --noEmit"
+    "lint": "eslint 'src/**/*.ts' 'infrastructure/scripts/**/*.ts' 'infrastructure/send-it/**/*.ts' --cache --cache-location ./.eslintcache",
+    "lint:fix": "eslint 'src/**/*.ts' 'infrastructure/scripts/**/*.ts' 'infrastructure/send-it/**/*.ts' --fix --cache --cache-location ./.eslintcache",
+    "lint:md": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/.turbo/**' '!**/.astro/**' '!**/CHANGELOG.md'",
+    "lint:md:fix": "markdownlint-cli2 --fix '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/.turbo/**' '!**/.astro/**' '!**/CHANGELOG.md'",
+    "lint:sh": "bash -c 'if command -v shellcheck >/dev/null 2>&1; then shellcheck infrastructure/scripts/*.sh .husky/pre-commit .husky/pre-push .husky/commit-msg; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  shellcheck not installed — skipping. Install: brew install shellcheck\"; else echo \"⚠️  shellcheck not installed — skipping. Install: apt-get install shellcheck\"; fi'",
+    "lint:workflows": "actionlint",
+    "lint:yaml": "yamllint .",
+    "prepare": "husky",
+    "prepublishOnly": "pnpm run build",
+    "release:manual": "pnpm run build && npm publish --access public --provenance=false",
+    "release:manual:dry": "pnpm run build && npm publish --access public --provenance=false --dry-run",
+    "sort-pkg-json": "sort-package-json",
+    "test": "vitest run",
+    "test:sh": "bash -c 'if command -v bats >/dev/null 2>&1; then bats infrastructure/tests/*.bats; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  bats not installed — skipping. Install: brew install bats-core\"; else echo \"⚠️  bats not installed — skipping. Install: apt-get install bats\"; fi'",
+    "test:watch": "vitest",
+    "tsc": "tsc --noEmit && tsc -p tsconfig.tools.json",
+    "validate:changelog": "tsx infrastructure/scripts/validate-changelog.ts",
+    "version": "changeset version"
+  },
+  "lint-staged": {
+    "**/*": [
+      "prettier --write --ignore-unknown"
+    ],
+    "**/*.{ts,tsx,js,mjs,cjs}": [
+      "bash -c 'pnpm exec eslint --fix --cache --cache-location ./.eslintcache \"$@\" || true' --"
+    ],
+    "**/package.json": [
+      "bash -c 'sort-package-json \"$@\" || true' --",
+      "bash -c 'pnpm exec eslint --fix --cache --cache-location ./.eslintcache \"$@\" || true' --"
+    ],
+    "**/*.{md,mdx}": [
+      "bash -c 'markdownlint-cli2 --fix --config ./.markdownlint-cli2.jsonc \"$@\" || true' --"
+    ],
+    "**/*.{yml,yaml}": [
+      "bash -c 'if command -v yamllint >/dev/null 2>&1; then yamllint \"$@\"; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  yamllint not installed — skipping. Install with: brew install yamllint\"; else echo \"⚠️  yamllint not installed — skipping. Install with: pip install --user yamllint==1.37.1\"; fi' --"
+    ],
+    ".github/workflows/*.{yml,yaml}": [
+      "bash -c 'if command -v actionlint >/dev/null 2>&1; then actionlint \"$@\"; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  actionlint not installed — skipping. Install with: brew install actionlint\"; else echo \"⚠️  actionlint not installed — skipping. Install via: bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.5/scripts/download-actionlint.bash)\"; fi' --"
+    ]
   },
   "devDependencies": {
     "@acme-skunkworks/eslint-config": "^1.0.4",
     "@acme-skunkworks/markdownlint-config": "^2.0.0",
+    "@changesets/cli": "^2.31.0",
     "@types/node": "^25.6.0",
     "eslint": "^9.0.0",
+    "gray-matter": "^4.0.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
     "markdownlint-cli2": "^0.18.1",
     "prettier": "^3.0.0",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "rimraf": "^6.0.1",
-    "typescript": "^6.0.3"
+    "sort-package-json": "^3.6.1",
+    "tsx": "^4.21.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   },
   "packageManager": "pnpm@10.33.0",
   "engines": {

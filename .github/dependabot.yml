@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Group all action bumps into a single PR per week. Keeps notification
+    # noise low and ensures SHA-pinned `uses:` lines stay current across
+    # ci.yml + release.yml. Grouped PRs land or revert atomically.
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+      include: scope

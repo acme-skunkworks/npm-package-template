@@ -1,0 +1,43 @@
+---
+extends: default
+
+rules:
+  # Style rules — Prettier owns formatting; keep visible but don't fail on them.
+  line-length:
+    max: 120
+    level: warning
+
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    level: warning
+
+  comments:
+    min-spaces-from-content: 1
+    level: warning
+
+  trailing-spaces:
+    level: warning
+
+  # Syntax rules stay at default (error): duplicate-keys, key-duplicates, syntax.
+
+  empty-values:
+    forbid-in-block-mappings: false
+    forbid-in-flow-mappings: false
+
+  document-start: disable
+  empty-lines: disable
+
+  truthy:
+    allowed-values: ["true", "false", "on", "off", "yes", "no"]
+
+  quoted-strings: disable
+
+ignore: |
+  node_modules/
+  **/node_modules/
+  dist/
+  **/dist/
+  .turbo/
+  **/.turbo/
+  pnpm-lock.yaml
