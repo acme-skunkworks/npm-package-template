@@ -12,6 +12,7 @@ When generating a package from this template:
 - Replace everything under `src/` with the package's real public API — `src/index.ts` is the published entry point. The surrounding shell (build, lint, release) does not need to change.
 - Point `infrastructure/repo-config.yaml` at the new package if any value differs (scope, registry, default branch).
 - Rename the package reference in `.claude/commands/send-it.md`'s changeset example.
+- **Lint configs are inherited as-is.** `eslint.config.ts` (extends `@acme-skunkworks/eslint-config`) and `.markdownlint-cli2.jsonc` (extends `@acme-skunkworks/markdownlint-config`) carry the org defaults; a generated repo needs no edit. Extend `eslint.config.ts` only to pull in the opt-in presets the package needs (`testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`, `tableComponents` — all re-exported from the preset).
 - **Re-enable the Release workflow.** It is intentionally disabled on _this template repo_ (see "Release workflow" below); a generated repo needs it on: `gh workflow enable Release`. (Template generation copies files with workflows enabled by default, so this is only a guard against the rare case where it was carried over disabled.)
 
 ## British English
@@ -56,8 +57,8 @@ TypeScript source lives under `src/`, compiled by `tsc` to `dist/` (declarations
 The published `dist/` must contain **only** the compiled `src/`, but the TypeScript tooling under `infrastructure/` still needs type-checking and type-aware linting. Three tsconfigs keep those concerns separate:
 
 - **`tsconfig.json`** — the build config. `rootDir: ./src`, `include: ["src/**/*.ts"]`, emits to `dist/`. `pnpm build` (`tsc`) uses it, so `dist/` stays src-only. Do **not** widen its `include` to "fix" linting — that re-emits infra into `dist/`.
-- **`tsconfig.tools.json`** — `noEmit`, `extends ./tsconfig.json`, covers `infrastructure/scripts/**`, `infrastructure/send-it/**`, `infrastructure/tests/**`, `vitest.config.ts`. `pnpm tsc` runs it as a second pass to type-check the shell + tests.
-- **`tsconfig.eslint.json`** — `noEmit`, the linter's project. Spans `src/**` + the infra `.ts`. `eslint.config.mjs` pins `parserOptions.project` to it so the base preset's type-aware rules (`project: true`) resolve every linted file regardless of directory. Without this pin ESLint would fail with "file not found by the project service" on infra files (they aren't in the src-only `tsconfig.json`).
+- **`tsconfig.tools.json`** — `noEmit`, `extends ./tsconfig.json`, covers `eslint.config.ts`, `infrastructure/scripts/**`, `infrastructure/send-it/**`, `infrastructure/tests/**`, `vitest.config.ts`. `pnpm tsc` runs it as a second pass to type-check the shell, tests, and the ESLint config.
+- **`tsconfig.eslint.json`** — `noEmit`, the linter's project. Spans `src/**` + the infra `.ts`. `eslint.config.ts` pins `parserOptions.project` to it so the base preset's type-aware rules (`project: true`) resolve every linted file regardless of directory. Without this pin ESLint would fail with "file not found by the project service" on infra files (they aren't in the src-only `tsconfig.json`). The ESLint config itself is **not** in this project — the preset's global ignores exclude `eslint.config.ts` from linting, so it is type-checked only via `tsconfig.tools.json`.
 
 `extends` does **not** inherit `include`/`exclude` — only `compilerOptions` — so the two extra configs restate their own `include`/`exclude`.
 
@@ -65,7 +66,7 @@ The published `dist/` must contain **only** the compiled `src/`, but the TypeScr
 
 This package dogfoods the org's own shared configs:
 
-- **ESLint** — `eslint.config.mjs` consumes `@acme-skunkworks/eslint-config`, composing the `base` stack plus the `typescript` overrides, then adds two local blocks: an `infrastructure/**/*.ts` override (`complexity: off` + `import/no-extraneous-dependencies` with `devDependencies: true`, since the shell scripts legitimately import devDeps like `gray-matter` and the changelog validator is a branchy flat list of checks), and the `tsconfig.eslint.json` project pin (see above). The preset also re-exports opt-in presets (`testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`, `tableComponents`) — pull them in as a generated package needs them. The config is authored in `.mjs` (not `.ts`) because it is a trivial re-export and so needs no TypeScript-config loader.
+- **ESLint** — `eslint.config.ts` consumes `@acme-skunkworks/eslint-config`, composing the `base` stack plus the `typescript` overrides, then adds two local blocks: an `infrastructure/**/*.ts` override (`complexity: off` + `import/no-extraneous-dependencies` with `devDependencies: true`, since the shell scripts legitimately import devDeps like `gray-matter` and the changelog validator is a branchy flat list of checks), and the `tsconfig.eslint.json` project pin (see above). The preset also re-exports opt-in presets (`testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`, `tableComponents`) — pull them in as a generated package needs them. The config is authored in `.ts` (loaded by `jiti`, a devDependency ESLint v9.18+ requires for TypeScript config) and wrapped in `defineConfig` from `eslint/config`, so the whole array — including the two local override blocks — is type-checked against the preset's shipped types (`./dist/index.d.ts`) instead of only failing at lint-run time. `pnpm tsc` type-checks it via `tsconfig.tools.json`.
 - **Markdown** — `.markdownlint-cli2.jsonc` extends `@acme-skunkworks/markdownlint-config`. `lint:md` excludes `CHANGELOG.md`, which the changelog tooling generates with formatting markdownlint would otherwise fight. Pre-commit auto-fixes staged `**/*.{md,mdx}` via lint-staged (`|| true`, so it never blocks); the `build-and-lint` job in `ci.yml` enforces.
 - **Prettier** — `pnpm format` runs `prettier --write .`; `.prettierignore` excludes `node_modules`, `dist`, `pnpm-lock.yaml`, `tsconfig.json`, and `CHANGELOG.md`.
 
@@ -175,7 +176,7 @@ Scripts:
 
 CI: the `infra` job in `ci.yml` runs `pnpm lint:sh`, `pnpm test`, `pnpm test:sh`, and `pnpm validate:changelog` against this directory. Locally, `pnpm lint:sh` / `pnpm test:sh` skip with install hints if `shellcheck` / `bats` aren't on PATH — `pnpm test` (vitest) always runs because vitest is a node devDep.
 
-> The changelog scripts use `gray-matter` (a devDependency) and the validator is a long flat list of schema checks, so `eslint.config.mjs` scopes a `devDependencies: true` + `complexity: off` override to `infrastructure/**`.
+> The changelog scripts use `gray-matter` (a devDependency) and the validator is a long flat list of schema checks, so `eslint.config.ts` scopes a `devDependencies: true` + `complexity: off` override to `infrastructure/**`.
 
 When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. Slash-command-only helpers under `infrastructure/send-it/` are invoked from `.claude/commands/send-it.md` instead.
 
