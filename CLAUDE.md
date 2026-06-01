@@ -12,6 +12,7 @@ When generating a package from this template:
 - Replace everything under `src/` with the package's real public API — `src/index.ts` is the published entry point. The surrounding shell (build, lint, release) does not need to change.
 - Point `infrastructure/repo-config.yaml` at the new package if any value differs (scope, registry, default branch).
 - Rename the package reference in `.claude/commands/send-it.md`'s changeset example.
+- **Re-enable the Release workflow.** It is intentionally disabled on _this template repo_ (see "Release workflow" below); a generated repo needs it on: `gh workflow enable Release`. (Template generation copies files with workflows enabled by default, so this is only a guard against the rare case where it was carried over disabled.)
 
 ## British English
 
@@ -190,6 +191,8 @@ Two-stage lifecycle — finalisation rides inside the Changesets version PR (ASW
 `validate:changelog` enforces the schema (CI: the `infra` job). Required frontmatter is relaxed to `title`/`created_at`/`category`/`breaking` so backfilled historical entries and in-flight entries both pass. `finalise-changelog.ts` is the only CLI; `enrich-changelog.ts`, `add-links-changelog.ts`, and `stamp-changelog-version.ts` are pure library modules it composes.
 
 ## Release workflow
+
+> **Disabled on this template repo.** The template's `src/` is a placeholder that is never published, so `release.yml` is switched off here (`gh workflow disable Release`) to avoid a failing publish — and an auto-opened failure issue — on every push to `main`. The workflow file stays in the tree because it is part of the shell that generated packages inherit; only its execution on _this_ repo is suppressed. Re-enable with `gh workflow enable Release` (and in any repo generated from this template — see the generation checklist at the top). Everything below describes the workflow as it runs in a real, publishing package.
 
 There are two release modes — know which one you're in.
 
