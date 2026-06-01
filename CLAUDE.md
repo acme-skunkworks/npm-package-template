@@ -271,44 +271,44 @@ pnpm run release:manual        # actual publish
 The very first publish of a brand-new npm package **cannot go through CI**. Two reasons that compound:
 
 - npm (unlike PyPI) has no pending-Trusted-Publisher flow. The package must exist on the registry before the Trusted Publisher form is reachable at `npmjs.com/package/<name>/access`.
-- npm enforces 2FA at the publish endpoint for the first publish of a new package, irrespective of account/org/token bypass settings. Granular bypass-2FA tokens only honour the bypass on subsequent publishes.
+- npm enforces 2FA at the publish endpoint for the first publish of a new package, irrespective of account/org/token bypass settings — so it needs an interactive second factor. A Granular bypass-2FA token does **not** help here: it only honours the bypass from publish #2 onwards. With a recent npm (default `auth-type=web`), that 2FA is satisfied **in the browser via a passkey/WebAuthn approval** — so the first publish completes interactively from a laptop, not in CI.
 
-So bootstrap is always: manual first publish → configure Trusted Publisher → CI takes over from publish #2.
+So bootstrap is always: manual first publish (approve in the browser) → configure Trusted Publisher → CI takes over from publish #2.
 
 **Pre-flight:**
 
 - You belong to the target npm org with publish rights.
-- npm CLI ≥ 11.5.1 (`npm install -g npm@latest`).
-- Account has 2FA enabled with **recovery codes generated and saved** (you'll need one).
+- npm CLI ≥ 11.5.1 (`npm install -g npm@latest`) — the floor Trusted Publishing needs; newer is better for the web-auth flow (verified on npm 11.12.1).
+- **A passkey/security key registered on your npm account**, an interactive browser on the publishing machine, and `auth-type=web` (the npm default — don't override it). This is the primary path's second factor.
+- _Fallback only:_ recovery codes generated and saved, for when no interactive browser/passkey is available (see the fallback below).
 - `package.json` is at the version you want to ship (`pnpm changeset version` consumes pending changesets and bumps).
 
-**Sequence:**
+**Sequence (primary — passkey/WebAuthn browser flow):**
 
 1. `pnpm changeset version` — consume pending changesets, bump `package.json`, write `CHANGELOG.md`.
-2. `pnpm run release:manual:dry` — verify tarball + auth. **Note:** dry-run does NOT trigger 2FA enforcement, so a successful dry-run does not predict a successful real publish.
-3. `pnpm run release:manual` — first real attempt. **This will fail with `EOTP`.** That's expected.
-4. Use a **recovery code as the `--otp` value**:
+2. `pnpm run release:manual:dry` — verify tarball + auth. **Note:** dry-run does NOT exercise the 2FA/browser step, so a successful dry-run does not by itself predict a successful real publish.
+3. `pnpm run release:manual` — i.e. `npm publish --access public --provenance=false` (no `--otp`). npm opens your browser and prompts for a **passkey/WebAuthn approval** (Touch ID / Face ID / security key). Approve it, and the brand-new scoped package publishes cleanly. _(Verified 2026-06-01 first-publishing `@acme-skunkworks/agent-skills@1.0.0` this way.)_
+4. Configure Trusted Publisher: `https://www.npmjs.com/package/<name>/access` → GitHub Actions → org, repo, workflow filename (`release.yml`), environment blank.
+5. From here on, releases go through CI cleanly.
 
-   ```bash
-   npm publish --access public --provenance=false --otp=<recovery-code>
-   ```
+**Fallback (recovery-code `--otp`):** for headless / CI-less / no-browser contexts, an account without a passkey, or an npm too old for web auth. Pass a recovery code as `--otp`:
 
-   Generate codes at npmjs.com → Profile → Two-Factor Authentication → Manage Recovery Codes. Each is single-use. The format is a long hex string (not a 6-digit TOTP) — npm accepts it as `--otp` anyway.
+```bash
+npm publish --access public --provenance=false --otp=<recovery-code>
+```
 
-5. After publish succeeds, **immediately regenerate recovery codes**. The one you used is burnt.
-6. Configure Trusted Publisher: `https://www.npmjs.com/package/<name>/access` → GitHub Actions → org, repo, workflow filename (`release.yml`), environment blank.
-7. From here on, releases go through CI cleanly.
+Generate codes at npmjs.com → Profile → Two-Factor Authentication → Manage Recovery Codes. Each is single-use. The format is a long hex string (not a 6-digit TOTP) — npm accepts it as `--otp` anyway. **After a publish that consumed a code, immediately regenerate your recovery codes** — the one you used is burnt. Then configure Trusted Publisher as in step 4 above.
 
 ### Things that look like solutions but aren't
 
 Saving these to spare the next bootstrap from rediscovering them:
 
-- `npm publish --auth-type=web` — flag is for `npm login`, ignored by `publish`.
 - Toggling "Require 2FA for write actions" off in account settings.
 - Disabling org-level 2FA enforcement.
 - Generating a Granular token with bypass-2FA enabled — works for publish #2+, NOT publish #1.
-- `npm login --auth-type=web` to refresh the session token. Auth swaps successfully but the publish endpoint still demands OTP.
 - `oathtool` for generating TOTP — only works if you have a TOTP secret, and **npm has phased TOTP out of new accounts** (only passkeys + recovery codes are offered now).
 - Disabling 2FA entirely — npm's policy _requires_ either 2FA or a bypass-2FA token; you can't disable both.
 
-Recovery codes are the answer because they're the only OTP-shaped value an npm account can produce when its only 2FA factor is a passkey.
+The passkey/WebAuthn browser flow is the answer for publish #1: with `auth-type=web` (the npm default) a plain `npm publish` opens the browser and lets you approve the package's first-publish 2FA interactively. Recovery-code `--otp` is the fallback for when there's no interactive browser or passkey to drive that flow.
+
+> **Historical note:** earlier revisions of this runbook claimed the first publish would always fail with `EOTP` and that a recovery code passed as `--otp` was the only route — treating `npm publish --auth-type=web` as a no-op (a flag "only for `npm login`"). That was stale: as of npm 11.12.1, web auth is the default and `npm publish` completes first-publish 2FA in the browser via a passkey. Recovery-code `--otp` is now only the fallback.
