@@ -1,0 +1,67 @@
+{
+  "name": "@acme-skunkworks/npm-package-template",
+  "version": "0.0.0",
+  "description": "Template repository for Acme Skunkworks npm packages — rename and fill src/ when generating a new package.",
+  "keywords": [
+    "template",
+    "npm-package",
+    "typescript",
+    "boilerplate"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/npm-package-template#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/npm-package-template/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/npm-package-template.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf node_modules dist",
+    "format": "prettier --write .",
+    "lint": "eslint 'src/**/*.ts' --cache --cache-location ./.eslintcache",
+    "lint:fix": "eslint 'src/**/*.ts' --fix --cache --cache-location ./.eslintcache",
+    "lint:md": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/CHANGELOG.md'",
+    "lint:md:fix": "markdownlint-cli2 --fix '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/CHANGELOG.md'",
+    "tsc": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@acme-skunkworks/eslint-config": "^1.0.4",
+    "@acme-skunkworks/markdownlint-config": "^2.0.0",
+    "@types/node": "^25.6.0",
+    "eslint": "^9.0.0",
+    "markdownlint-cli2": "^0.18.1",
+    "prettier": "^3.0.0",
+    "prettier-plugin-tailwindcss": "^0.8.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}
