@@ -1,0 +1,12 @@
+# act configuration — see CLAUDE.md "Validating workflows locally with `act`"
+#
+# Pin `ubuntu-latest` to catthehacker's medium image (Ubuntu 24.04-based, matches
+# GitHub's current `ubuntu-latest` runner). The act default image is intentionally
+# minimal and silently breaks Node/pnpm setups.
+#
+# Architecture is deliberately NOT pinned — act defaults to the host arch. On
+# Apple Silicon that's arm64 (fast, native). This repo has no arch-sensitive code
+# and tools downloaded inside the workflows (actionlint, yamllint) ship arm64
+# builds. To strictly mirror real `ubuntu-latest` (amd64) for parity debugging,
+# append `--container-architecture linux/amd64` to the command.
+-P ubuntu-latest=catthehacker/ubuntu:act-latest

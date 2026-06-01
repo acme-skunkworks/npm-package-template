@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Strip any Co-Authored-By: Claude ... <noreply@anthropic.com> trailers.
+# Claude Code's default system prompt adds this; per repo policy Claude is
+# tooling, not a contributor. This is a belt-and-braces guard alongside the
+# global ~/.claude/CLAUDE.md directive.
+
+sed -i.bak -E '/^Co-Authored-By:[[:space:]]*Claude.*<noreply@anthropic\.com>[[:space:]]*$/Id' "$1"
+rm -f "$1.bak"

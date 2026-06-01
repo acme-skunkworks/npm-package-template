@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Run lint-staged to format and lint only staged files.
+# --allow-empty so the hook doesn't fail when tasks produce no
+# modifications (e.g. file is already prettier/markdownlint-clean).
+pnpm lint-staged --allow-empty
