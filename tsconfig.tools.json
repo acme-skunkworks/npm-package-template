@@ -9,6 +9,7 @@
     "incremental": false
   },
   "include": [
+    "eslint.config.ts",
     "infrastructure/scripts/**/*.ts",
     "infrastructure/send-it/**/*.ts",
     "infrastructure/tests/**/*.ts",

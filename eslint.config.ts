@@ -1,14 +1,18 @@
 import { base, typescript } from "@acme-skunkworks/eslint-config";
+import { defineConfig } from "eslint/config";
 
 /**
  * Self-lint config for the template, dogfooding the published Acme preset:
  * the `base` stack plus the TypeScript-file overrides.
  *
- * Generated packages extend this with the opt-in presets they need — e.g.
- * `testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`,
+ * Authored in TypeScript (loaded by jiti) and wrapped in `defineConfig` so the
+ * whole config array — including the local override blocks below — is
+ * type-checked against the preset's shipped types, rather than only failing
+ * when ESLint runs. Generated packages extend this with the opt-in presets they
+ * need — e.g. `testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`,
  * `tableComponents` — all re-exported from `@acme-skunkworks/eslint-config`.
  */
-export default [
+export default defineConfig([
   ...base,
   typescript,
   // infrastructure/ holds the workflow/release shell's CLI tooling (not
@@ -37,4 +41,4 @@ export default [
       },
     },
   },
-];
+]);
