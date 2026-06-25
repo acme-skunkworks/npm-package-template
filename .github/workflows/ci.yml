@@ -219,3 +219,36 @@ jobs:
 
       - name: 🧪 Bats
         run: pnpm test:sh
+
+  # Single estate release gate (SK-412/SK-424). An always()-run aggregator whose
+  # intrinsic check-run, named `go/no-go`, succeeds iff every required job above
+  # passed or legitimately skipped. A check-run (not a commit status) is
+  # App-only — minted solely by this repo's own Actions run — so a push-scoped
+  # token or a fork contributor cannot forge it; require it on `main` via a
+  # ruleset pinned to the GitHub Actions integration. The literal `/` in the job
+  # name surfaces verbatim as `check_run.name == "go/no-go"` (emoji and spaces
+  # already survive in `🔬 Build & Lint`); if it ever doesn't, fall back to
+  # explicit-create (POST /check-runs, Option A). Transitional (SK-419): the
+  # release-orchestrator still waits on `🔬 Build & Lint` until it is flipped to
+  # `go/no-go` (dual-accept), so do NOT rename the jobs above.
+  #
+  # Deferred (SK-411): the four jobs above become thin callers of
+  # acme-skunkworks/shared-workflows once that repo ships its reusable
+  # lint/build-test/pr-title workflows — this aggregator stays put across that
+  # swap, which is exactly why it lives here (custom per-repo) and not upstream.
+  go-no-go:
+    name: go/no-go
+    needs: [build-and-lint, pr-title, yaml-lint, infra]
+    if: ${{ always() }} # MANDATORY — else the aggregator skips and the gate never reports
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⚖️ Verdict
+        # `skipped` is accepted: yaml-lint + infra legitimately skip on the
+        # release-please branch. This matches the canonical reference impl
+        # (SK-418) verbatim so the template stays the reference emitter;
+        # tightening to a release-please-only skip allowlist is a documented
+        # follow-up, deferred to the shared-workflows reference.
+        run: |
+          echo '${{ toJSON(needs) }}' \
+            | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' >/dev/null \
+            || { echo "::error::a required check failed"; exit 1; }
