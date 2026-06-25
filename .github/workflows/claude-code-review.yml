@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   claude-review:
-    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'changeset-release/')
+    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release-please--')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

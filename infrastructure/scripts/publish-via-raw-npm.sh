@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Publish the current package to npm via the upgraded npm at $PNPM_HOME/npm,
-# bypassing `pnpm changeset publish`. Diagnosed in ASW-174: pnpm's publish
-# path from inside `changesets/action` ends up failing OIDC Trusted Publishing
-# even when `$PNPM_HOME` is on $PATH and `which npm` correctly resolves to
-# npm 11.x. Calling npm directly works (PR #19 proved the npm-side flow when
-# the workflow filename matches the TP allowlist on npmjs.com).
+# Publish the current package to npm via the upgraded npm at $PNPM_HOME/npm.
+# Called directly from release.yml's publish step (SK-371 dropped the
+# changesets/action shell). Calling npm directly rather than `pnpm publish`:
+# diagnosed in ASW-174, pnpm's publish path fails OIDC Trusted Publishing even
+# when `$PNPM_HOME` is on $PATH and `which npm` correctly resolves to npm 11.x.
+# Calling npm directly works (PR #19 proved the npm-side flow when the workflow
+# filename matches the TP allowlist on npmjs.com).
 #
 # Idempotent: if the package@version already exists on npm, exit 0 instead
 # of re-publishing (which would 403/409). Lets release.yml retry safely

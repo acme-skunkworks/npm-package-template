@@ -12,6 +12,7 @@ infrastructure/
     ensure-yamllint.sh              # extracted from .github/workflows/ci.yml
     ensure-actionlint.sh            # extracted from .github/workflows/ci.yml
     ensure-bats.sh                  # extracted from .github/workflows/ci.yml
+    check-changelog-completeness.ts # ci.yml gate: a release-triggering PR title needs a changelog/ entry
     publish-via-raw-npm.sh          # release.yml npm publish step (bypasses pnpm)
     publish-to-github-packages.sh   # release.yml publish-github-packages job (token auth, attested tarball)
   tests/
