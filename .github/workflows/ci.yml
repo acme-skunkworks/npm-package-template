@@ -129,7 +129,7 @@ jobs:
           fetch-depth: 1
 
       - name: 📦 Cache yamllint (pip --user)
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.local
           # Keyed on the hash-locked requirements file (ASW-327): a version or
@@ -142,7 +142,7 @@ jobs:
           key: ${{ runner.os }}-python-yamllint-${{ hashFiles('infrastructure/requirements-yamllint.txt') }}
 
       - name: 📦 Cache actionlint binary
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ./actionlint
           # Exact-key-or-cold, like the yamllint cache above — no restore-keys
@@ -193,7 +193,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 📦 Cache bats binary
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.local
           key: ${{ runner.os }}-bats-1.13.0
