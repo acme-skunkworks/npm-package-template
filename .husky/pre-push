@@ -10,14 +10,15 @@ LATEST_COMMIT_MSG=$(git log -1 --pretty=%B)
 LATEST_AUTHOR=$(git log -1 --pretty=%an)
 LATEST_COMMITTER=$(git log -1 --pretty=%cn)
 
-# Skip for automated release commits (changesets/action)
-if echo "$LATEST_COMMIT_MSG" | grep -qE "^release: version packages$"; then
+# Skip for automated release commits (release-please release PR, SK-371).
+# release-please's default commit/PR-title pattern is `chore(main): release X`.
+if echo "$LATEST_COMMIT_MSG" | grep -qE "^chore(\(.+\))?: release "; then
   printf '⏭️  Skipping pre-push check for automated release commit\n'
   exit 0
 fi
 
 # Skip for known bot identities. Check both author and committer:
-# changesets/action sets both, but other bots may set only one.
+# the orchestrator sets both, but other bots may set only one.
 for actor in "$LATEST_AUTHOR" "$LATEST_COMMITTER"; do
   case "$actor" in
     "github-actions[bot]"|"road-runner-bot[bot]")

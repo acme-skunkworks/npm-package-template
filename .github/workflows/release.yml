@@ -32,7 +32,7 @@ jobs:
       contents: read # Checkout + build only — no publish identity here.
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false # Nothing git-pushes; avoid artipacked exposure.
 
@@ -41,7 +41,7 @@ jobs:
         uses: ./.github/actions/load-repo-config
 
       - name: 📦 Install pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v4.4.0
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4.4.0
         with:
           run_install: false
 
@@ -92,22 +92,24 @@ jobs:
     environment: npm-release
     outputs:
       # Reused by publish-github-packages so it gates on the same condition
-      # without re-detecting (false = version-PR merge = publish; true = no-op).
-      has_pending_changesets: ${{ steps.cs.outputs.has }}
+      # without re-detecting (true = version bumped, not yet tagged = publish;
+      # false = tag already exists = clean no-op).
+      should_publish: ${{ steps.gate.outputs.publish }}
     permissions:
       contents: write # Git tags + GitHub releases on publish
       id-token: write # OIDC for npm Trusted Publishing + provenance attestation
       issues: write # Open a tracking issue if the release fails (notify step)
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0
-          # This workflow is publish-only. The version PR is created AND merged
+          fetch-depth: 0 # Full history + tags so the version-vs-tag gate can resolve.
+          # This workflow is publish-only. The release PR is created AND merged
           # by the road-runner-bot orchestrator (private release-orchestrator
-          # repo); its App-token merge re-fires this workflow, which then sees no
-          # pending changesets and publishes. The bot's private key never touches
-          # this public repo's CI (ASW-311 / ASW-312 / ASW-320).
+          # repo, running release-please); its App-token merge re-fires this
+          # workflow, which then sees a freshly bumped, untagged version and
+          # publishes. The bot's private key never touches this public repo's CI
+          # (ASW-311 / ASW-312 / ASW-320 / SK-371).
           token: ${{ secrets.GITHUB_TOKEN }}
           # Don't write GITHUB_TOKEN into .git/config — nothing here git-pushes
           # (tags/release go via the gh API, npm via OIDC). Avoids the artipacked
@@ -119,7 +121,7 @@ jobs:
         uses: ./.github/actions/load-repo-config
 
       - name: 📦 Install pnpm
-        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v4.4.0
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4.4.0
         with:
           run_install: false
 
@@ -153,23 +155,28 @@ jobs:
           echo "$PNPM_HOME" >> "$GITHUB_PATH"
           echo "Upgraded npm at $PNPM_HOME/npm: $("$PNPM_HOME/npm" --version)"
 
-      # Publish-only: versioning (changeset version + changelog finalise + the
-      # version PR) is owned by the private release-orchestrator (ASW-320). On a
-      # feature-merge there are pending changesets → this is a clean no-op and
-      # the orchestrator opens the version PR. On the version-PR merge there are
-      # none → we publish.
-      - name: 🔎 Detect pending changesets
-        id: cs
+      # Publish-only: versioning (the release PR that bumps package.json +
+      # .release-please-manifest.json, and the changelog finalise) is owned by
+      # the private release-orchestrator running release-please (SK-371/SK-376).
+      # This keyless gate replaces the old `.changeset/*.md` scan: we publish iff
+      # package.json's version has no matching git tag yet. On a feature-merge the
+      # version is unchanged → its tag exists → clean no-op (the orchestrator
+      # opens/updates the release PR). On the release-PR merge the version is
+      # freshly bumped → no tag yet → we publish. Tags are present because the
+      # checkout above uses fetch-depth: 0.
+      - name: 🔎 Detect release (version vs tag)
+        id: gate
         run: |
-          shopt -s nullglob
-          has=false
-          for f in .changeset/*.md; do
-            [ "$(basename "$f")" = "README.md" ] && continue
-            has=true
-            break
-          done
-          echo "has=$has" >> "$GITHUB_OUTPUT"
-          echo "Pending changesets: $has"
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            publish=false
+          else
+            publish=true
+          fi
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "package.json version: $version; tag $tag exists: $([ "$publish" = false ] && echo yes || echo no); publish: $publish"
 
       # Download the exact tarball built in the unprivileged `build` job (ASW-328)
       # — this job never builds from source, so no build-time code runs alongside
@@ -189,7 +196,6 @@ jobs:
           echo "Publishing tarball: $tarball"
 
       - name: 🚀 Publish (npm)
-        id: changesets
         # Two independent controls (ASW-326): the branch-restricted npm-release
         # environment AND this explicit ref guard. event_name/ref are constant
         # now that workflow_dispatch is gone, but the guard is kept as the
@@ -197,33 +203,30 @@ jobs:
         if: >-
           github.event_name == 'push'
           && github.ref == 'refs/heads/main'
-          && steps.cs.outputs.has == 'false'
-        uses: changesets/action@63a615b9cd06ba9a3e6d13796c7fbcb080a60a0b # v1.8.0
-        with:
-          # Bypass `pnpm changeset publish` — its OIDC TP path fails even
-          # when the upgraded npm is correctly on PATH (proven in PR #21
-          # debug step). The wrapper script calls `npm publish` directly
-          # via $PNPM_HOME/npm and is idempotent. ASW-174. It publishes the
-          # prebuilt $TARBALL (ASW-328), not a re-pack of the working tree.
-          publish: bash infrastructure/scripts/publish-via-raw-npm.sh
-          # No createGithubReleases — the raw-npm wrapper makes the action
-          # report published=false (ASW-307), so it never fired. The explicit
-          # tag + GitHub release step below does it instead.
+          && steps.gate.outputs.publish == 'true'
+        # Direct call to the raw-npm wrapper (no changesets/action shell now that
+        # Changesets is gone — SK-371). The wrapper calls `npm publish` directly
+        # via $PNPM_HOME/npm: pnpm's own publish path fails OIDC Trusted
+        # Publishing even with the upgraded npm on PATH (ASW-174). It publishes
+        # the prebuilt $TARBALL (ASW-328), not a re-pack of the working tree, and
+        # is idempotent (skips if the version is already on npm).
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No NPM_TOKEN — Trusted Publishing via OIDC.
           # Provenance is enabled in package.json's publishConfig.
+          # No GITHUB_TOKEN — the wrapper only needs PNPM_HOME + TARBALL; the
+          # tag + GitHub release below uses gh with its own GH_TOKEN.
           TARBALL: ${{ steps.tb.outputs.path }}
           HUSKY: 0
+        run: bash infrastructure/scripts/publish-via-raw-npm.sh
 
-      # changesets/action would normally tag + create the GitHub release, but it
-      # reports published=false (ASW-307) so it skips both. Do it explicitly.
-      # Idempotent: skips if the release already exists, so re-runs are safe.
+      # npm publish creates no git tag or GitHub release on its own, so do it
+      # explicitly. Idempotent: skips if the release already exists, so re-runs
+      # are safe.
       - name: 🏷️ Tag + GitHub release
         if: >-
           github.event_name == 'push'
           && github.ref == 'refs/heads/main'
-          && steps.cs.outputs.has == 'false'
+          && steps.gate.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -236,14 +239,21 @@ jobs:
             exit 0
           fi
 
-          # Extract this version's section from CHANGELOG.md (between its
-          # `## <version>` heading and the next `## ` heading) for the notes.
-          notes="$(awk -v h="## ${version}" '
-            $0==h {f=1; next}
-            /^## / && f {exit}
-            f {print}
-          ' CHANGELOG.md)"
-          [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ] && notes="See CHANGELOG.md."
+          # There is no root CHANGELOG.md (release-please runs with
+          # skip-changelog — SK-371). Source the notes from the dated changelog/
+          # entry/entries this release stamped with `version: <version>` (the
+          # orchestrator's finalise-changelog.ts sets it before the release PR
+          # merges). One release PR can bundle several feature merges, so
+          # concatenate every matching entry's body.
+          notes=""
+          for f in changelog/*.md; do
+            [ "$(basename "$f")" = "README.md" ] && continue
+            v="$(awk -F': *' '/^version:/{gsub(/["'\'' ]/,"",$2); print $2; exit}' "$f")"
+            [ "$v" = "$version" ] || continue
+            body="$(awk 'BEGIN{d=0} /^---[[:space:]]*$/{d++; next} d>=2{print}' "$f")"
+            notes="${notes}${notes:+$'\n\n'}${body}"
+          done
+          [ -z "$(printf '%s' "$notes" | tr -d '[:space:]')" ] && notes="See the changelog/ entry for ${tag}."
 
           gh release create "$tag" \
             --title "$tag" \
@@ -292,9 +302,9 @@ jobs:
 
   # Secondary publish target (ASW-323). A SEPARATE job so packages: write is
   # scoped here and never granted to the main `release` job. Runs only after npm
-  # publish succeeds (needs: release) and only on a version-PR merge — the same
-  # no-pending-changesets gate, reused via the release job's output, plus the
-  # same main-only ref guard + npm-release environment (ASW-326). GitHub Packages
+  # publish succeeds (needs: release) and only on a release-PR merge — the same
+  # version-vs-tag gate, reused via the release job's output, plus the same
+  # main-only ref guard + npm-release environment (ASW-326). GitHub Packages
   # has no OIDC Trusted-Publisher flow, so this leg authenticates with the
   # ephemeral per-job GITHUB_TOKEN; provenance is supplied out-of-band by a
   # GitHub-native attestation over the exact tarball (npm --provenance is
@@ -304,7 +314,7 @@ jobs:
     name: 📦 Publish to GitHub Packages
     needs: release
     if: >-
-      needs.release.outputs.has_pending_changesets == 'false'
+      needs.release.outputs.should_publish == 'true'
       && github.event_name == 'push'
       && github.ref == 'refs/heads/main'
     environment: npm-release
@@ -317,7 +327,7 @@ jobs:
       attestations: write # Upload the attestation to GitHub
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # Publish/attest only — never git-pushes. Don't persist GITHUB_TOKEN in
           # .git/config (artipacked credential-persistence exposure).
@@ -354,7 +364,7 @@ jobs:
           echo "Publishing tarball: $tarball"
 
       - name: 🔏 Attest build provenance
-        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: ${{ steps.tb.outputs.path }}
 

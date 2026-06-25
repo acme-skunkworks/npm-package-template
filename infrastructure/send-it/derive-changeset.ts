@@ -1,10 +1,14 @@
 #!/usr/bin/env -S npx tsx
-// Derives the deterministic bits of a /send-it changeset entry.
+// Derives the deterministic bits /send-it needs from the branch commits.
 // Run: pnpm tsx infrastructure/send-it/derive-changeset.ts
 //
+// Since SK-371 there is no changeset file; /send-it uses these to name the dated
+// changelog/ entry and to compose the Conventional Commits PR title (the
+// release-please bump signal). The filename is retained for git history.
+//
 // Fields:
-//   slug : branch-name-derived filename for `.changeset/<slug>.md`
-//   bump : major | minor | patch (per /send-it's bump heuristic)
+//   slug : branch-name-derived slug (changelog/<ts>-<slug>.md filename)
+//   bump : major | minor | patch (drives the PR-title prefix: feat!/feat/fix)
 //   body : a one-line draft summary (the slash command may rewrite this)
 //
 // Reads from git via `git branch --show-current` and `git log origin/main..HEAD`

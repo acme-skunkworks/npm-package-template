@@ -1,8 +1,8 @@
 #!/usr/bin/env -S npx tsx
-// Release-time finalisation of changelog entries — run by changesets/action's
-// `version:` command, right after `changeset version`, so the result is
-// committed into the "release: version packages" PR (no separate workflow, no
-// bot push to main).
+// Release-time finalisation of changelog entries — run by the orchestrator
+// right after `release-please release-pr` (SK-371/SK-376), so the result is
+// committed into the release PR (no separate workflow, no bot push to main).
+// Reads the just-bumped version from package.json, which release-please updated.
 //
 // For every entry that isn't finalised yet (empty `version`):
 //   1. resolve its merged PR from the `branch` field via `gh` and enrich
@@ -165,8 +165,9 @@ export function makeResolver(run: Runner): PrResolver {
 
   return (branch: string): null | ResolvedPr => {
     // Enrichment is best-effort metadata: a gh/git failure here must NOT abort
-    // `changeset version` and block the release. On any error, warn and return
-    // null — the entry still gets version-stamped, just without PR metadata.
+    // the release-please release-PR build and block the release. On any error,
+    // warn and return null — the entry still gets version-stamped, just without
+    // PR metadata.
     try {
       return resolve(branch);
     } catch (error) {
