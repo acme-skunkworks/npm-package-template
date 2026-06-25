@@ -11,8 +11,10 @@ LATEST_AUTHOR=$(git log -1 --pretty=%an)
 LATEST_COMMITTER=$(git log -1 --pretty=%cn)
 
 # Skip for automated release commits (release-please release PR, SK-371).
-# release-please's default commit/PR-title pattern is `chore(main): release X`.
-if echo "$LATEST_COMMIT_MSG" | grep -qE "^chore(\(.+\))?: release "; then
+# Match release-please's exact commit/PR-title format `chore(main): release <version>`
+# (semver, optional prerelease/build suffix) rather than any `chore(...): release …`,
+# so an unrelated human commit can't slip past the main-push guard.
+if echo "$LATEST_COMMIT_MSG" | grep -qE "^chore\(main\): release [0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$"; then
   printf '⏭️  Skipping pre-push check for automated release commit\n'
   exit 0
 fi
