@@ -43,6 +43,9 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 1
+          # Read-only job; don't persist the token into .git/config (zizmor
+          # artipacked). Matches the reusable callers' checkouts.
+          persist-credentials: false
 
       - name: ⚙️ Load repo config
         id: repo
@@ -164,6 +167,9 @@ jobs:
         with:
           # Full history: the gate diffs against origin/<base_ref>.
           fetch-depth: 0
+          # Local diff only (no runtime fetch), so the token isn't needed after
+          # checkout; don't persist it (zizmor artipacked).
+          persist-credentials: false
 
       - name: 📦 Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4.4.0
