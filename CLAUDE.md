@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Template repository for Acme Skunkworks npm packages. It ships a minimal, buildable pnpm + TypeScript ESM skeleton plus the shared workflow/release shell, so a new package can be generated and released without rebuilding the infrastructure each time.
 
+The one-time org/repo settings that stand this up as a GitHub Template repository — and the settings every spawned repo inherits (Template flag, `go/no-go` ruleset, npm OIDC, `npm-release` environment, orchestrator onboarding) — live in [`docs/TEMPLATE-BOOTSTRAP.md`](docs/TEMPLATE-BOOTSTRAP.md). The list below covers only the per-package edits inside a generated repo.
+
 When generating a package from this template:
 
 - Rename `name` in `package.json` (the placeholder is `@acme-skunkworks/npm-package-template`) and update `description`/`keywords`/`repository`/`homepage`/`bugs`.
