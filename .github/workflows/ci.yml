@@ -17,67 +17,93 @@ concurrency:
 permissions:
   contents: read
 
+# The lint + build-test work runs through the estate's shared reusable
+# workflows (SK-447, completing SK-424's deferred caller half); the template is
+# the reference consumer that proves the pattern before the fleet rollout
+# (SK-420). Both callers are SHA-pinned to one commit so Dependabot bumps them
+# together (SK-446). The two checks that have no reusable lane stay inline:
+# `pr-title` (its own consumer-migration track, SK-428/SK-403) and the
+# changelog-completeness gate (it reads the PR title, which a reusable workflow
+# can't). The `go/no-go` aggregator (SK-412/SK-424) stays local and unchanged —
+# it is the estate-canonical required check and lives per-repo by design.
 jobs:
-  build-and-lint:
-    name: 🔬 Build & Lint
-    # Deliberately NOT skipped on the release-please branch — this job is the
-    # required status check that gates the release PR (ASW-311). The
-    # road-runner-bot orchestrator reopens the release PR to trigger this run,
-    # then merges once it's green. The release PR's title is a non-release
-    # `chore: release …`, so the changelog-completeness step below is a no-op on
-    # it.
+  # Loads infrastructure/repo-config.yaml once and exposes it to the reusable
+  # callers, which — being `uses:` jobs — cannot run a step to read it inline
+  # the way the old per-job `load-repo-config` steps did. This is the
+  # caller-stub pattern (feed reusable-workflow inputs from repo-config): a
+  # generated package that changes `nodeVersionFile` has it flow through here to
+  # every downstream job without editing the workflow.
+  config:
+    name: ⚙️ Load repo config
     runs-on: ubuntu-latest
-    env:
-      HUSKY: 0
+    outputs:
+      node_version_file: ${{ steps.repo.outputs.node_version_file }}
     steps:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: ⚙️ Load repo config
         id: repo
         uses: ./.github/actions/load-repo-config
 
-      - name: 📦 Install pnpm
-        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4.4.0
-        with:
-          run_install: false
+  # ESLint + Markdown + YAML/actionlint + dated-changelog validation, via the
+  # shared Layer-2 lint bundle. Renders the status context `lint / Lint`.
+  # Deliberately NOT skipped on the release-please branch — the changelog lane
+  # must validate the entries finalise-changelog.ts rewrites there before merge
+  # (was the old build-and-lint's `validate:changelog` step, ASW-311).
+  lint:
+    needs: config
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
+    with:
+      node-version-file: ${{ needs.config.outputs.node_version_file }}
+      # Directory args, NOT globs: the action runs `eslint $ESLINT_ARGS`
+      # word-split with bash globstar OFF, so a `src/**/*.ts` glob would
+      # mis-expand. Passing directories lets ESLint's flat config resolve the
+      # file set recursively — reproducing the `lint` script's scope (src +
+      # infra scripts/send-it; tsconfig.eslint.json also covers tests, which we
+      # intentionally omit, matching today's behaviour).
+      eslint-args: src infrastructure/scripts infrastructure/send-it
+      # Match the `lint:md` script: include .mdx and the dist/turbo/astro
+      # excludes the estate default omits.
+      markdown-globs: |
+        **/*.{md,mdx}
+        !**/node_modules/**
+        !**/dist/**
+        !**/.turbo/**
+        !**/.astro/**
+      # The template's validator script is `validate:changelog` (the reusable
+      # default is `changelog:validate`).
+      changelog-script: validate:changelog
+      # yaml lane defaults are correct: yaml-paths `.`, yamllint 1.37.1
+      # (matches), actionlint 1.7.12 (owned upstream in lockstep, SK-422 — do
+      # not override per-consumer). yamllint uses shared-workflows' centralised
+      # .yamllint.yml (SK-438), so the repo's local .yamllint.yml is now only
+      # consumed by the pre-commit hook.
 
-      - name: 🟢 Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with:
-          node-version-file: ${{ steps.repo.outputs.node_version_file }}
-          cache: pnpm
-
-      - name: 📥 Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🏗️ Build
-        run: pnpm run build
-
-      - name: 🔬 Lint
-        run: pnpm run lint
-
-      - name: 📝 Lint Markdown
-        run: pnpm run lint:md
-
-      # In build-and-lint (not infra) so it also runs on the release-please
-      # branch, where finalise-changelog.ts rewrites the entries — that's
-      # exactly where finalised frontmatter/body must be validated before merge.
-      - name: 📓 Validate changelog entries
-        run: pnpm validate:changelog
-
-      # Changelog-completeness gate (SK-371): a release-triggering PR title
-      # (feat/fix/breaking) must carry a dated changelog/ entry. Restores the
-      # no-changeset-no-release coupling now that the bump is inferred from the
-      # PR title. Non-release titles (docs/chore/ci/…) — including the
-      # release-please PR's own `chore: release …` — are a clean pass.
-      - name: 📓 Changelog completeness
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          BASE_REF: ${{ github.base_ref }}
-        run: pnpm tsx infrastructure/scripts/check-changelog-completeness.ts
+  # Build (verification) + Vitest + ShellCheck + bats, via the shared Layer-2
+  # build/test bundle. Renders the status context `build-test / Build & Test`.
+  # Absorbs the old build-and-lint `build` step plus the entire `infra` job.
+  build-test:
+    needs: config
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-build-test.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
+    with:
+      node-version-file: ${{ needs.config.outputs.node_version_file }}
+      # Off to preserve current behaviour: CI runs no standalone typecheck today
+      # (the `build` lane = `tsc` type-checks src; the tools/infra pass via
+      # `pnpm tsc`/tsconfig.tools.json is not a CI gate). The reusable lane only
+      # type-checks one tsconfig, so it can't replicate `pnpm tsc`'s two passes.
+      typecheck: false
+      # Mirror the `lint:sh` script: the action `find`s *.sh/*.bash under a
+      # directory but takes files literally, so pass the scripts dir plus the
+      # three extensionless husky hooks explicitly (a `.husky` dir arg would
+      # find none of them). Default severity `style` matches bare shellcheck.
+      shellcheck-paths: "infrastructure/scripts .husky/pre-commit .husky/pre-push .husky/commit-msg"
+      # Opt-in (off by default). bats runs via `pnpm exec bats`, so `bats` is a
+      # devDependency (bats@1.13.0, matching ensure-bats.sh's pin). bats-paths
+      # defaults to infrastructure/tests, recursive.
+      bats: true
 
   # Conventional-PR-title lint (SK-371). The repo squash-merges, so the PR title
   # IS the squash subject release-please parses to decide the bump — a mistyped
@@ -90,7 +116,8 @@ jobs:
   # repos (SK-400) so SK-405 can pin ONE required-check context across the whole
   # estate. It intentionally breaks this repo's emoji-prefixed job-name
   # convention — do NOT "tidy" it back; the exact text must stay stable or the
-  # estate-wide required-check pin breaks.
+  # estate-wide required-check pin breaks. Stays inline (its own caller-migration
+  # track, SK-428/SK-403) until a shared pr-title reusable workflow exists.
   pr-title:
     name: Validate PR title is a Conventional Commit
     runs-on: ubuntu-latest
@@ -118,53 +145,16 @@ jobs:
             style
             revert
 
-  yaml-lint:
-    name: 📝 YAML & Workflows
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: ⬇️ Checkout repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 1
-
-      - name: 📦 Cache yamllint (pip --user)
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ~/.local
-          # Keyed on the hash-locked requirements file (ASW-327): a version or
-          # transitive-dependency bump busts the cache automatically. No
-          # restore-keys prefix fallback on purpose — a prefix hit would restore
-          # an old ~/.local with yamllint already present, and ensure-yamllint.sh
-          # only installs when `command -v yamllint` fails, so the bumped /
-          # hash-verified version would be silently skipped until the old cache
-          # evicts. Exact-key-or-cold-install keeps the pin honest (CodeRabbit).
-          key: ${{ runner.os }}-python-yamllint-${{ hashFiles('infrastructure/requirements-yamllint.txt') }}
-
-      - name: 📦 Cache actionlint binary
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ./actionlint
-          # Exact-key-or-cold, like the yamllint cache above — no restore-keys
-          # prefix fallback, which could restore an older actionlint under a
-          # bumped version key. ensure-actionlint.sh also version-gates the
-          # binary (re-downloads a stale hit), so this is belt-and-braces.
-          # Bump in lockstep with ACTIONLINT_VERSION in ensure-actionlint.sh.
-          key: ${{ runner.os }}-actionlint-1.7.5
-
-      - name: 📝 Run yamllint
-        # Logic lives in infrastructure/scripts/ensure-yamllint.sh — install
-        # if missing, then run. Tested via bats; see infrastructure/tests/.
-        run: bash infrastructure/scripts/ensure-yamllint.sh
-
-      - name: 🔍 Run actionlint
-        # Logic lives in infrastructure/scripts/ensure-actionlint.sh — download
-        # the pinned binary if missing, then run. Tested via bats.
-        run: bash infrastructure/scripts/ensure-actionlint.sh
-
-  infra:
-    name: 🧪 Infrastructure scripts
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+  # Changelog-completeness gate (SK-371): a release-triggering PR title
+  # (feat/fix/breaking) must carry a dated changelog/ entry. Restores the
+  # no-changeset-no-release coupling now that the bump is inferred from the PR
+  # title. Non-release titles (docs/chore/ci/…) — including the release-please
+  # PR's own `chore: release …` — are a clean pass. Stays inline because it reads
+  # the PR title (github.event.pull_request.title), which a reusable workflow
+  # can't see; was a step inside the old build-and-lint job.
+  changelog-completeness:
+    name: 📓 Changelog completeness
+    needs: config
     runs-on: ubuntu-latest
     env:
       HUSKY: 0
@@ -172,11 +162,8 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          fetch-depth: 1
-
-      - name: ⚙️ Load repo config
-        id: repo
-        uses: ./.github/actions/load-repo-config
+          # Full history: the gate diffs against origin/<base_ref>.
+          fetch-depth: 0
 
       - name: 📦 Install pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v4.4.0
@@ -186,39 +173,17 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
-          node-version-file: ${{ steps.repo.outputs.node_version_file }}
+          node-version-file: ${{ needs.config.outputs.node_version_file }}
           cache: pnpm
 
       - name: 📥 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: 📦 Cache bats binary
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
-        with:
-          path: ~/.local
-          key: ${{ runner.os }}-bats-1.13.0
-          restore-keys: |
-            ${{ runner.os }}-bats-
-
-      - name: 🐚 Install shellcheck (apt)
-        run: |
-          sudo apt-get update && sudo apt-get install -y shellcheck
-          shellcheck --version | head -2
-
-      - name: 🐚 Install bats (pinned)
-        # Logic lives in infrastructure/scripts/ensure-bats.sh — bootstraps
-        # bats-core from GitHub releases at the pinned version. Tested via
-        # bats; see infrastructure/tests/ensure-bats.bats.
-        run: bash infrastructure/scripts/ensure-bats.sh
-
-      - name: 🔬 Shellcheck
-        run: pnpm lint:sh
-
-      - name: 🧪 Vitest
-        run: pnpm test
-
-      - name: 🧪 Bats
-        run: pnpm test:sh
+      - name: 📓 Changelog completeness
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_REF: ${{ github.base_ref }}
+        run: pnpm tsx infrastructure/scripts/check-changelog-completeness.ts
 
   # Single estate release gate (SK-412/SK-424). An always()-run aggregator whose
   # intrinsic check-run, named `go/no-go`, succeeds iff every required job above
@@ -227,27 +192,29 @@ jobs:
   # token or a fork contributor cannot forge it; require it on `main` via a
   # ruleset pinned to the GitHub Actions integration. The literal `/` in the job
   # name surfaces verbatim as `check_run.name == "go/no-go"` (emoji and spaces
-  # already survive in `🔬 Build & Lint`); if it ever doesn't, fall back to
+  # already survive in `lint / Lint`); if it ever doesn't, fall back to
   # explicit-create (POST /check-runs, Option A). Transitional (SK-419): the
   # release-orchestrator still waits on `🔬 Build & Lint` until it is flipped to
-  # `go/no-go` (dual-accept), so do NOT rename the jobs above.
+  # `go/no-go` (dual-accept) — that context no longer exists here, so the fleet
+  # rollout (SK-420) must land alongside SK-419. Safe on THIS repo: Release is
+  # disabled, so nothing here waits on the orchestrator.
   #
-  # Deferred (SK-411): the four jobs above become thin callers of
-  # acme-skunkworks/shared-workflows once that repo ships its reusable
-  # lint/build-test/pr-title workflows — this aggregator stays put across that
-  # swap, which is exactly why it lives here (custom per-repo) and not upstream.
+  # The caller swap SK-411 foreshadowed has now landed (SK-447): the lint /
+  # build-test work runs through acme-skunkworks/shared-workflows reusable
+  # workflows; this aggregator stays put across that swap, which is exactly why
+  # it lives here (custom per-repo) and not upstream.
   go-no-go:
     name: go/no-go
-    needs: [build-and-lint, pr-title, yaml-lint, infra]
+    needs: [config, lint, build-test, pr-title, changelog-completeness]
     if: ${{ always() }} # MANDATORY — else the aggregator skips and the gate never reports
     runs-on: ubuntu-latest
     steps:
       - name: ⚖️ Verdict
-        # `skipped` is accepted: yaml-lint + infra legitimately skip on the
-        # release-please branch. This matches the canonical reference impl
-        # (SK-418) verbatim so the template stays the reference emitter;
-        # tightening to a release-please-only skip allowlist is a documented
-        # follow-up, deferred to the shared-workflows reference.
+        # `skipped` is accepted to match the canonical reference impl (SK-418)
+        # verbatim so the template stays the reference emitter. `config` is in
+        # `needs` so a config failure (which would skip the callers, and skips
+        # are accepted) still fails the gate directly; tightening the allowlist
+        # is a documented follow-up, deferred to the shared-workflows reference.
         run: |
           echo '${{ toJSON(needs) }}' \
             | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' >/dev/null \
