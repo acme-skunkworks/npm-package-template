@@ -118,7 +118,7 @@ After "Use this template", in the new repo:
 
 1. Apply the [repo-level](#repo-level-this-repo-and-each-spawned-repo) settings (rulesets are
    not copied).
-2. Run the per-package generation steps in [CLAUDE.md](../CLAUDE.md) — rename `package.json`,
+2. Run the per-package generation steps in [CLAUDE.md](../CLAUDE.md#repo) — rename `package.json`,
    replace `src/`, point `infrastructure/repo-config.yaml` at the new package, and **re-seed
    `.release-please-manifest.json`** so `"."` matches the starting version (the #1 release-please
    failure mode).
