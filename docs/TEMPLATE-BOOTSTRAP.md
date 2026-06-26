@@ -19,13 +19,14 @@ Set once for the organisation; these protect the release identity across every r
       Never "all" / "public repositories". The App private key never expires and is
       org-compromise-grade, so it must never be readable from public CI.
 - [ ] `ROADRUNNER_APP_ID` (org **variable**) → non-sensitive (App IDs are public); share as needed.
-- [ ] road-runner-bot App installed on the repo with `contents: write` **+** `pull-requests: write`.
+- [ ] road-runner-bot App granted access to the repo (the org-installed App's repository
+      selection) with `contents: write` **+** `pull-requests: write`.
 - [ ] Actions → "Allow GitHub Actions to create and approve pull requests" → **off**.
 - [ ] Default workflow token permissions → **read**.
 - [ ] "Require approval for all external contributors" (fork-PR workflows) → **on**.
 - [ ] "Require actions to be pinned to a full-length commit SHA" (SHA-pin enforcement) → **on**.
-- [ ] Org `main`-ruleset bot `bypass: always` **dropped** — auto-merge respects branch protection
-      once the required check is green.
+- [ ] Remove the org `main`-ruleset bot `bypass: always` entry — auto-merge respects branch
+      protection once the required check is green.
 
 ## Repo-level (this repo and each spawned repo)
 
@@ -63,8 +64,8 @@ Configured server-side (not in YAML), gating both privileged release jobs:
 
 ```bash
 gh api -X PUT repos/<owner>/<repo>/environments/npm-release \
-  -f 'deployment_branch_policy[protected_branches]=false' \
-  -f 'deployment_branch_policy[custom_branch_policies]=true'
+  -F 'deployment_branch_policy[protected_branches]=false' \
+  -F 'deployment_branch_policy[custom_branch_policies]=true'
 gh api -X POST repos/<owner>/<repo>/environments/npm-release/deployment-branch-policies \
   -f 'name=main'
 ```
@@ -82,6 +83,8 @@ configure Trusted Publisher → CI takes over from publish #2.
       runbook is in [CLAUDE.md → "Bootstrap publish"](../CLAUDE.md#bootstrap-publish--read-this-when-setting-up-a-new-package).
 - [ ] Configure the Trusted Publisher at `https://www.npmjs.com/package/<name>/access` →
       GitHub Actions → org, repo, workflow filename `release.yml`, environment **blank**.
+      (Blank accepts any environment in `release.yml`; the form also accepts `npm-release` to
+      narrow the OIDC subject claim further. Blank is the verified default — see CLAUDE.md.)
 - [ ] Confirm publish #2 onwards flows through `release.yml` (OIDC, no token, no OTP) + provenance.
 
 ## Release-orchestrator onboarding (hands-off releases)
