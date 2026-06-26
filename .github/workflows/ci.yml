@@ -17,12 +17,12 @@ concurrency:
 permissions:
   contents: read
 
-# The lint + build-test work runs through the estate's shared reusable
-# workflows (SK-447, completing SK-424's deferred caller half); the template is
-# the reference consumer that proves the pattern before the fleet rollout
-# (SK-420). Both callers are SHA-pinned to one commit so Dependabot bumps them
-# together (SK-446). The two checks that have no reusable lane stay inline:
-# `pr-title` (its own consumer-migration track, SK-428/SK-403) and the
+# The lint, build-test, and pr-title work all run through the estate's shared
+# reusable workflows (SK-447 landed lint + build-test, completing SK-424's
+# deferred caller half; SK-432 migrated the pr-title check); the template is the
+# reference consumer that proves the pattern before the fleet rollout (SK-420).
+# All three callers are SHA-pinned to one commit so Dependabot bumps them
+# together. The one check that has no reusable lane stays inline: the
 # changelog-completeness gate (it reads the PR title, which a reusable workflow
 # can't). The `go/no-go` aggregator (SK-412/SK-424) stays local and unchanged —
 # it is the estate-canonical required check and lives per-repo by design.
@@ -108,45 +108,23 @@ jobs:
       # defaults to infrastructure/tests, recursive.
       bats: true
 
-  # Conventional-PR-title lint (SK-371). The repo squash-merges, so the PR title
-  # IS the squash subject release-please parses to decide the bump — a mistyped
-  # prefix silently ships the wrong semver. This guards the format. Runs on every
-  # PR including the release-please PR (whose `chore: release …` title is a valid
-  # conventional subject, so it passes cleanly — no skip needed).
+  # Conventional-PR-title lint (SK-371), via the estate's shared reusable workflow
+  # (SK-427/SK-432). The repo squash-merges, so the PR title IS the squash subject
+  # release-please parses to decide the bump — a mistyped prefix silently ships the
+  # wrong semver. This guards the format. Runs on every PR including the
+  # release-please PR (whose `chore: release …` title is a valid conventional
+  # subject, so it passes cleanly — no skip needed).
   #
-  # The job `name` below IS the GitHub status-check context, and it is the
-  # estate-canonical string shared verbatim with octavo and the other release
-  # repos (SK-400) so SK-405 can pin ONE required-check context across the whole
-  # estate. It intentionally breaks this repo's emoji-prefixed job-name
-  # convention — do NOT "tidy" it back; the exact text must stay stable or the
-  # estate-wide required-check pin breaks. Stays inline (its own caller-migration
-  # track, SK-428/SK-403) until a shared pr-title reusable workflow exists.
+  # The job id MUST stay `pr-title`: as a reusable caller the status-check context
+  # renders `<job-id> / <reusable-job-name>` = `pr-title / Validate PR title is a
+  # Conventional Commit`, the estate-canonical string SK-405 pins as ONE required
+  # check across the estate (shared verbatim with octavo and the other release
+  # repos, SK-400). Do NOT rename the job. The allowed Conventional Commit `types`
+  # live in the reusable workflow's default (the estate set /send-it emits:
+  # feat/fix/docs/chore/ci/refactor/perf/test/build/style/revert), which matches
+  # this repo exactly — so no `with: types` override is needed here.
   pr-title:
-    name: Validate PR title is a Conventional Commit
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - name: 🔠 Lint PR title
-        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # Mirror the Conventional Commits types /send-it emits. Only feat / fix
-          # / a `!` breaking marker are release-triggering (release-please default
-          # node bump table); the rest are non-release types.
-          types: |
-            feat
-            fix
-            docs
-            chore
-            ci
-            refactor
-            perf
-            test
-            build
-            style
-            revert
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-pr-title.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
 
   # Changelog-completeness gate (SK-371): a release-triggering PR title
   # (feat/fix/breaking) must carry a dated changelog/ entry. Restores the
