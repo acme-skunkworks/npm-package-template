@@ -9,10 +9,10 @@ infrastructure/
   send-it/
     derive-changeset.ts             # used by /send-it (.claude/commands/send-it.md)
   scripts/                          # executable logic. one file = one purpose
-    ensure-yamllint.sh              # extracted from .github/workflows/ci.yml
-    ensure-actionlint.sh            # extracted from .github/workflows/ci.yml
-    ensure-bats.sh                  # extracted from .github/workflows/ci.yml
-    check-changelog-completeness.ts # ci.yml gate: a release-triggering PR title needs a changelog/ entry
+    ensure-yamllint.sh              # CI-unused since SK-447 (lint reusable caller installs yamllint); local + reference
+    ensure-actionlint.sh            # CI-unused since SK-447 (lint reusable caller installs actionlint); local + reference
+    ensure-bats.sh                  # CI-unused since SK-447 (build-test caller runs `pnpm exec bats`); local + reference
+    check-changelog-completeness.ts # ci.yml `changelog-completeness` job: a release-triggering PR title needs a changelog/ entry
     publish-via-raw-npm.sh          # release.yml npm publish step (bypasses pnpm)
     publish-to-github-packages.sh   # release.yml publish-github-packages job (token auth, attested tarball)
   tests/
@@ -44,7 +44,7 @@ pnpm test:sh       # bats; locally prints install hint and exits 0 if bats is mi
 pnpm lint:sh       # shellcheck; same skip-with-hint contract locally
 ```
 
-CI runs all four unconditionally in the `infra` job.
+CI (since SK-447) runs these via the shared reusable callers: the `build-test` caller runs ShellCheck + Vitest + bats, and the `lint` caller runs the changelog validation. The `ensure-*.sh` bootstrap scripts are no longer wired into CI (the reusable workflows install yamllint/actionlint/bats themselves) but remain unit-tested here via `pnpm test:sh` as the local + reference path.
 
 ## Adding a new script
 
