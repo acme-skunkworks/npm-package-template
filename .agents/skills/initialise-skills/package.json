@@ -1,0 +1,31 @@
+{
+  "name": "@acme-skunkworks/skill-initialise-skills",
+  "version": "0.4.1",
+  "private": true,
+  "description": "Agent skill: scan a host repo and reconcile every installed skill's config.json with detected facts (base branch, workspace layout, changelog dir, monorepo roots, Linear team/workspace/issue keys). Idempotent; never clobbers deliberate edits.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "config",
+    "bootstrap",
+    "initialise"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/initialise-skills#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/initialise-skills"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

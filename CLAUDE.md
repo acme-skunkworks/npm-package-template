@@ -14,7 +14,7 @@ When generating a package from this template:
 - Replace everything under `src/` with the package's real public API — `src/index.ts` is the published entry point. The surrounding shell (build, lint, release) does not need to change.
 - Point `infrastructure/repo-config.yaml` at the new package if any value differs (scope, registry, default branch).
 - **Re-seed `.release-please-manifest.json`** so `"."` matches the new package's starting `package.json` version (the template ships `"0.0.0"`). Leaving it empty is the #1 release-please failure mode. `release-please-config.json` itself needs no edit.
-- Rename the package reference in `.claude/commands/send-it.md`'s single-package note.
+- Check the single-package reference in the `send-it` skill config (`.claude/skills/send-it/config.json`, mirrored to `.agents/skills/send-it/config.json`) — `shippablePaths` should point at the new package's published surface (`dist`).
 - **Lint configs are inherited as-is.** `eslint.config.ts` (extends `@acme-skunkworks/eslint-config`) and `.markdownlint-cli2.jsonc` (extends `@acme-skunkworks/markdownlint-config`) carry the org defaults; a generated repo needs no edit. Extend `eslint.config.ts` only to pull in the opt-in presets the package needs (`testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`, `tableComponents` — all re-exported from the preset).
 - **Re-enable the Release workflow.** It is intentionally disabled on _this template repo_ (see "Release workflow" below); a generated repo needs it on: `gh workflow enable Release`. (Template generation copies files with workflows enabled by default, so this is only a guard against the rare case where it was carried over disabled.)
 - **Re-create the `go/no-go` required-check ruleset.** Branch protection and rulesets are **not** copied by "Use this template", so a generated repo must add its own ruleset requiring the `go/no-go` check-run on the default branch, pinned to the GitHub Actions integration (see "CI gate (`go/no-go`)" below). Without it the gate runs but nothing enforces it.
@@ -50,6 +50,21 @@ pnpm validate:changelog # schema-check changelog/*.md (CI: lint reusable caller)
 pnpm format         # prettier write
 pnpm clean          # remove node_modules + dist
 ```
+
+## Agent skills
+
+This repo adopts the shared `@acme-skunkworks/agent-skills` bundles, installed via [skills.sh](https://skills.sh) under `.claude/skills/` (mirrored to `.agents/skills/` for Cursor). They replace the bespoke `.claude/commands/send-it.md` shim that previously lived here. The installed skills are:
+
+- **`/send-it`** — the all-in-one finisher: commits uncommitted work as atomic Conventional Commits, runs the change-gated lint preflight, writes a dated `changelog/` entry for shippable changes, composes the Conventional Commits PR title, pushes, opens or updates a draft PR, and moves linked Linear issues to In Review. Prefer it over hand-rolled `git commit` + `git push` + `gh pr create`.
+- **`/preflight`** — the change-gated, branch-scoped lint preflight (delegated to by `/send-it`).
+- **`/changelog`** — authors, refreshes, or repairs the dated `changelog/` entry for the current branch (delegated to by `/send-it`).
+- **`/linear-sync`** — transitions the Linear issue(s) linked to the current branch to a target workflow state.
+- **`/cleanup-repo`** — prunes merged Git branches and worktrees, then clears filesystem cruft, behind a single confirmation gate.
+- **`/triage-pr`** — drives a PR from draft-with-failing-CI to merge-ready.
+
+Each skill carries a `config.json` (reconciled to this repo's facts — `dist` as the shippable surface, `A` as the Linear issue key) alongside its `config.example.json`. Re-run the `initialise-skills` skill to reconcile config after a fresh install or a repo-fact change.
+
+**Template-propagation note.** Because the skills are installed inline with `--copy`, the vendored bundles are committed to the repo and therefore travel into every repo spawned from this template. That is deliberate: a generated package inherits the shared skills with no extra step. The separate getting-started / scaffold track that automates first-package setup is tracked independently (A-467) and must **not** re-vendor or duplicate these bundles.
 
 ## Source layout
 
@@ -205,7 +220,7 @@ CI (A-447): the `build-test` reusable caller runs ShellCheck (`infrastructure/sc
 
 > The changelog scripts use `gray-matter` (a devDependency) and the validator is a long flat list of schema checks, so `eslint.config.ts` scopes a `devDependencies: true` + `complexity: off` override to `infrastructure/**`.
 
-When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. Slash-command-only helpers under `infrastructure/send-it/` are invoked from `.claude/commands/send-it.md` instead.
+When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. Slash-command-only helpers under `infrastructure/send-it/` (e.g. `derive-changeset.ts`) are invoked by the `/send-it` skill (see "## Agent skills") instead.
 
 ## Dated changelog (`changelog/`)
 

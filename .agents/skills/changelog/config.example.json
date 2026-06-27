@@ -1,0 +1,9 @@
+{
+  "issueKeys": ["ABC", "XYZ"],
+  "linearWorkspaceSlug": "your-workspace-slug",
+  "baseBranch": "main",
+  "changelogDir": "changelog",
+  "packageRoots": ["apps", "packages", "services"],
+  "fallbackPackage": "infrastructure",
+  "affectedPackages": true
+}

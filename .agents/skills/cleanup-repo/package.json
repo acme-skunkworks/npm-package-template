@@ -1,0 +1,31 @@
+{
+  "name": "@acme-skunkworks/skill-cleanup-repo",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Agent skill: clean up merged Git branches and worktrees, plus a filesystem-hygiene pass (empty directories and orphan node_modules).",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "git",
+    "cleanup",
+    "worktree"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/cleanup-repo#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/cleanup-repo"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

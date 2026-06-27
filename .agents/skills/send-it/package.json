@@ -1,0 +1,33 @@
+{
+  "name": "@acme-skunkworks/skill-send-it",
+  "version": "0.3.4",
+  "private": true,
+  "description": "Agent skill: the all-in-one ship finisher — bundle uncommitted work into atomic commits, run the change-gated lint preflight, author or update the dated changelog entry, compose a Conventional Commits PR title, push, open or update a PR, and transition linked Linear issues to In Review.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "git",
+    "github",
+    "release-please",
+    "conventional-commits",
+    "changelog"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/send-it#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/send-it"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

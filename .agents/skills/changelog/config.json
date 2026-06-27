@@ -1,0 +1,15 @@
+{
+  "issueKeys": [
+    "A"
+  ],
+  "linearWorkspaceSlug": "acme-skunkworks",
+  "baseBranch": "main",
+  "changelogDir": "changelog",
+  "packageRoots": [
+    "apps",
+    "packages",
+    "services"
+  ],
+  "fallbackPackage": "infrastructure",
+  "affectedPackages": false
+}

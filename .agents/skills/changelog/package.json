@@ -1,0 +1,30 @@
+{
+  "name": "@acme-skunkworks/skill-changelog",
+  "version": "0.6.1",
+  "private": true,
+  "description": "Agent skill: author, refresh, or repair the per-branch changelog entry — derive metadata, write the frontmatter and grouped body, run the deterministic enrichment scripts, and validate against the changelog contract.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "changelog",
+    "release-notes"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/changelog#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/changelog"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
