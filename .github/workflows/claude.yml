@@ -10,59 +10,15 @@ on:
   pull_request_review:
     types: [submitted]
 
+# Thin caller of the estate's shared reusable Claude workflow (SK-426/SK-432).
+# The maintainer-only author-association gate (ASW-313 — OWNER/MEMBER/COLLABORATOR
+# can fire a privileged `@claude` run), the `id-token: write` OIDC permission, and
+# the claude-code-action step all live in the reusable workflow, so this repo —
+# and every repo generated from this template — inherits one source of truth
+# instead of a drifting inline copy. `secrets: inherit` passes
+# CLAUDE_CODE_OAUTH_TOKEN through. SHA-pinned to the same shared-workflows commit
+# as the other callers so Dependabot's grouped `github-actions` bump stays atomic.
 jobs:
   claude:
-    # Author-association gate (ASW-313): these triggers run in trusted
-    # base-repo context with secrets available, so restrict to the
-    # maintainer set (OWNER / MEMBER / COLLABORATOR). Without this, any
-    # public user could fire a privileged run by commenting "@claude".
-    if: |
-      (github.event_name == 'issue_comment' &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, '@claude') &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)) ||
-      (github.event_name == 'issues' &&
-        (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
-        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association))
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      # Required: claude-code-action exchanges an OIDC token for its short-lived
-      # GitHub token (getOidcToken → setupGitHubToken). Removing it fails the run
-      # with "Could not fetch an OIDC token" — it is NOT just for publishing, so
-      # the ASW-329 least-privilege drop was reverted.
-      id-token: write
-      actions: read # Required for Claude to read CI results on PRs
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 1
-
-      - name: Run Claude Code
-        id: claude
-        # If startup crashes with an AJV schema error, see anthropics/claude-code-action#947
-        # and pin to a known-good version (e.g. v1.0.51).
-        uses: anthropics/claude-code-action@787c5a0ce96a9a6cfb050ea0c8f4c05f2447c251 # v1.0.133
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # This is an optional setting that allows Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-
-          # Optional: Give a custom prompt to Claude. If this is not specified, Claude will perform the instructions specified in the comment that tagged it.
-          # prompt: 'Update the pull request description to include a summary of changes.'
-
-          # Optional: Add claude_args to customize behavior and configuration
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          # claude_args: '--allowed-tools Bash(gh pr *)'
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-claude.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
+    secrets: inherit
