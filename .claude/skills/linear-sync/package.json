@@ -1,0 +1,31 @@
+{
+  "name": "@acme-skunkworks/skill-linear-sync",
+  "version": "0.3.2",
+  "private": true,
+  "description": "Agent skill: transition the Linear issues linked to the current branch through their workflow states (In Progress / In Review / Done), resolving state IDs by team name and applying transitions idempotently.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "linear",
+    "workflow",
+    "issue-tracking"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/linear-sync#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/linear-sync"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

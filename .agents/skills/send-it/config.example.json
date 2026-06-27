@@ -1,0 +1,7 @@
+{
+  "baseBranch": "main",
+  "shippablePaths": ["dist/", "src/"],
+  "shippableManifestKeys": ["name", "version", "files", "publishConfig"],
+  "bundleVersioning": { "root": "packages", "manifest": "package.json", "skillFile": "SKILL.md" },
+  "changelog": true
+}

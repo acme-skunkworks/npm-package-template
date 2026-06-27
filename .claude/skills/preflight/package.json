@@ -1,0 +1,33 @@
+{
+  "name": "@acme-skunkworks/skill-preflight",
+  "version": "0.1.7",
+  "private": true,
+  "description": "Agent skill: change-gated, branch-scoped lint preflight — lint only the categories a branch touched (ESLint / markdownlint / actionlint), classify violations as introduced vs pre-existing, and drive the fix/defer loop via an exit-code contract.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "lint",
+    "eslint",
+    "markdownlint",
+    "actionlint",
+    "preflight"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/preflight#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/preflight"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
