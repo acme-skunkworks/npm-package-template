@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Publish the current package to npm via the upgraded npm at $PNPM_HOME/npm.
-# Called directly from release.yml's publish step (SK-371 dropped the
+# Called directly from release.yml's publish step (A-371 dropped the
 # changesets/action shell). Calling npm directly rather than `pnpm publish`:
-# diagnosed in ASW-174, pnpm's publish path fails OIDC Trusted Publishing even
+# diagnosed in A-174, pnpm's publish path fails OIDC Trusted Publishing even
 # when `$PNPM_HOME` is on $PATH and `which npm` correctly resolves to npm 11.x.
 # Calling npm directly works (PR #19 proved the npm-side flow when the workflow
 # filename matches the TP allowlist on npmjs.com).
@@ -11,7 +11,7 @@
 # of re-publishing (which would 403/409). Lets release.yml retry safely
 # after the version commit lands but before npm has the artifact.
 #
-# Publishes the prebuilt $TARBALL (ASW-328) rather than re-packing the working
+# Publishes the prebuilt $TARBALL (A-328) rather than re-packing the working
 # tree, so the npm tarball, the GitHub Packages tarball, and the attested digest
 # are byte-identical — and no build-time code runs in this credential-holding
 # job. `--provenance` still works on a prebuilt tarball: npm derives the
@@ -36,7 +36,7 @@ VERSION=$(node -p "require('./package.json').version")
 # so a genuine 404 ("not published yet" → publish) is told apart from a
 # transient/auth/registry failure (→ abort with a clear error before the OIDC
 # token exchange and publish, so the failure surfaces here rather than mid-
-# publish). Mirrors publish-to-github-packages.sh. ASW-326 review.
+# publish). Mirrors publish-to-github-packages.sh. A-326 review.
 set +e
 view_output=$("$PNPM_HOME/npm" view "$NAME@$VERSION" version 2>&1)
 view_status=$?

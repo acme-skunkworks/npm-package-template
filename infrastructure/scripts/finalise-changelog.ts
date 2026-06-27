@@ -1,6 +1,6 @@
 #!/usr/bin/env -S npx tsx
 // Release-time finalisation of changelog entries — run by the orchestrator
-// right after `release-please release-pr` (SK-371/SK-376), so the result is
+// right after `release-please release-pr` (A-371/A-376), so the result is
 // committed into the release PR (no separate workflow, no bot push to main).
 // Reads the just-bumped version from package.json, which release-please updated.
 //

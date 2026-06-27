@@ -5,25 +5,25 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("rewriteBody", () => {
-  it("links bare ASW and AKW issue IDs", () => {
-    expect(rewriteBody("Closes ASW-123 and AKW-7.")).toBe(
-      "Closes [ASW-123](https://linear.app/acme-skunkworks/issue/ASW-123) and [AKW-7](https://linear.app/acme-skunkworks/issue/AKW-7).",
+  it("links bare A issue IDs", () => {
+    expect(rewriteBody("Closes A-123 and A-7.")).toBe(
+      "Closes [A-123](https://linear.app/acme-skunkworks/issue/A-123) and [A-7](https://linear.app/acme-skunkworks/issue/A-7).",
     );
   });
 
   it("leaves IDs inside inline code untouched", () => {
-    expect(rewriteBody("Use `ASW-123` literally.")).toBe(
-      "Use `ASW-123` literally.",
+    expect(rewriteBody("Use `A-123` literally.")).toBe(
+      "Use `A-123` literally.",
     );
   });
 
   it("leaves IDs inside fenced code blocks untouched", () => {
-    const body = "```\nASW-123\n```\n";
+    const body = "```\nA-123\n```\n";
     expect(rewriteBody(body)).toBe(body);
   });
 
   it("does not double-link an already-linked ID", () => {
-    const body = "[ASW-123](https://linear.app/acme-skunkworks/issue/ASW-123)";
+    const body = "[A-123](https://linear.app/acme-skunkworks/issue/A-123)";
     expect(rewriteBody(body)).toBe(body);
   });
 
@@ -39,8 +39,8 @@ describe("rewriteBody", () => {
   });
 
   it("links an ID even when a mask-token-like string is also present", () => {
-    expect(rewriteBody("FENCE0 — closes ASW-9.")).toBe(
-      "FENCE0 — closes [ASW-9](https://linear.app/acme-skunkworks/issue/ASW-9).",
+    expect(rewriteBody("FENCE0 — closes A-9.")).toBe(
+      "FENCE0 — closes [A-9](https://linear.app/acme-skunkworks/issue/A-9).",
     );
   });
 });

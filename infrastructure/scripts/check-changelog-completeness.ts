@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// Changelog-completeness gate (SK-371). A release-triggering PR title
+// Changelog-completeness gate (A-371). A release-triggering PR title
 // (`feat`/`fix`/breaking) MUST carry a dated `changelog/` entry. This restores
 // the coupling Changesets gave for free — no changeset → no release — now that
 // release-please infers the bump from the Conventional-Commit PR title rather

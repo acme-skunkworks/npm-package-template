@@ -1,4 +1,4 @@
-// Pure helper: rewrite bare Linear issue IDs (e.g. ASW-123) in changelog entry
+// Pure helper: rewrite bare Linear issue IDs (e.g. A-123) in changelog entry
 // bodies into markdown links, masking code fences / inline code / already-linked
 // IDs first so they're left untouched. Ported from octavo's add-links.mjs,
 // adapted to this workspace (acme-skunkworks).
@@ -7,8 +7,12 @@
 // applies it. Kept pure so it's trivially unit-testable.
 
 const WORKSPACE = "acme-skunkworks";
-const TEAM_KEYS = ["ASW", "AKW"];
-const ISSUE_RE = new RegExp(`\\b(?:${TEAM_KEYS.join("|")})-\\d+\\b`, "g");
+const TEAM_KEYS = ["A"];
+// Wrap the alternation in a non-capturing group only when there's more than one
+// key — a single-key group is flagged useless by regexp/no-useless-non-capturing-group.
+const KEY_ALT =
+  TEAM_KEYS.length > 1 ? `(?:${TEAM_KEYS.join("|")})` : TEAM_KEYS[0];
+const ISSUE_RE = new RegExp(`\\b${KEY_ALT}-\\d+\\b`, "g");
 const FENCE_RE = /```[\s\S]*?```/g;
 const INLINE_CODE_RE = /`[^`]*`/g;
 const ALREADY_LINKED_RE = /\[[^\]]*\]\([^)]*\)/g;

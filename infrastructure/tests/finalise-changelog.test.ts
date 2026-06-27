@@ -20,17 +20,17 @@ function placeholderEntry(): string {
     "version:",
     'created_at: "2026-05-23T14:55:37Z"',
     "merged_at:",
-    'branch: "asw-123-fix-a-thing"',
+    'branch: "a-123-fix-a-thing"',
     "pr:",
     "commit:",
     "category: fix",
     "breaking: false",
-    'issues: ["ASW-123"]',
+    'issues: ["A-123"]',
     "---",
     "",
     "## Fixed",
     "",
-    "- A thing for ASW-123.",
+    "- A thing for A-123.",
     "",
   ].join("\n");
 }
@@ -51,7 +51,7 @@ describe("finaliseEntry", () => {
       loc_removed: 2,
     });
     expect(content).toContain(
-      "[ASW-123](https://linear.app/acme-skunkworks/issue/ASW-123)",
+      "[A-123](https://linear.app/acme-skunkworks/issue/A-123)",
     );
   });
 
@@ -70,7 +70,7 @@ describe("finaliseEntry", () => {
 
   it("does not call the resolver when the entry has no branch", () => {
     const raw = placeholderEntry().replace(
-      'branch: "asw-123-fix-a-thing"',
+      'branch: "a-123-fix-a-thing"',
       "branch:",
     );
     let called = false;
@@ -124,7 +124,7 @@ describe("makeResolver", () => {
         ]),
       "git cat-file": () => "tree x\nparent p1\nauthor a\n",
     });
-    const resolved = makeResolver(run)("asw-123-fix-a-thing");
+    const resolved = makeResolver(run)("a-123-fix-a-thing");
     expect(resolved).toEqual({
       additions: "10",
       changedFiles: "3",
