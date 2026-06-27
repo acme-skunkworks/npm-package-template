@@ -9,7 +9,7 @@
 # $PNPM_HOME/npm.
 #
 # The script publishes the prebuilt $TARBALL (the exact file the workflow packs
-# and attests, ASW-323), so setup creates a fake tarball and exports its path.
+# and attests, A-323), so setup creates a fake tarball and exports its path.
 
 setup() {
   SCRIPT_DIR="${BATS_TEST_DIRNAME}/../scripts"
@@ -143,7 +143,7 @@ npm error 500 Internal Server Error'
 }
 
 @test "registry drift: a non-canonical GITHUB_PACKAGES_REGISTRY_URL aborts without publishing" {
-  # ASW-330: the publish target is hard-coded; the script fails closed rather
+  # A-330: the publish target is hard-coded; the script fails closed rather
   # than send the GITHUB_TOKEN to whatever host a config edit points it at.
   write_fake_npm 1
   export GITHUB_PACKAGES_REGISTRY_URL="https://evil.example.com"

@@ -1,5 +1,5 @@
 # Non-secret repo policy consumed by CI and Release workflows via
-# .github/actions/load-repo-config — see CLAUDE.md (ASW-176).
+# .github/actions/load-repo-config — see CLAUDE.md (A-176).
 #
 # NOTE: Workflow triggers (on.push.branches) cannot reference this file at runtime;
 # keep defaultBranch in sync with branches listed in release.yml.
@@ -7,7 +7,7 @@
 defaultBranch: main
 nodeVersionFile: .nvmrc
 npmRegistryUrl: https://registry.npmjs.org
-# Secondary publish target (ASW-323). GitHub Packages' npm registry; npmScope
+# Secondary publish target (A-323). GitHub Packages' npm registry; npmScope
 # must equal the owning GitHub org so setup-node scopes .npmrc correctly.
 npmScope: "@acme-skunkworks"
 githubPackagesRegistryUrl: https://npm.pkg.github.com

@@ -56,7 +56,7 @@ chmod +x \"\$HOME/.local/bin/yamllint\""
 
   run bash "$SCRIPT_DIR/ensure-yamllint.sh"
   [ "$status" -eq 0 ]
-  # Hash-locked install, not a bare `pip install yamllint==X` (ASW-327).
+  # Hash-locked install, not a bare `pip install yamllint==X` (A-327).
   grep -qE "^pip install --user --break-system-packages --require-hashes -r .*requirements-yamllint\\.txt$" "$CALLS_LOG"
   grep -q "^yamllint \\.$" "$CALLS_LOG"
 }

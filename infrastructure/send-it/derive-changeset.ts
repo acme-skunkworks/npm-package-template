@@ -2,7 +2,7 @@
 // Derives the deterministic bits /send-it needs from the branch commits.
 // Run: pnpm tsx infrastructure/send-it/derive-changeset.ts
 //
-// Since SK-371 there is no changeset file; /send-it uses these to name the dated
+// Since A-371 there is no changeset file; /send-it uses these to name the dated
 // changelog/ entry and to compose the Conventional Commits PR title (the
 // release-please bump signal). The filename is retained for git history.
 //

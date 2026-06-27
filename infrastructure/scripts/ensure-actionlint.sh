@@ -4,7 +4,7 @@
 # .github/workflows/*. The GHA workflow caches ./actionlint on the version
 # key so the download branch is normally skipped on subsequent runs.
 #
-# Integrity (ASW-327): two changes harden the otherwise curl|bash bootstrap.
+# Integrity (A-327): two changes harden the otherwise curl|bash bootstrap.
 #   1. The bootstrap script is fetched from an immutable COMMIT SHA (the v1.7.5
 #      tag's commit), not the mutable `v1.7.5` tag — the script can't change
 #      under us. The version is passed as an arg so the bootstrap installs that

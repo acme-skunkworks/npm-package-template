@@ -3,9 +3,9 @@
 The one-time setup that turns `acme-skunkworks/npm-package-template` into a working
 GitHub **Template repository**, plus the org/repo settings every spawned repo inherits.
 
-These settings were proven on the `eslint-config` testbed (ASW-311 / ASW-312 / ASW-313 /
-ASW-314) and reconciled to the current estate (release-please, the `go/no-go` aggregator
-check-run, and shared reusable CI callers — SK-371 / SK-413 / SK-424 / SK-447 / SK-432).
+These settings were proven on the `eslint-config` testbed (A-311 / A-312 / A-313 /
+A-314) and reconciled to the current estate (release-please, the `go/no-go` aggregator
+check-run, and shared reusable CI callers — A-371 / A-413 / A-424 / A-447 / A-432).
 
 > **Important:** branch protection, rulesets, and repo/org settings are **not** copied by
 > GitHub's "Use this template". Each spawned repo must re-apply the [repo-level](#repo-level-this-repo-and-each-spawned-repo)
@@ -45,13 +45,13 @@ one stable required gate. Require it on `main` via a ruleset:
 - [ ] PR required before merging.
 - [ ] **0 required approvals.** ⚠️ A non-zero count blocks the orchestrator's own release-PR merge.
 - [ ] Required status check: **`go/no-go`** — **not** the retired `🔬 Build & Lint`. The caller
-      swap (SK-447) replaced it with `lint / Lint` + `build-test / Build & Test`, and `go/no-go`
+      swap (A-447) replaced it with `lint / Lint` + `build-test / Build & Test`, and `go/no-go`
       aggregates them all.
 - [ ] Ruleset **pinned to the GitHub Actions integration** (`integration_id: 15368`), so nothing
       but this repo's Actions can satisfy it.
 - [ ] No bot bypass.
 
-Footguns (SK-418):
+Footguns (A-418):
 
 - The gate must be a **check-run, not a commit status** — a commit status is forgeable by any
   push-scoped token; a check-run can only be minted by a GitHub App (the repo's own Actions run).
@@ -72,7 +72,7 @@ gh api -X POST repos/<owner>/<repo>/environments/npm-release/deployment-branch-p
 
 - [ ] Deployment-branch policy permits deployments **only from `refs/heads/main`**.
 - [ ] **No required reviewers** — releases stay hands-off; this is a structural ref gate, not a
-      manual approval (ASW-326).
+      manual approval (A-326).
 
 ## npm OIDC Trusted Publishing
 
@@ -97,9 +97,9 @@ the bot key, runs `release-please release-pr` + `finalise-changelog.ts`, and mer
 - [ ] Confirm the CI callers run on the `release-please--*` branch (they do — no skip), so the
       changelog lane validates the finalised entries before the release PR merges.
 - [ ] The required check the orchestrator waits on is **`go/no-go`** (the orchestrator's
-      `🔬 Build & Lint` → `go/no-go` transition is SK-419 / SK-420).
+      `🔬 Build & Lint` → `go/no-go` transition is A-419 / A-420).
 
-> The old ASW-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies:
+> The old A-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies:
 > release-please runs with `skip-changelog`, so there is no root `CHANGELOG.md` — the dated
 > `changelog/` directory is the only changelog.
 

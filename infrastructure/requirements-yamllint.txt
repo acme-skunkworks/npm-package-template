@@ -1,4 +1,4 @@
-# Pinned, hash-locked requirements for yamllint (ASW-327).
+# Pinned, hash-locked requirements for yamllint (A-327).
 # Regenerate when bumping: see infrastructure/scripts/ensure-yamllint.sh.
 # --require-hashes makes pip refuse anything whose digest isn't listed here,
 # so a compromised PyPI file (yamllint or a transitive dep) can't be installed.

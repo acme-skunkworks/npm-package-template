@@ -18,7 +18,7 @@ setup() {
 { "name": "@test/pkg", "version": "1.0.0" }
 EOF
 
-  # The prebuilt tarball the workflow packs, uploads and downloads (ASW-328).
+  # The prebuilt tarball the workflow packs, uploads and downloads (A-328).
   # Contents are irrelevant — the fake npm never reads it.
   TARBALL_PATH="${BATS_TEST_TMPDIR}/test-pkg-1.0.0.tgz"
   printf 'fake tarball' > "$TARBALL_PATH"

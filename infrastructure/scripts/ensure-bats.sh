@@ -6,10 +6,10 @@
 #
 # Why pin: bats-core has had breaking syntax changes between majors. The
 # previous `apt-get install -y bats` floated with the Ubuntu mirror and
-# could break CI between green runs. ASW-169.
+# could break CI between green runs. A-169.
 #
 # Integrity: the downloaded release tarball is verified against a pinned sha256
-# before extraction (ASW-327), so a tampered or swapped archive can't execute
+# before extraction (A-327), so a tampered or swapped archive can't execute
 # install.sh. Update BATS_SHA256 in lockstep with BATS_VERSION.
 #
 # Confinement: this script (and the yamllint/actionlint bootstraps) must never
