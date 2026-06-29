@@ -24,3 +24,6 @@ coverage/
 .vscode/
 *.swp
 *.swo
+
+# preflight skill scratch output (written at the repo root on each run)
+.preflight-summary.json
