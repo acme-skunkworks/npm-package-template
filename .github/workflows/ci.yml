@@ -65,9 +65,9 @@ jobs:
       # word-split with bash globstar OFF, so a `src/**/*.ts` glob would
       # mis-expand. Passing directories lets ESLint's flat config resolve the
       # file set recursively — reproducing the `lint` script's scope (src +
-      # infra scripts/send-it; tsconfig.eslint.json also covers tests, which we
+      # infra scripts; tsconfig.eslint.json also covers tests, which we
       # intentionally omit, matching today's behaviour).
-      eslint-args: src infrastructure/scripts infrastructure/send-it
+      eslint-args: src infrastructure/scripts
       # Match the `lint:md` script: include .mdx and the dist/turbo/astro
       # excludes the estate default omits.
       markdown-globs: |

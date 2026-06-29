@@ -37,7 +37,7 @@ pnpm, pinned via `packageManager` in `package.json`. Node 22 required (`.nvmrc`,
 pnpm install        # install deps (runs prepare → husky hook install)
 pnpm run build      # tsc → dist/ (the published artifact; consumers import from dist)
 pnpm tsc            # type-check only — src/ (no emit) + infrastructure/ via tsconfig.tools.json
-pnpm lint           # eslint over src/** + infrastructure/scripts/** + infrastructure/send-it/**
+pnpm lint           # eslint over src/** + infrastructure/scripts/**
 pnpm lint:fix       # auto-fix
 pnpm lint:md        # markdownlint (CI: lint reusable caller)
 pnpm lint:yaml      # yamllint . (semantic YAML check; warnings non-blocking)
@@ -75,7 +75,7 @@ TypeScript source lives under `src/`, compiled by `tsc` to `dist/` (declarations
 The published `dist/` must contain **only** the compiled `src/`, but the TypeScript tooling under `infrastructure/` still needs type-checking and type-aware linting. Three tsconfigs keep those concerns separate:
 
 - **`tsconfig.json`** — the build config. `rootDir: ./src`, `include: ["src/**/*.ts"]`, emits to `dist/`. `pnpm build` (`tsc`) uses it, so `dist/` stays src-only. Do **not** widen its `include` to "fix" linting — that re-emits infra into `dist/`.
-- **`tsconfig.tools.json`** — `noEmit`, `extends ./tsconfig.json`, covers `eslint.config.ts`, `infrastructure/scripts/**`, `infrastructure/send-it/**`, `infrastructure/tests/**`, `vitest.config.ts`. `pnpm tsc` runs it as a second pass to type-check the shell, tests, and the ESLint config.
+- **`tsconfig.tools.json`** — `noEmit`, `extends ./tsconfig.json`, covers `eslint.config.ts`, `infrastructure/scripts/**`, `infrastructure/tests/**`, `vitest.config.ts`. `pnpm tsc` runs it as a second pass to type-check the shell, tests, and the ESLint config.
 - **`tsconfig.eslint.json`** — `noEmit`, the linter's project. Spans `src/**` + the infra `.ts`. `eslint.config.ts` pins `parserOptions.project` to it so the base preset's type-aware rules (`project: true`) resolve every linted file regardless of directory. Without this pin ESLint would fail with "file not found by the project service" on infra files (they aren't in the src-only `tsconfig.json`). The ESLint config itself is **not** in this project — the preset's global ignores exclude `eslint.config.ts` from linting, so it is type-checked only via `tsconfig.tools.json`.
 
 `extends` does **not** inherit `include`/`exclude` — only `compilerOptions` — so the two extra configs restate their own `include`/`exclude`.
@@ -127,7 +127,7 @@ To bypass any hook in an emergency: `git commit --no-verify` or `git push --no-v
 
 The `lint` and `build-test` jobs in `ci.yml` are thin callers of the estate's shared reusable workflows — the template is the **reference consumer** that proves the pattern before the fleet rollout (A-420). Both are SHA-pinned to one commit (`9b7e7dc`) so Dependabot bumps them together (A-446).
 
-- **`lint`** → `reusable-lint.yml` runs ESLint + markdownlint + yamllint/actionlint + dated-changelog validation in one job (`lint / Lint`). Inputs: `eslint-args` passes **directory paths** (`src infrastructure/scripts infrastructure/send-it`), not globs — the Layer-1 action runs `eslint $ESLINT_ARGS` word-split with bash `globstar` off, so a `**` glob would mis-expand; directories let ESLint's flat config resolve the file set recursively. `markdown-globs` mirrors the `lint:md` script; `changelog-script: validate:changelog` (the repo's script name; the reusable default is `changelog:validate`). The yaml lane uses **actionlint 1.7.12** (the reusable default, owned upstream in lockstep per A-422 — _not_ the `1.7.5` the local `ensure-actionlint.sh` pins) and shared-workflows' **centralised `.yamllint.yml`** (A-438), so the repo's local `.yamllint.yml` now only feeds the pre-commit hook.
+- **`lint`** → `reusable-lint.yml` runs ESLint + markdownlint + yamllint/actionlint + dated-changelog validation in one job (`lint / Lint`). Inputs: `eslint-args` passes **directory paths** (`src infrastructure/scripts`), not globs — the Layer-1 action runs `eslint $ESLINT_ARGS` word-split with bash `globstar` off, so a `**` glob would mis-expand; directories let ESLint's flat config resolve the file set recursively. `markdown-globs` mirrors the `lint:md` script; `changelog-script: validate:changelog` (the repo's script name; the reusable default is `changelog:validate`). The yaml lane uses **actionlint 1.7.12** (the reusable default, owned upstream in lockstep per A-422 — _not_ the `1.7.5` the local `ensure-actionlint.sh` pins) and shared-workflows' **centralised `.yamllint.yml`** (A-438), so the repo's local `.yamllint.yml` now only feeds the pre-commit hook.
 - **`build-test`** → `reusable-build-test.yml` runs build (verification) + Vitest + ShellCheck + bats (`build-test / Build & Test`). `typecheck: false` (CI runs no standalone `pnpm tsc` today). `shellcheck-paths` passes the scripts dir + the three extensionless husky hooks explicitly (the action `find`s `*.sh/*.bash` under directories but takes files literally). `bats: true` runs `pnpm exec bats` — which is why **`bats` is a devDependency** (`bats@1.13.0`, matching `ensure-bats.sh`'s pin); the tests are self-contained (no `bats-support`/`bats-assert`).
 - **`config`** loads `repo-config.yaml` once and feeds `node-version-file` to the callers (and to `changelog-completeness`) via `needs` — caller jobs can't run a `load-repo-config` step inline. This is the caller-stub pattern: a generated package that changes `nodeVersionFile` has it flow through without editing the workflow.
 
@@ -206,7 +206,6 @@ Scripts:
 | `scripts/ensure-yamllint.sh`              | `ci.yml` yamllint step                                | `tests/ensure-yamllint.bats` (install / already-installed branches)                                                   |
 | `scripts/ensure-actionlint.sh`            | `ci.yml` actionlint step                              | `tests/ensure-actionlint.bats` (cache-hit / cache-miss branches)                                                      |
 | `scripts/ensure-bats.sh`                  | `ci.yml` bats install step                            | `tests/ensure-bats.bats` (cache hit/miss, version override, off-PATH cache, substring guard, GITHUB_PATH propagation) |
-| `send-it/derive-changeset.ts`             | (used by `/send-it`)                                  | `tests/derive-changeset.test.ts` (vitest — slug, bump, body)                                                          |
 | `scripts/validate-changelog.ts`           | `lint` caller's changelog lane (`validate:changelog`) | `tests/validate-changelog.test.ts` (vitest — schema accept/reject cases)                                              |
 | `scripts/check-changelog-completeness.ts` | `ci.yml` `changelog-completeness` job                 | `tests/check-changelog-completeness.test.ts` (vitest — release-triggering title + entry-presence cases)               |
 | `scripts/finalise-changelog.ts`           | orchestrator step after `release-please release-pr`   | `tests/finalise-changelog.test.ts` (vitest — finalise + gh/git resolver via fake runner)                              |
@@ -220,7 +219,7 @@ CI (A-447): the `build-test` reusable caller runs ShellCheck (`infrastructure/sc
 
 > The changelog scripts use `gray-matter` (a devDependency) and the validator is a long flat list of schema checks, so `eslint.config.ts` scopes a `devDependencies: true` + `complexity: off` override to `infrastructure/**`.
 
-When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. Slash-command-only helpers under `infrastructure/send-it/` (e.g. `derive-changeset.ts`) are invoked by the `/send-it` skill (see "## Agent skills") instead.
+When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. (The bespoke `/send-it` slash command and its `infrastructure/send-it/` helpers were superseded by the shared `send-it` agent skill — see "## Agent skills"; its bump logic now lives in the bundle's `derive-bump.mjs`.)
 
 ## Dated changelog (`changelog/`)
 
