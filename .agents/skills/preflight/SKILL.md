@@ -20,7 +20,7 @@ compatibility: >-
   Linear debt-issue step needs the Linear MCP server; skip it silently if
   unavailable.
 metadata:
-  version: 0.1.7
+  version: 0.1.8
   author: Rob Easthope
 allowed-tools: Read, Bash(git:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -55,7 +55,9 @@ They operate on the **consumer repo's root** (run them from the repo root, where
    and nothing is written, including `.preflight-summary.json`.
 3. Read `.preflight-summary.json` for the categories run and the violation counts
    (`passed`, `deferred`, `blocking`). Written only on a real run, not under
-   `--dry-run`.
+   `--dry-run`. It is a transient scratch artefact, never committed — consumer
+   repos gitignore it (the `initialise-skills` skill adds the entry when it
+   reconciles a repo).
 
 The script's exit code drives the loop:
 

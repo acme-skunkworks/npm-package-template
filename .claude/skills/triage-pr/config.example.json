@@ -2,5 +2,10 @@
   "reviewBots": ["claude", "cursor", "coderabbitai"],
   "maxCiRounds": 5,
   "replyOnAccept": true,
-  "promoteOnGreen": false
+  "promoteOnGreen": true,
+  "linearTeamName": "",
+  "issueKeys": [],
+  "followUpLabel": "",
+  "followUpProject": "",
+  "followUpState": "Backlog"
 }

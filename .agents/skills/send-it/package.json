@@ -1,6 +1,6 @@
 {
   "name": "@acme-skunkworks/skill-send-it",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "private": true,
   "description": "Agent skill: the all-in-one ship finisher — bundle uncommitted work into atomic commits, run the change-gated lint preflight, author or update the dated changelog entry, compose a Conventional Commits PR title, push, open or update a PR, and transition linked Linear issues to In Review.",
   "keywords": [

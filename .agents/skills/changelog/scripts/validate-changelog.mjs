@@ -210,8 +210,8 @@ export function validateEntry(name, raw) {
     );
   }
 
-  // PR stats live under stats: { files_changed, loc_added, loc_removed }.
-  const statKeys = ["files_changed", "loc_added", "loc_removed"];
+  // PR stats live under stats: { files_changed, loc_added, loc_removed, commits }.
+  const statKeys = ["files_changed", "loc_added", "loc_removed", "commits"];
   for (const key of statKeys) {
     if (key in fm) {
       fail(`${key} must be under stats, not top-level`);

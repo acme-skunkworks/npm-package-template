@@ -20,6 +20,7 @@
 // via add-links, not hardcoded constants.
 
 import { rewriteBody, splitFrontmatter } from "./add-links.mjs";
+import { nonMergeCommitCount } from "./lib/commit-count.mjs";
 import { loadConfig } from "./lib/config.mjs";
 import { enrichFrontmatter } from "./lib/enrich.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
@@ -33,6 +34,7 @@ import { argv } from "node:process";
  * @typedef {object} ResolvedPr
  * @property {null | string} additions Lines added (string), null when gh omits it.
  * @property {null | string} changedFiles Files changed (string), null when gh omits it.
+ * @property {null | string} commits Non-merge commit count (string), null when unresolvable.
  * @property {null | string} deletions Lines removed (string), null when gh omits it.
  * @property {string} mergedAt PR merged_at timestamp (ISO 8601 UTC).
  * @property {string} mergeSha Merge commit SHA (full or short).
@@ -76,6 +78,7 @@ export function finaliseEntry(raw, version, resolvePr) {
         additions: pr.additions,
         branch,
         changedFiles: pr.changedFiles,
+        commits: pr.commits,
         deletions: pr.deletions,
         mergedAt: pr.mergedAt,
         mergeSha: pr.mergeSha,
@@ -159,12 +162,28 @@ export function makeResolver(run) {
       }
     }
 
+    // Commit count is resolved separately (a second API call). Keep it
+    // independently best-effort: a failure here leaves commits null but must NOT
+    // discard the stats we already resolved, so it gets its own try/catch rather
+    // than riding the outer one (which would null the whole ResolvedPr).
+    let commits = null;
+    if (pr.number !== undefined && pr.number !== null) {
+      try {
+        commits = nonMergeCommitCount(run, pr.number);
+      } catch (error) {
+        console.warn(
+          `⚠️  Could not resolve commit count for PR #${pr.number}: ${error.message}`,
+        );
+      }
+    }
+
     // Absent numeric fields stay null (not ""), so the enrich guard skips them
     // rather than parsing "" into NaN.
     return {
       additions: pr.additions === undefined ? null : String(pr.additions),
       changedFiles:
         pr.changedFiles === undefined ? null : String(pr.changedFiles),
+      commits,
       deletions: pr.deletions === undefined ? null : String(pr.deletions),
       mergedAt: pr.mergedAt ?? "",
       mergeSha,
@@ -206,6 +225,7 @@ function fakeResolver() {
   return {
     additions: "10",
     changedFiles: "2",
+    commits: "4",
     deletions: "3",
     mergedAt: "2026-01-02T00:00:00Z",
     mergeSha: "abcdef1234567890",

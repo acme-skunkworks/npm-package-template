@@ -19,9 +19,9 @@ compatibility: >-
   Designed for repositories whose AI review runs only on
   ready-for-review PRs (draft-gated), so Phase A and Phase B do not overlap.
 metadata:
-  version: 0.4.2
+  version: 0.5.0
   author: Rob Easthope
-allowed-tools: Read, Edit, Write, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*), Bash(pnpm:*), Bash(npx:*)
+allowed-tools: Read, Edit, Write, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses, mcp__linear-server__list_projects
 ---
 
 # triage-pr
@@ -33,31 +33,54 @@ phases, choosing the phase from the PR's draft state:
   Actions logs, and fix failures **in PR scope only**. Loop until CI is green or
   report blockers.
 - **Phase B — after the PR is ready-for-review:** AI review is gated on
-  `draft == false`, so once a human flips the PR, reviewers (Claude Code Review,
-  Bugbot) post feedback. Fetch the **unresolved** findings, validate each
+  `draft == false`, so once the PR is flipped to ready — by `promoteOnGreen` or a
+  human — reviewers (Claude Code Review, Bugbot) post feedback. Fetch the
+  **unresolved** findings, validate each
   against the codebase before changing anything, fix the valid ones, decline the
   invalid ones with technical reasoning, then loop back through Phase A.
 
-This skill complements `/send-it` (which **opens** the draft PR). **By default it
-flips the PR from draft to ready** *after* a cleanly-green Phase A — gated on
-proven-green CI, **no unresolved human review threads**, and no unresolved base
-drift — then continues into Phase B (the ready-flip is the gate that turns AI review
-on; see Step 6). Pass `--no-promote` (or set `promoteOnGreen: false`) to **opt out**
-and leave the flip to the human, stopping at green. See [`references/review-discipline.md`](references/review-discipline.md)
-for the full review-reception and verification rules folded into Phase B.
+This skill complements `/send-it` (which **opens** the draft PR). The draft→ready
+flip is governed by a single control — `promoteOnGreen` in [`config.json`](config.json)
+— and **an enabled config *is* the authorisation** for it: when `promoteOnGreen` is
+`true` (the default), human authorisation for the flip is **already acquired via the
+repo config**, so after a cleanly-green Phase A the skill flips the PR to ready and
+continues into Phase B without stopping to seek a separate sign-off (the ready-flip is
+the gate that turns AI review on; see Step 6). The flip stays **guarded** — gated on
+proven-green CI, **no unresolved human review threads**, and no unresolved base drift.
+Set `promoteOnGreen: false` (or pass `--no-promote`) to opt out and stop at green; an
+explicit user prompt — or the `--promote` / `--no-promote` flags — overrides the config
+for that run. Merge to `main` is never automated; that stays a human action. See
+[`references/review-discipline.md`](references/review-discipline.md) for the full
+review-reception and verification rules folded into Phase B.
 
 ## Configuration
 
-Four knobs live in [`config.json`](config.json) beside this file. Read it at the
+The knobs live in [`config.json`](config.json) beside this file. Read it at the
 start of a run and use its values throughout. Edit your copied `config.json` to
-match the consuming repo's review bots.
+match the consuming repo's review bots and (optionally) its Linear workspace.
+
+The first four govern the **CI + review** loop:
 
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `reviewBots` | GitHub login names whose comments and threads are treated as first-class AI review feedback. Matched against `author.login`; the `[bot]` suffix is normalised, so `claude` and `claude[bot]` both match (the GraphQL API returns the bare form). Edit to match your install — review-bot logins vary per repo. `github-actions` is deliberately excluded by default: it posts CI status and release-PR comments, not code review, so Phase B would otherwise action them as findings; add it only if your install genuinely posts review-type comments via the Actions bot. | `["claude", "cursor", "coderabbitai"]` |
 | `maxCiRounds` | Maximum Phase-A re-watch iterations before stopping and reporting blockers. Bounds the fix-and-watch loop so it can't spin forever. | `5` |
 | `replyOnAccept` | Whether an **accepted** finding gets a factual thread reply referencing the fixing commit before the thread is resolved (the audit trail). `false` resolves accepted threads silently for maintainers who dislike bot-reply noise — declines always reply with reasoning regardless. | `true` |
-| `promoteOnGreen` | When `true`, after Phase A finishes with **every** required check genuinely green on a **draft** PR, run `gh pr ready <pr>` to flip it to ready-for-review (the gate that turns AI review on), then continue into Phase B — instead of stopping at green. **Default-on**: set `false` (or pass `--no-promote`) to stop at green and leave the flip to the human. Promotion is suppressed unless the green is *proven* (Step 6's watched rollup, never "no failures yet"), there are **no unresolved human review threads**, and `mergeStateStatus` shows no unresolved base drift (`BEHIND` / `DIRTY`). `--promote` / `--no-promote` override this per run; `--ci-only` and `--dry-run` never promote. | `true` |
+| `promoteOnGreen` | The single control for the draft→ready flip. When `true`, after Phase A finishes with **every** required check genuinely green on a **draft** PR, run `gh pr ready <pr>` to flip it to ready-for-review (the gate that turns AI review on), then continue into Phase B — instead of stopping at green. **Default-on**, and an enabled config *is* the human authorisation for the flip: proceed on proven green without seeking a separate sign-off. Set `false` (or pass `--no-promote`) to opt out and stop at green. Promotion is suppressed unless the green is *proven* (Step 6's watched rollup, never "no failures yet"), there are **no unresolved human review threads**, and `mergeStateStatus` shows no unresolved base drift (`BEHIND` / `DIRTY`). An explicit user prompt — or `--promote` / `--no-promote` — overrides this per run; `--ci-only` and `--dry-run` never promote. | `true` |
+
+The remaining five configure the **follow-up capture** step (Step 10) — turning a
+valid-but-out-of-scope finding into a tracked Linear issue. They are **opt-in**:
+when `linearTeamName` is empty, capture is disabled and the step is skipped
+silently (no Linear MCP calls). Capture also needs the Linear MCP server; skip it
+silently when it is unavailable.
+
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `linearTeamName` | Linear team **name** (not the key — the key is renamed over time, the name is stable) the follow-up issues are created under. Empty disables capture entirely. | `""` |
+| `issueKeys` | Team-key prefixes that may appear in branch names, used to recognise issue ids the same way `linear-sync` does. Mirrors the established `issueKeys` convention. | `[]` |
+| `followUpLabel` | Optional label applied to each created follow-up issue (e.g. `follow-up`). Empty = no label. | `""` |
+| `followUpProject` | Optional Linear project (name, id, or slug) the follow-up issues are filed under. Empty = no project. | `""` |
+| `followUpState` | Optional initial workflow state (type, name, or id — e.g. `Backlog`) for created issues. Empty = the team's default state. | `"Backlog"` |
 
 Only the configured `reviewBots` are actioned in Phase B. Human review comments
 are surfaced in the final report but never auto-actioned, replied to, or
@@ -242,7 +265,7 @@ It prints minimal JSON with three groups:
 
 Resolved threads are filtered out so the context stays small. Empty
 `unresolvedThreads` **and** no AI summary → report "no actionable AI review
-feedback" and skip to Step 11.
+feedback" and skip to Step 12.
 
 ### Step 8 — Phase B: validate each finding before touching code
 
@@ -264,6 +287,13 @@ Apply the six-step reception (full rules in
      (`Addressed in <sha>.`). When `replyOnAccept` is `false`, resolve without the
      reply.
    - **Outdated** (cited code is gone) → resolve without a reply.
+   - **Defer** (the finding is **valid but out of scope** for this PR — a
+     worthwhile follow-up, not a change to make here) → **do not** resolve it now.
+     Set it aside as a follow-up **candidate**, recording
+     `{title, rationale, threadId, path, line}`, and leave the thread unresolved.
+     Candidates are captured as tracked Linear issues — **only on explicit human
+     approval** — at Step 10, which then posts the defer reply and resolves the
+     thread. Never create an issue here.
 
    No sycophancy ("You're absolutely right!", "Great point!") — state facts.
 6. **IMPLEMENT** accepted findings one at a time (Step 9), then reply+resolve.
@@ -281,6 +311,8 @@ and **refuses to action a human thread** even if its id is passed by mistake. Ad
 node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision accept --sha <sha> --bots "claude,cursor,coderabbitai"
 # declined finding:
 node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision decline --reason "<technical reasoning>" --bots "claude,cursor,coderabbitai"
+# deferred finding, after Step 10 mints its follow-up ticket:
+node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision defer --reference <issue-id> --bots "claude,cursor,coderabbitai"
 ```
 
 `respond-threads.mjs --help` prints the full subcommand/flag usage, and
@@ -306,20 +338,73 @@ including declined or not-yet-handled ones (see
   rides on them).
 - **Convergence.** Loop Phase B ↔ Phase A until CI is green **and** every bot
   thread is *handled* — resolved-by-us (accept, post-CI-green), declined+resolved,
-  or a human thread (never auto-actioned) — with **no accepted fix still awaiting
-  CI-green**. Because each push re-triggers review, the idempotency marker is what
-  makes this terminate: already-handled threads are skipped on the next pass, so
-  only genuinely new findings are actioned. The whole loop stays bounded by
-  `maxCiRounds`.
+  a human thread (never auto-actioned), or **flagged as a follow-up candidate**
+  (a recognised transient state — left unresolved on purpose, settled at Step 10) —
+  with **no accepted fix still awaiting CI-green**. Because each push re-triggers
+  review, the idempotency marker is what makes this terminate: already-handled
+  threads are skipped on the next pass, so only genuinely new findings are
+  actioned. The whole loop stays bounded by `maxCiRounds`.
 
-### Step 10 — Phase B: acknowledge issue-level review comments
+### Step 10 — Phase B: capture out-of-scope findings as follow-up issues
+
+Once the thread loop has converged, gather every follow-up **candidate** flagged
+during Step 8 — both per-thread defers **and** issue-level findings judged
+valid-but-out-of-scope. If there are none, skip to Step 11.
+
+**Capture is opt-in and gated on explicit human approval — nothing is created
+otherwise.** It is disabled when `config.linearTeamName` is empty or the Linear MCP
+server is unavailable; in that case (and whenever the human declines below), fall
+back without creating anything: **decline** each per-thread candidate with concise
+technical reasoning (`out of scope; not tracked`) and resolve it, and map each
+issue-level candidate as `out-of-scope` with **no** ticket in the Step 11 summary.
+
+When capture is enabled, present **all** candidates as a single batch and ask once
+for explicit approval (**default no** — mirrors `cleanup-repo`'s two-pass gate):
+
+```text
+Proposed follow-up issues (none created yet):
+  1. Refactor fetch layer — thread on src/api.ts:42
+  2. Add retry backoff — CodeRabbit summary
+Create these 2 issues in Linear? [y/N]
+```
+
+On a single explicit **yes**, create one Linear issue per candidate with
+`mcp__linear-server__save_issue` — resolve the team by **name** and the state by
+**type**, never a stale key (the renamed-team gotcha; see
+[`skills/linear-sync/SKILL.md`](../linear-sync/SKILL.md)):
+
+- `team` = `config.linearTeamName`; `title` derived from the finding.
+- `description` = the bot's rationale, a back-link to the PR **and** the specific
+  thread/comment URL, and the originating `path:line` (literal newlines, British
+  English).
+- `links` = `[{ url: <PR url>, title: "Source PR" }]`.
+- `labels` = `[config.followUpLabel]` when set; `project` = `config.followUpProject`
+  when set; `state` = `config.followUpState` when set (else the team default).
+  Use `list_issue_statuses` / `list_projects` to resolve a configured state/project
+  and fail loudly on a typo rather than filing in the wrong place.
+
+Then write each created issue's id/URL back:
+
+- **Per-thread** candidate → post the defer reply and resolve via the `defer`
+  decision:
+
+  ```bash
+  node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision defer --reference <issue-id> --bots "claude,cursor,coderabbitai"
+  ```
+
+- **Issue-level** candidate → carry it into Step 11 as
+  `{ "title": "…", "status": "out-of-scope", "reference": "<issue-id>" }`.
+
+Under `--dry-run`, list the candidates that *would* be proposed and create nothing.
+
+### Step 11 — Phase B: acknowledge issue-level review comments
 
 Findings that arrive as **issue-level comments** — Claude's whole-review comment,
 CodeRabbit's sticky summary (`aiSummaryComments` from Step 7) — have no resolvable
 per-finding thread, so the thread machinery above never touches them. Once the
-thread loop has converged, acknowledge them on the PR with **one consolidated
-comment** mapping each finding → `accepted (<sha>)` / `declined (<reason>)` /
-`out-of-scope (<ticket>)`:
+thread loop has converged (and Step 10's capture has minted any follow-up tickets),
+acknowledge them on the PR with **one consolidated comment** mapping each finding →
+`accepted (<sha>)` / `declined (<reason>)` / `out-of-scope (<ticket>)`:
 
 ```bash
 node scripts/respond-threads.mjs summary --pr <pr> --findings '[{"title":"…","status":"accepted","reference":"<sha>"}]'
@@ -330,13 +415,15 @@ comment rather than posting a duplicate. Acknowledge each issue-level finding on
 once here (not per sub-point of a checklist review — that is noise). Skip this step
 entirely when there were no issue-level findings to map.
 
-### Step 11 — Report
+### Step 12 — Report
 
 Summarise:
 
 - Checks fixed, each with the failing command it addressed.
 - Findings accepted and fixed (with the resolving commit).
 - Findings declined, each with the technical reasoning given.
+- Follow-up issues created (each with its Linear id/URL), or candidates that were
+  proposed and **declined** (so nothing was created).
 - Issue-level findings acknowledged in the consolidated comment.
 - Base merges/rebases performed.
 - Remaining blockers (if `maxCiRounds` was exhausted).
@@ -373,12 +460,14 @@ Summarise:
 - **No sycophancy.** Decline with technical reasoning, not flattery.
 - **Evidence before claims.** Never say CI is green or a fix works without freshly
   running the proving command and reading its exit code.
-- **Draft → ready is guarded, and on by default.** With `promoteOnGreen` (default
-  on) the skill flips the PR **only** after a *proven*-green Phase A, with **no
-  unresolved human threads** and no unresolved base drift, then continues into
-  Phase B; set `promoteOnGreen: false` / pass `--no-promote` to stop at green and
-  leave the flip to the human. Never greenwash to reach the flip; `--ci-only` never
-  promotes.
+- **Draft → ready is guarded, and on by default.** `promoteOnGreen` is the single
+  control for the flip, and an enabled config *is* the authorisation: with it on (the
+  default) the skill flips the PR — **only** after a *proven*-green Phase A, with **no
+  unresolved human threads** and no unresolved base drift — then continues into Phase B,
+  without seeking a separate human sign-off. Set `promoteOnGreen: false` / pass
+  `--no-promote` to stop at green; an explicit user prompt or `--promote` /
+  `--no-promote` overrides the config per run. Never greenwash to reach the flip;
+  `--ci-only` never promotes. Merge stays a human action.
 - **Bounded loops.** Stop after `maxCiRounds` and escalate.
 
 ## Error handling

@@ -1,6 +1,17 @@
 {
-  "reviewBots": ["claude", "cursor", "coderabbitai"],
+  "reviewBots": [
+    "claude",
+    "cursor",
+    "coderabbitai"
+  ],
   "maxCiRounds": 5,
   "replyOnAccept": true,
-  "promoteOnGreen": false
+  "promoteOnGreen": true,
+  "linearTeamName": "ACME Skunkworks",
+  "issueKeys": [
+    "A"
+  ],
+  "followUpLabel": "",
+  "followUpProject": "",
+  "followUpState": "Backlog"
 }
