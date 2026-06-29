@@ -21,7 +21,7 @@ compatibility: >-
   `linear-sync` skills — install them alongside this one. The In Review writeback
   needs the Linear MCP server (via `linear-sync`); it is skipped if unavailable.
 metadata:
-  version: 0.3.4
+  version: 0.3.5
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---

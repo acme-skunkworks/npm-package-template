@@ -29,6 +29,7 @@
 //   node respond-threads.mjs --self-test
 //   node respond-threads.mjs thread --thread <PRRT_id> --decision accept --sha <sha>
 //   node respond-threads.mjs thread --thread <PRRT_id> --decision decline --reason "<why>"
+//   node respond-threads.mjs thread --thread <PRRT_id> --decision defer --reference <ticket>
 //   node respond-threads.mjs thread --thread <PRRT_id> --decision accept --sha <sha> --reply-on-accept false
 //   node respond-threads.mjs summary --pr <n> [--repo owner/name] --findings '<json>'
 //   …add --dry-run to any mutating subcommand to print the plan without writing.
@@ -41,7 +42,7 @@ import { readFileSync, realpathSync } from "node:fs";
 export const THREAD_MARKER = "<!-- triage-pr:thread-ack -->";
 export const SUMMARY_MARKER = "<!-- triage-pr:summary-ack -->";
 
-const DECISIONS = new Set(["accept", "decline", "outdated"]);
+const DECISIONS = new Set(["accept", "decline", "defer", "outdated"]);
 const STATUSES = new Set(["accepted", "declined", "out-of-scope"]);
 
 // Mirrors review-threads.mjs: GraphQL returns bot logins WITHOUT the `[bot]`
@@ -77,11 +78,12 @@ export function hasMarker(body, marker) {
 }
 
 /**
- * Build the thread-reply body for an accept or decline, carrying the marker.
- * Accepts reference the fixing commit; declines carry the technical reasoning.
- * No sycophancy — the wording states facts only.
+ * Build the thread-reply body for an accept, decline, or defer, carrying the
+ * marker. Accepts reference the fixing commit; declines carry the technical
+ * reasoning; defers reference the follow-up ticket they were tracked as. No
+ * sycophancy — the wording states facts only.
  */
-export function buildReplyBody({ decision, reason, sha }) {
+export function buildReplyBody({ decision, reason, reference, sha }) {
   if (decision === "accept") {
     const trimmed = String(sha ?? "").trim();
     if (!trimmed) {
@@ -100,6 +102,15 @@ export function buildReplyBody({ decision, reason, sha }) {
     return `${trimmed}\n\n${THREAD_MARKER}`;
   }
 
+  if (decision === "defer") {
+    const trimmed = String(reference ?? "").trim();
+    if (!trimmed) {
+      throw new Error("defer reply requires a follow-up ticket reference");
+    }
+
+    return `Out of scope for this PR; tracked as ${trimmed} for follow-up.\n\n${THREAD_MARKER}`;
+  }
+
   throw new Error(`no reply body for decision: ${decision}`);
 }
 
@@ -107,9 +118,10 @@ export function buildReplyBody({ decision, reason, sha }) {
  * Decide, for each thread decision, what action to take — honouring the
  * human-thread guardrail, the idempotency marker, and `replyOnAccept`.
  *
- * Each decision: { threadId, decision: accept|decline|outdated, sha?, reason?,
- * isHuman?, comments? }. `comments` is the thread's existing comments (as
- * returned by review-threads.mjs) — used to detect our own prior reply.
+ * Each decision: { threadId, decision: accept|decline|outdated|defer, sha?,
+ * reason?, reference?, isHuman?, comments? }. `comments` is the thread's existing
+ * comments (as returned by review-threads.mjs) — used to detect our own prior
+ * reply.
  *
  * Returns one action per decision, kind ∈ { reply-resolve, resolve-only, skip }.
  * A `skip` carries `why` ∈ { human, already-handled }. Never emits a mutating
@@ -141,6 +153,17 @@ export function planThreadResponses(decisions, { replyOnAccept = true } = {}) {
     if (decision === "decline") {
       return {
         body: buildReplyBody({ decision, reason: entry.reason }),
+        kind: "reply-resolve",
+        threadId,
+      };
+    }
+
+    if (decision === "defer") {
+      // Out-of-scope finding tracked as a follow-up issue: always reply with the
+      // ticket reference (replyOnAccept is accept-specific and never gates this),
+      // then resolve.
+      return {
+        body: buildReplyBody({ decision, reference: entry.reference }),
         kind: "reply-resolve",
         threadId,
       };
@@ -198,7 +221,7 @@ const STATUS_LABELS = {
  */
 export function buildConsolidatedComment(findings) {
   if (!findings || findings.length === 0) {
-    // The caller is told (SKILL.md Step 10) to skip the summary step when there
+    // The caller is told (SKILL.md Step 11) to skip the summary step when there
     // are no issue-level findings; fail loudly rather than post a bare table.
     throw new Error("buildConsolidatedComment requires at least one finding");
   }
@@ -290,6 +313,7 @@ const THREAD_FLAGS = [
   "decision",
   "sha",
   "reason",
+  "reference",
   "replyOnAccept",
   "bots",
 ];
@@ -460,7 +484,7 @@ function runThread(options) {
   }
 
   if (!DECISIONS.has(decision)) {
-    throw new Error("thread requires --decision accept|decline|outdated");
+    throw new Error("thread requires --decision accept|decline|outdated|defer");
   }
 
   const replyOnAccept = parseReplyOnAccept(options.replyOnAccept);
@@ -487,6 +511,7 @@ function runThread(options) {
         decision,
         isHuman,
         reason: options.reason,
+        reference: options.reference,
         sha: options.sha,
         threadId,
       },
@@ -568,6 +593,13 @@ function selfTest() {
       threadId: "T_decline",
     },
     { decision: "outdated", threadId: "T_outdated" },
+    { decision: "defer", reference: "A-601", threadId: "T_defer" },
+    {
+      decision: "defer",
+      isHuman: true,
+      reference: "A-602",
+      threadId: "T_defer_human",
+    },
     { decision: "accept", isHuman: true, sha: "deadbee", threadId: "T_human" },
     {
       comments: [{ author: "me", body: `Addressed in x.\n\n${THREAD_MARKER}` }],
@@ -627,6 +659,20 @@ function selfTest() {
         byId.T_outdated.kind === "resolve-only" && !("body" in byId.T_outdated),
     },
     {
+      name: "deferred thread → reply-resolve referencing the ticket",
+      ok:
+        byId.T_defer.kind === "reply-resolve" &&
+        byId.T_defer.body.includes("A-601") &&
+        byId.T_defer.body.includes("for follow-up") &&
+        byId.T_defer.body.includes(THREAD_MARKER),
+    },
+    {
+      name: "human thread is never auto-actioned (defer)",
+      ok:
+        byId.T_defer_human.kind === "skip" &&
+        byId.T_defer_human.why === "human",
+    },
+    {
       name: "human thread is never auto-actioned",
       ok: byId.T_human.kind === "skip" && byId.T_human.why === "human",
     },
@@ -654,6 +700,17 @@ function selfTest() {
       ok: (() => {
         try {
           buildReplyBody({ decision: "decline", reason: "  " });
+          return false;
+        } catch {
+          return true;
+        }
+      })(),
+    },
+    {
+      name: "defer reply without a reference throws",
+      ok: (() => {
+        try {
+          buildReplyBody({ decision: "defer", reference: "  " });
           return false;
         } catch {
           return true;
@@ -807,13 +864,14 @@ function selfTest() {
 const USAGE = `respond-threads — reply to and resolve AI review threads on a PR
 
 Usage:
-  respond-threads thread  --thread <PRRT_id> --decision <accept|decline|outdated> [--sha <sha>] [--reason <text>] [--reply-on-accept <true|false>] [--bots <csv>] [--dry-run]
+  respond-threads thread  --thread <PRRT_id> --decision <accept|decline|outdated|defer> [--sha <sha>] [--reason <text>] [--reference <ticket>] [--reply-on-accept <true|false>] [--bots <csv>] [--dry-run]
   respond-threads summary --pr <number> --findings <json> [--repo <owner/name>] [--dry-run]
   respond-threads --self-test
   respond-threads --help
 
 Subcommands:
-  thread     Reply to and resolve a single review thread by its decision.
+  thread     Reply to and resolve a single review thread by its decision
+             (defer replies with the follow-up ticket from --reference, then resolves).
   summary    Upsert the consolidated issue-level acknowledgement comment.
 
 Other:

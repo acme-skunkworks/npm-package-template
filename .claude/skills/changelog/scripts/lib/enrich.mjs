@@ -22,6 +22,7 @@ import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.mjs";
  * @property {null | string} [additions] Lines added as a string, or null.
  * @property {null | string} [deletions] Lines removed as a string, or null.
  * @property {null | string} [changedFiles] Files changed as a string, or null.
+ * @property {null | string} [commits] Non-merge commit count as a string, or null.
  */
 
 /**
@@ -85,6 +86,10 @@ export function enrichFrontmatter(raw, input) {
 
   if (!blank(input.changedFiles)) {
     stats.files_changed = Number.parseInt(input.changedFiles, 10);
+  }
+
+  if (!blank(input.commits)) {
+    stats.commits = Number.parseInt(input.commits, 10);
   }
 
   fm.stats = stats;

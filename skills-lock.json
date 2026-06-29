@@ -5,7 +5,7 @@
       "source": "acme-skunkworks/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/changelog/SKILL.md",
-      "computedHash": "be7d42a728745c874959efdef46515cbac236ec5e3345a8734277a22981e3440"
+      "computedHash": "06a7be8d8117970d2c1e67320952666b5e78450320252ec91747c0ae5a3654e7"
     },
     "cleanup-repo": {
       "source": "acme-skunkworks/agent-skills",
@@ -17,7 +17,7 @@
       "source": "acme-skunkworks/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/initialise-skills/SKILL.md",
-      "computedHash": "7992d831d7a8e9ab5998e2854c1efe27d9184c2771bd3e5f33255b5fd17e3abb"
+      "computedHash": "e764ccdd2a4275601d9b7afd9544b0d3e008209fa922d6d81db6f59ed1d74b9c"
     },
     "linear-sync": {
       "source": "acme-skunkworks/agent-skills",
@@ -29,19 +29,19 @@
       "source": "acme-skunkworks/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/preflight/SKILL.md",
-      "computedHash": "a8447cb0bca770110f6ddd4898c96970cf78d8b7f4453fcf29aa45ea07e94fbf"
+      "computedHash": "cbcb9007a96dee0eb1785311cfb235e6c5b21435d0cd2ae662146a6a180de833"
     },
     "send-it": {
       "source": "acme-skunkworks/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/send-it/SKILL.md",
-      "computedHash": "40de38689a09b3a6505f991078cea8fe6d508ef23c4349d1778ee6e8569450f1"
+      "computedHash": "d61f99ef7ae95ae6f69c73d6877908d4aae47fe6e8a9bead887163c6dd45c233"
     },
     "triage-pr": {
       "source": "acme-skunkworks/agent-skills",
       "sourceType": "github",
       "skillPath": "skills/triage-pr/SKILL.md",
-      "computedHash": "da3b16dc2b1b46388adeff197e09a2daf11e032f9af840a53516c677f86bdd02"
+      "computedHash": "35cbcab689ce603fec386ca7877d0d2bcde2f038c141b917e5d2c8d028fe8a9b"
     }
   }
 }

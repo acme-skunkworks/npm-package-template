@@ -6,11 +6,12 @@ description: >-
   package roots, changelog directory, Linear issue-key prefixes, review bots,
   protected branches — plus the Linear team name and workspace slug fetched via
   the Linear MCP. Use when first installing these skills into a repo, or to
-  refresh the configs after the skill set or repo layout changes. Idempotent and
-  safe to re-run: it reconciles drift rather than clobbering deliberate manual
-  edits, presents a dry-run diff first, and only writes after confirmation —
-  preserving each config's key order and formatting so a no-op run leaves files
-  byte-identical.
+  refresh the configs after the skill set or repo layout changes. Also ensures the
+  preflight skill's `.preflight-summary.json` scratch output is gitignored.
+  Idempotent and safe to re-run: it reconciles drift rather than clobbering
+  deliberate manual edits, presents a dry-run diff first, and only writes after
+  confirmation — preserving each config's key order and formatting so a no-op run
+  leaves files byte-identical.
 license: MIT
 compatibility: >-
   Requires the `git` CLI (for base-branch and issue-key detection) and Node.js
@@ -21,7 +22,7 @@ compatibility: >-
   config.example.json for its key set, so newly-added skills are picked up with no
   change here.
 metadata:
-  version: 0.4.1
+  version: 0.6.0
   author: Rob Easthope
 allowed-tools: Read, Bash(node:*), Bash(git:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
 ---
@@ -63,7 +64,20 @@ for the full table of keys, their detection sources, and fallbacks.
 
 `preflight` is intentionally skipped: it self-detects its base branch and
 workspaces and reads an *optional* `preflight.config.json` at the repo root, not
-an in-bundle `config.json` — so there is nothing for this skill to populate.
+an in-bundle `config.json` — so there is nothing for this skill to populate. (Its
+one trace here is the `.gitignore` step below: when preflight is installed, its
+`.preflight-summary.json` scratch output is added to the repo's `.gitignore`.)
+
+## The `.gitignore` step
+
+The `preflight` skill writes `.preflight-summary.json` to the repo root on every
+real run, so without an ignore rule it surfaces as an untracked change after a
+`/send-it` run. When `preflight` is installed, this skill ensures the host repo's
+root `.gitignore` excludes it — the **one** mutation it makes outside a skill's
+`config.json`. The edit is **append-only and idempotent**: it adds the commented
+entry only when absent (creating `.gitignore` if there is none), and never
+reorders or removes existing lines. The dry-run report shows the pending edit
+(`will add …`); a re-run after writing reports `already ignored`.
 
 ## Process
 
@@ -101,11 +115,13 @@ an in-bundle `config.json` — so there is nothing for this skill to populate.
      | node <skills-dir>/initialise-skills/scripts/initialise.mjs --write --json
    ```
 
-   Report what was written from the returned `totals`.
+   Report what was written from the returned `totals`, plus the `gitignore` field
+   (its `status` — `added`, `created`, or `present`).
 
 5. **Confirm idempotency.** Run the dry run once more; every key should now be
    `unchanged` (apart from drifts you chose to keep and any still-missing manual
-   values). This proves the configs are stable and a future re-run is a no-op.
+   values), and `gitignore.status` should be `present`. This proves the configs
+   and the `.gitignore` are stable and a future re-run is a no-op.
 
 6. **Multi-bundle repos — one manual step.** If this repo itself ships several
    independently-versioned skill bundles, `send-it`'s `bundleVersioning` is **not**
@@ -136,6 +152,10 @@ an in-bundle `config.json` — so there is nothing for this skill to populate.
 - **No deletes, no reordering.** Existing keys keep their order; only changed keys
   are touched; consumer-added keys are left alone. A malformed existing
   `config.json` is skipped (reported, never overwritten).
+- **The `.gitignore` edit is append-only.** The only file touched outside a
+  skill's `config.json` is the repo's root `.gitignore`, and only to append the
+  `.preflight-summary.json` entry when it is missing — never reordering or removing
+  existing lines, and a no-op once present.
 
 ## Prerequisites
 

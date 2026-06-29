@@ -32,6 +32,21 @@ export function defaultSkillsDirectory() {
 }
 
 /**
+ * Is the `preflight` bundle installed alongside this one? `discoverSkills()` omits
+ * it (self-configuring, no config.json to reconcile), so the gitignore reconcile —
+ * which exists only because preflight writes `.preflight-summary.json` — must check
+ * for it separately. Keys on its SKILL.md so an empty leftover directory doesn't
+ * count as installed.
+ * @param {string} [skillsDirectory]
+ * @returns {boolean}
+ */
+export function isPreflightInstalled(
+  skillsDirectory = defaultSkillsDirectory(),
+) {
+  return existsSync(join(skillsDirectory, "preflight", "SKILL.md"));
+}
+
+/**
  * @typedef {object} InstalledSkill
  * @property {string} name - bundle directory name
  * @property {string} dir - absolute bundle dir

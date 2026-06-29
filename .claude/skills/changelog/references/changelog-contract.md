@@ -29,6 +29,7 @@ stats:
   files_changed:
   loc_added:
   loc_removed:
+  commits:
 ---
 ```
 
@@ -57,7 +58,7 @@ omitted or left as a blank placeholder until enrichment.
 | `breaking` | Boolean. If `true`, the body MUST contain a `## Breaking` section. |
 | `issues` | Array of strings, each matching `[A-Z]+-\d+` (a one-or-more-letter team key, e.g. `A-123`). |
 | `affected_packages` | Array of strings (`[]` when unpopulated). Monorepo-gated — emitted only when `affectedPackages: true` in `config.json`; absent (and clean) for single-package repos. |
-| `stats.{files_changed,loc_added,loc_removed}` | Non-negative integers when set; blank until release. |
+| `stats.{files_changed,loc_added,loc_removed,commits}` | Non-negative integers when set; blank until release. `commits` counts the PR's branch commits **excluding merge commits**, filled by post-merge enrichment. |
 
 The filename must match `YYYYMMDD-HHMMSS-<slug>.md` (slug `[a-z0-9-]+`), and the
 body must contain at least one of `## Breaking` / `## Added` / `## Changed` /

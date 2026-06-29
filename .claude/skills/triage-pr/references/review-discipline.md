@@ -30,6 +30,11 @@ regression.
      **Resolve timing** below). When `replyOnAccept` is `false`, resolve without
      the reply.
    - *Outdated* (cited code is gone) → resolve, no reply.
+   - *Defer* (valid but **out of scope** for this PR) → don't resolve yet; set it
+     aside as a follow-up candidate. After the loop converges, candidates become
+     tracked Linear issues — **only on explicit human approval** — and the thread is
+     then replied-to (`Out of scope for this PR; tracked as <ticket> for follow-up.`)
+     and resolved. No approval (or capture disabled) → fall back to a *decline*.
 
    The reply is the durable, per-finding audit trail reviewers and humans skimming
    the PR rely on; a silently-resolved accept loses it.
@@ -93,8 +98,9 @@ each fix push re-triggers review, the marker is what makes the loop terminate: o
 the next pass, a thread already bearing our marker is **skipped**, and the
 consolidated comment is **edited in place** rather than re-posted. A run converges
 when CI is green and every bot thread is handled (resolved-by-us, declined+resolved,
-or human-and-left-alone) with no accepted fix still awaiting CI-green — all bounded
-by `maxCiRounds`.
+human-and-left-alone, or flagged as a follow-up candidate — a deliberate transient
+state, settled at the post-convergence capture step) with no accepted fix still
+awaiting CI-green — all bounded by `maxCiRounds`.
 
 ### Issue-level comments — respond vs noise
 

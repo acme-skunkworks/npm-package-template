@@ -1,6 +1,19 @@
 // Render the reconcile report — both a human-readable summary and the JSON shape
 // Claude parses to drive the Linear-fact and per-key drift-opt-in steps (A-409).
 
+import { IGNORE_ENTRY } from "./gitignore.mjs";
+
+/**
+ * Human-friendly one-liners for the .gitignore reconcile action (A-569).
+ */
+const GITIGNORE_LABEL = {
+  added: `added ${IGNORE_ENTRY} to .gitignore`,
+  created: `created .gitignore with ${IGNORE_ENTRY}`,
+  present: `${IGNORE_ENTRY} already ignored`,
+  "would-add": `will add ${IGNORE_ENTRY} to .gitignore`,
+  "would-create": `will create .gitignore with ${IGNORE_ENTRY}`,
+};
+
 /**
  * Human-friendly labels + ordering for the per-key statuses.
  */
@@ -39,9 +52,11 @@ function fmt(value) {
  * Aggregate per-skill merge results into the report object.
  * @param {SkillReport[]} skillReports
  * @param {boolean} wrote whether this was a --write run
+ * @param {{ path: string, status: string } | null} [gitignore] the .gitignore
+ *   reconcile result (A-569), or null when preflight is not installed
  * @returns {object}
  */
-export function buildReport(skillReports, wrote) {
+export function buildReport(skillReports, wrote, gitignore = null) {
   const totals = {};
   const driftKeys = [];
   const manualKeys = [];
@@ -79,6 +94,7 @@ export function buildReport(skillReports, wrote) {
 
   return {
     driftKeys,
+    gitignore,
     manualKeys,
     mode: wrote ? "write" : "dry-run",
     skills,
@@ -142,6 +158,12 @@ export function formatHuman(report) {
     .map((status) => `${totals[status]} ${STATUS_LABEL[status]}`)
     .join(", ");
   lines.push(summary || "no keys to reconcile", "");
+
+  if (report.gitignore) {
+    const detail =
+      GITIGNORE_LABEL[report.gitignore.status] ?? report.gitignore.status;
+    lines.push(`${report.gitignore.path}: ${detail}`, "");
+  }
 
   if (report.mode === "dry-run") {
     if (report.driftKeys.length) {

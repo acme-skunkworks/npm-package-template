@@ -15,7 +15,8 @@
 // Exit codes: 0 success; 2 usage/IO error.
 
 import { createDetectors } from "./lib/detectors.mjs";
-import { discoverSkills } from "./lib/discover.mjs";
+import { discoverSkills, isPreflightInstalled } from "./lib/discover.mjs";
+import { reconcilePreflightIgnore } from "./lib/gitignore.mjs";
 import { serialiseConfig } from "./lib/jsonio.mjs";
 import { mergeConfig } from "./lib/merge.mjs";
 import { buildReport, formatHuman } from "./lib/report.mjs";
@@ -194,7 +195,21 @@ function main() {
     });
   }
 
-  const report = buildReport(skillReports, options.write);
+  // One mutation outside config.json: ensure preflight's scratch output is
+  // gitignored. Gated on preflight (the file's producer) being installed — its
+  // bundle is skipped by discoverSkills, so check separately (A-569).
+  let gitignore = null;
+  if (isPreflightInstalled(options.skillsDir)) {
+    const result = reconcilePreflightIgnore(options.repoRoot, {
+      write: options.write,
+    });
+    gitignore = {
+      path: relative(options.repoRoot, result.path),
+      status: result.status,
+    };
+  }
+
+  const report = buildReport(skillReports, options.write, gitignore);
   if (options.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
