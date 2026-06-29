@@ -206,7 +206,6 @@ Scripts:
 | `scripts/ensure-yamllint.sh`              | `ci.yml` yamllint step                                | `tests/ensure-yamllint.bats` (install / already-installed branches)                                                   |
 | `scripts/ensure-actionlint.sh`            | `ci.yml` actionlint step                              | `tests/ensure-actionlint.bats` (cache-hit / cache-miss branches)                                                      |
 | `scripts/ensure-bats.sh`                  | `ci.yml` bats install step                            | `tests/ensure-bats.bats` (cache hit/miss, version override, off-PATH cache, substring guard, GITHUB_PATH propagation) |
-| `send-it/derive-changeset.ts`             | (used by `/send-it`)                                  | `tests/derive-changeset.test.ts` (vitest — slug, bump, body)                                                          |
 | `scripts/validate-changelog.ts`           | `lint` caller's changelog lane (`validate:changelog`) | `tests/validate-changelog.test.ts` (vitest — schema accept/reject cases)                                              |
 | `scripts/check-changelog-completeness.ts` | `ci.yml` `changelog-completeness` job                 | `tests/check-changelog-completeness.test.ts` (vitest — release-triggering title + entry-presence cases)               |
 | `scripts/finalise-changelog.ts`           | orchestrator step after `release-please release-pr`   | `tests/finalise-changelog.test.ts` (vitest — finalise + gh/git resolver via fake runner)                              |
@@ -220,7 +219,7 @@ CI (A-447): the `build-test` reusable caller runs ShellCheck (`infrastructure/sc
 
 > The changelog scripts use `gray-matter` (a devDependency) and the validator is a long flat list of schema checks, so `eslint.config.ts` scopes a `devDependencies: true` + `complexity: off` override to `infrastructure/**`.
 
-When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. Slash-command-only helpers under `infrastructure/send-it/` (e.g. `derive-changeset.ts`) are invoked by the `/send-it` skill (see "## Agent skills") instead.
+When adding workflow-extracted tooling, write the test first, then wire from YAML as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. (The bespoke `/send-it` slash command and its `infrastructure/send-it/` helpers were superseded by the shared `send-it` agent skill — see "## Agent skills"; its bump logic now lives in the bundle's `derive-bump.mjs`.)
 
 ## Dated changelog (`changelog/`)
 

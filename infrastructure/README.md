@@ -6,8 +6,6 @@ Workflow logic extracted from `.github/workflows/*.yml` plus shared dev-tooling 
 
 ```
 infrastructure/
-  send-it/
-    derive-changeset.ts             # used by /send-it (.claude/commands/send-it.md)
   scripts/                          # executable logic. one file = one purpose
     ensure-yamllint.sh              # CI-unused since A-447 (lint reusable caller installs yamllint); local + reference
     ensure-actionlint.sh            # CI-unused since A-447 (lint reusable caller installs actionlint); local + reference
@@ -48,13 +46,13 @@ CI (since A-447) runs these via the shared reusable callers: the `build-test` ca
 
 ## Adding a new script
 
-Workflow-extracted tooling (wired from `.github/workflows/*.yml`) belongs under `infrastructure/scripts/`. Helpers used only by the `/send-it` Claude slash command (`.claude/commands/send-it.md`) belong under `infrastructure/send-it/`.
+Workflow-extracted tooling (wired from `.github/workflows/*.yml`) belongs under `infrastructure/scripts/`.
 
 1. Pick the language per the rule above.
-2. Write the file to `infrastructure/scripts/<name>.{ts,sh}` or `infrastructure/send-it/<name>.{ts,sh}` per the split above. For TS, export pure functions; for shell, keep it under ~20 lines.
+2. Write the file to `infrastructure/scripts/<name>.{ts,sh}`. For TS, export pure functions; for shell, keep it under ~20 lines.
 3. Write the test in `infrastructure/tests/<name>.{test.ts,bats}`. Tests should cover every meaningful branch, not just the happy path.
 4. `pnpm tsc` + `pnpm lint` + `pnpm test` + `pnpm test:sh` + `pnpm lint:sh` all green.
-5. Wire it from the workflow as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`. For `send-it/` modules, the slash command documents the chosen entrypoint (see `.claude/commands/send-it.md`).
+5. Wire it from the workflow as a one-liner: `run: pnpm tsx infrastructure/scripts/<name>.ts` or `run: bash infrastructure/scripts/<name>.sh`.
 
 ## Out of scope
 
