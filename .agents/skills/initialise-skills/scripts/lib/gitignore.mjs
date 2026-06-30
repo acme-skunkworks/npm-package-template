@@ -19,18 +19,28 @@ export const IGNORE_COMMENT =
   "# preflight skill scratch output (written at the repo root on each run)";
 
 /**
- * Does any line already exclude the entry? Matches by exact string equality after
+ * Does any line already settle the entry? Matches by exact string equality after
  * trimming — comment lines start with `#` so they can never match, which is the
  * behaviour we want (a commented-out entry does not gitignore the file). The
  * leading-slash anchored form (`/.preflight-summary.json`) ignores the same
  * root-level path, so it counts as present too — we must not append a duplicate.
+ *
+ * An explicit **un-ignore** (`!.preflight-summary.json` / `!/.preflight-summary.json`)
+ * also counts as already-handled: the reconcile is intent-preserving and
+ * append-only, and `.gitignore` is last-match-wins, so appending a positive rule
+ * after a deliberate negation would silently flip the consumer's choice (A-582).
  * @param {string} text
  * @returns {boolean}
  */
 function hasEntry(text) {
   return text.split(/\r?\n/).some((line) => {
     const trimmed = line.trim();
-    return trimmed === IGNORE_ENTRY || trimmed === `/${IGNORE_ENTRY}`;
+    return (
+      trimmed === IGNORE_ENTRY ||
+      trimmed === `/${IGNORE_ENTRY}` ||
+      trimmed === `!${IGNORE_ENTRY}` ||
+      trimmed === `!/${IGNORE_ENTRY}`
+    );
   });
 }
 

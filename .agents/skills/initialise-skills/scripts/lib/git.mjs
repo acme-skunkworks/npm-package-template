@@ -25,18 +25,20 @@ export function detectBaseBranch(root) {
 }
 
 /**
- * All branch names known to the repo (local + remote), one per line, stripped of
- * the `*`, worktree `+`, leading `remotes/<remote>/` and `HEAD ->` decorations
- * `git branch -a` adds. Returns [] when git fails (e.g. no repo).
+ * All branch names known to the repo (local + remote), one per line, with only
+ * the ref namespace stripped (`refs/heads/` or `refs/remotes/<remote>/`) so an
+ * embedded slash in a branch name survives. `--format=%(refname)` carries no
+ * `*`/`+`/`HEAD ->` decorations, so the bare `HEAD` symbolic ref is the only
+ * thing to drop. Returns [] when git fails (e.g. no repo).
  * @param {string} root
  * @returns {string[]}
  */
 export function listBranchNames(root) {
-  const result = spawnSync(
-    "git",
-    ["branch", "-a", "--format=%(refname:short)"],
-    { cwd: root, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
-  );
+  const result = spawnSync("git", ["branch", "-a", "--format=%(refname)"], {
+    cwd: root,
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024,
+  });
   if (result.status !== 0) {
     return [];
   }
@@ -46,10 +48,13 @@ export function listBranchNames(root) {
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      // Drop the symbolic `origin/HEAD -> origin/main` style entries.
-      .filter((name) => !name.includes("->"))
-      // Strip a leading remote name so `origin/asw-1-foo` is read as `asw-1-foo`.
-      .map((name) => name.replace(/^[^/]+\//, ""))
+      // Strip only the ref namespace — `refs/heads/` for a local branch or
+      // `refs/remotes/<remote>/` for a tracking ref — so an embedded slash in the
+      // branch name (a local `A-123/demo`) survives for key extraction (A-580).
+      // `%(refname)` (full ref) carries no `HEAD ->` decoration; the symbolic ref
+      // collapses to a bare `HEAD`, which we drop.
+      .map((name) => name.replace(/^refs\/(?:heads|remotes\/[^/]+)\//, ""))
+      .filter((name) => name !== "HEAD")
   );
 }
 
@@ -69,7 +74,7 @@ export function listBranchNamesByRecency(root) {
     [
       "for-each-ref",
       "--sort=-committerdate",
-      "--format=%(refname:short)",
+      "--format=%(refname)",
       "refs/heads",
       "refs/remotes",
     ],
@@ -85,10 +90,10 @@ export function listBranchNamesByRecency(root) {
       .split("\n")
       .map((line) => line.trim())
       .filter(Boolean)
-      // `for-each-ref` emits `origin/HEAD` (not the `HEAD ->` decoration `git
-      // branch -a` adds), so strip the remote prefix first, then drop the bare
-      // `HEAD` symbolic ref it collapses to.
-      .map((name) => name.replace(/^[^/]+\//, ""))
+      // Strip only the ref namespace (`refs/heads/` or `refs/remotes/<remote>/`)
+      // so an embedded slash in the branch name survives for key extraction
+      // (A-580), then drop the bare `HEAD` the symbolic remote ref collapses to.
+      .map((name) => name.replace(/^refs\/(?:heads|remotes\/[^/]+)\//, ""))
       .filter((name) => name !== "HEAD")
       .filter((name) => {
         if (seen.has(name)) {

@@ -16,7 +16,7 @@ compatibility: >-
   `preflight-changelog-ci.mjs` step assumes the consumer repo uses pnpm with a
   committed lockfile; skip it if yours does not.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(node:*), Bash(pnpm:*)
 ---
@@ -158,7 +158,7 @@ post-merge fields blank):
 
 ```bash
 node skills/changelog/scripts/set-affected-packages.mjs   # writes affected_packages from the branch diff
-node skills/changelog/scripts/add-links.mjs               # rewrites bare issue IDs in the body to Linear URLs
+node skills/changelog/scripts/add-links.mjs               # rewrites bare issue IDs in the current branch's entry to Linear URLs
 ```
 
 Adjust the path prefix if you installed the skill to a different location.
@@ -173,12 +173,14 @@ node skills/changelog/scripts/set-affected-packages.mjs --check   # current bran
 node skills/changelog/scripts/add-links.mjs --check               # ALL entries in the changelog dir
 ```
 
-Mind the scope difference: `set-affected-packages.mjs` is branch-scoped (it
-derives from the current branch diff), whereas `add-links.mjs` enriches **every**
-entry in the changelog directory in all modes — so its `--check` validates a
-full-repo enrichment pass and can exit `1` on a historical entry. Use it to
-confirm the directory is fully enriched, not as a per-PR gate for one branch's
-entry.
+Both enrichers are **branch-scoped by default** (A-603): `add-links.mjs` with no
+arguments rewrites only the entry/entries whose `branch:` frontmatter matches the
+current git branch, so authoring a new entry never churns unrelated, already-merged
+ones. Two modes still scan the **whole** directory: `--all` (a deliberate
+full-directory rewrite) and `--check`/`--dry-run` (the completeness gate, which can
+exit `1` on a historical entry). Use `--check` to confirm the directory is fully
+enriched; use the default for the per-PR pass on one branch's entry. (When git is
+unavailable the default falls back to the full sweep.)
 
 ### Step 6 — Validate against the contract
 

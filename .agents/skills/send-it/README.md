@@ -11,7 +11,8 @@ It is a thin orchestrator: the lint gate, the changelog authoring, and the Linea
 transition are delegated to the standalone [`preflight`](../preflight),
 [`changelog`](../changelog), and [`linear-sync`](../linear-sync) skills. send-it
 owns only the glue no sibling does — the branch guard, worktree resolution, atomic
-commits, the shippability decision, the PR-title composition, push, and the PR.
+commits, the release-type decision (by category), the PR-title composition, push, and
+the PR.
 
 ## Install
 
@@ -34,22 +35,30 @@ npx skills add https://github.com/acme-skunkworks/agent-skills --skill preflight
 
 ## Configure
 
-The shipped [`config.json`](config.json) parameterises the shippability decision
-for this repo. A neutral [`config.example.json`](config.example.json) ships
-alongside it as a template — copy it over `config.json` and fill in your values,
-or edit `config.json` directly.
+The shipped [`config.json`](config.json) parameterises the ship flow for this repo.
+A neutral [`config.example.json`](config.example.json) ships alongside it as a
+template — copy it over `config.json` and fill in your values, or edit `config.json`
+directly.
 
 | Key | Meaning | Default |
 | --- | --- | --- |
 | `baseBranch` | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base. | `"main"` |
-| `shippablePaths` | Path prefixes whose changes reach consumers. A change touching any of these makes the PR **shippable** → a release-triggering `feat`/`fix`/`feat!` title. | `["skills/"]` |
-| `shippableManifestKeys` | `package.json` keys whose change is itself shippable (the published-`files` surface). A `package.json` diff touching any of these is shippable. | `["name", "version", "files", "publishConfig"]` |
+| `shippablePaths` *(advisory)* | The published surface, as a documentation hint for reviewers — **not** the release decision (release-type is decided by the change's semantic category; see below). Kept for the optional publish-surface cross-check note. | `["skills/"]` |
+| `shippableManifestKeys` *(advisory)* | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate. | `["name", "version", "files", "publishConfig"]` |
 | `bundleVersioning` *(optional)* | For repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` that turns on the per-bundle version-bump check: when a bundle's content changed but its version didn't, send-it offers to bump its `manifest` `version` + `skillFile` `metadata.version` in lockstep. **Omit it in single-package repos** — the check no-ops. | unset (disabled) |
+| `changelog` *(optional)* | Whether to author a dated `changelog/` entry at all. Set `false` only for repos with no changelog flow (no `changelog/` dir, no `changelog` skill). | `true` |
 
-A change is **shippable** iff the branch diff touches a `shippablePaths` prefix
-**or** the `package.json` diff touches a `shippableManifestKeys` key. Everything
-else is **non-shippable** and gets a non-release type (`docs`/`chore`/`ci`/…) — no
-changelog entry, no version bump.
+**Release-type is decided by category, not path (A-598).** send-it reads the
+Conventional-Commit type of the work it committed: `feat`/`fix`/`perf` — or any
+breaking change — cut a release; `docs`/`refactor`/`chore`/`ci`/`build`/`test`/`style`
+do not, wherever the files live. So a docs-only edit under `skills/` is `docs:` (no
+release), not `feat:`. `shippablePaths`/`shippableManifestKeys` are advisory only.
+
+**Every PR gets a `changelog/` entry** when `changelog` isn't `false` — the
+"record everything, filter later" model. Release notes filter the dated changelog to
+the version-stamped (release-triggering) entries at release time. The old
+`changelogScope` knob was removed (A-600); only the `changelog: true|false` master
+switch remains.
 
 The team name, issue-ID prefixes, and workspace slug are **not** configured here —
 they live in the `linear-sync` and `changelog` skills' own `config.json` files,

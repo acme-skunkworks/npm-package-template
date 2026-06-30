@@ -204,9 +204,10 @@ export function detectBaseBranch(root = ROOT) {
  * Validate a parsed `preflight.config.json` shape, dropping any malformed key
  * (with a warning) so it falls back to auto-detection rather than surfacing a
  * confusing downstream error. `baseBranch` must be a non-empty string;
- * `workspaces` must be an object of `{ filter, prefix }` string pairs.
+ * `workspaces` must be an object of `{ filter, prefix }` string pairs;
+ * `blockOnWarnings` must be a boolean.
  * @param {unknown} raw
- * @returns {{ baseBranch?: string; workspaces?: Record<string, { filter: string; prefix: string }> }}
+ * @returns {{ baseBranch?: string; workspaces?: Record<string, { filter: string; prefix: string }>; blockOnWarnings?: boolean }}
  */
 function validateOverride(raw) {
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
@@ -216,8 +217,18 @@ function validateOverride(raw) {
     return {};
   }
 
-  /** @type {{ baseBranch?: string; workspaces?: Record<string, { filter: string; prefix: string }> }} */
+  /** @type {{ baseBranch?: string; workspaces?: Record<string, { filter: string; prefix: string }>; blockOnWarnings?: boolean }} */
   const override = {};
+
+  if ("blockOnWarnings" in raw) {
+    if (typeof raw.blockOnWarnings === "boolean") {
+      override.blockOnWarnings = raw.blockOnWarnings;
+    } else {
+      console.warn(
+        "preflight: ignoring preflight.config.json blockOnWarnings (expected a boolean)",
+      );
+    }
+  }
 
   if ("baseBranch" in raw) {
     const baseBranch =
@@ -306,14 +317,14 @@ function loadConfigOverride(root) {
   return validateOverride(parsed);
 }
 
-/** @type {{ baseBranch: string; workspaces: Record<string, { filter: string; prefix: string }> } | null} */
+/** @type {{ baseBranch: string; workspaces: Record<string, { filter: string; prefix: string }>; blockOnWarnings: boolean } | null} */
 let cachedConfig = null;
 
 /**
  * Resolve preflight configuration: an explicit `preflight.config.json` wins,
  * otherwise auto-detect. Memoised for the default root.
  * @param {string} [root]
- * @returns {{ baseBranch: string; workspaces: Record<string, { filter: string; prefix: string }> }}
+ * @returns {{ baseBranch: string; workspaces: Record<string, { filter: string; prefix: string }>; blockOnWarnings: boolean }}
  */
 export function resolveConfig(root = ROOT) {
   if (root === ROOT && cachedConfig) {
@@ -323,6 +334,9 @@ export function resolveConfig(root = ROOT) {
   const override = loadConfigOverride(root);
   const config = {
     baseBranch: override.baseBranch ?? detectBaseBranch(root),
+    // Default off: introduced ESLint warnings are surfaced but don't gate the
+    // ship, matching `pnpm lint` / CI (A-601). Opt in to block on them.
+    blockOnWarnings: override.blockOnWarnings ?? false,
     workspaces: override.workspaces ?? detectWorkspaces(root),
   };
 

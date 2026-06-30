@@ -20,7 +20,7 @@ compatibility: >-
   Linear debt-issue step needs the Linear MCP server; skip it silently if
   unavailable.
 metadata:
-  version: 0.1.8
+  version: 0.2.0
   author: Rob Easthope
 allowed-tools: Read, Bash(git:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -67,7 +67,10 @@ The script's exit code drives the loop:
   `node skills/preflight/scripts/lint-fix.mjs` on the branch-scoped paths, then
   re-run preflight. Repeat until introduced violations clear or the user aborts.
   (Inside a ship flow, commit the fixes; standalone, leave them in the working
-  tree for the user to review and commit.)
+  tree for the user to review and commit.) **Only introduced _errors_ block by
+  default** — introduced ESLint **warnings** are reported as a non-blocking notice
+  and don't fail the gate, matching `pnpm lint` / CI (which exit 0 on warnings).
+  Set `blockOnWarnings: true` to gate on them too (see Configuration).
 - **Exit 2 — pre-existing violations only.** Show the list and ask the user to
   choose:
   - **Fix now** — apply the fixes, (commit if shipping), re-run preflight.
@@ -123,15 +126,24 @@ template):
 ```json
 {
   "baseBranch": "main",
+  "blockOnWarnings": false,
   "workspaces": {
     "web": { "filter": "@acme/web", "prefix": "apps/web/" }
   }
 }
 ```
 
-Either key may be supplied on its own; the other is still auto-detected. Use the
-override for non-pnpm repos, deliberate exclusions, or nested workspace globs the
-detector does not expand.
+Any key may be supplied on its own; the others are still auto-detected/defaulted.
+Use the override for non-pnpm repos, deliberate exclusions, or nested workspace
+globs the detector does not expand.
+
+- **`blockOnWarnings`** (default `false`) — whether introduced ESLint
+  warning-severity findings block the gate. Off by default, preflight blocks only
+  on introduced **errors** (and linters that fail to run); introduced warnings are
+  surfaced non-blockingly, matching `pnpm lint` / CI semantics. Set `true` for
+  repos that want warn-level findings the branch adds to gate as well.
+  markdownlint/actionlint findings always block — the warn/error split is
+  ESLint-only.
 
 ## Implementation
 

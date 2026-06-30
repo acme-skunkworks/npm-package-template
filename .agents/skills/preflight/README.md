@@ -44,15 +44,25 @@ To override either, drop a `preflight.config.json` at your **repo root**. A
 ```json
 {
   "baseBranch": "main",
+  "blockOnWarnings": false,
   "workspaces": {
     "web": { "filter": "@acme/web", "prefix": "apps/web/" }
   }
 }
 ```
 
-Either key may be supplied on its own; the other is still auto-detected. Use the
-override for non-pnpm repos, deliberate exclusions, or nested workspace globs the
-detector does not expand.
+Any key may be supplied on its own; the others are still auto-detected/defaulted.
+Use the override for non-pnpm repos, deliberate exclusions, or nested workspace
+globs the detector does not expand.
+
+- **`blockOnWarnings`** (default `false`) — whether introduced ESLint
+  **warning**-severity findings gate the ship. Off by default, preflight matches
+  `pnpm lint` / CI, which exit 0 on warnings: introduced warnings are reported as
+  a non-blocking notice but don't fail the gate; only introduced **errors** (and
+  linters that fail to run) block. Set `true` to make warn-level findings the
+  branch adds block as well. markdownlint/actionlint findings always block —
+  those tools exit non-zero on any finding, so the warn/error split is
+  ESLint-only.
 
 ## What it does
 

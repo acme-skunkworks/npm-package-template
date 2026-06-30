@@ -9,7 +9,7 @@ import {
 import { toRepoRelative } from "./lib/paths.mjs";
 
 /**
- * @typedef {{ file: string; line: number; column?: number; ruleId?: string; message: string; source: 'eslint' | 'markdownlint' | 'actionlint' }} Violation
+ * @typedef {{ file: string; line: number; column?: number; ruleId?: string; message: string; source: 'eslint' | 'markdownlint' | 'actionlint'; severity: 'error' | 'warning' }} Violation
  * @typedef {{ introduced: Violation[]; preExisting: Violation[] }} Classified
  */
 
@@ -37,6 +37,29 @@ export function classifyViolations(mergeBase, violations) {
 }
 
 /**
+ * Split introduced violations into the set that blocks the ship and the
+ * warn-severity findings surfaced non-blockingly. ESLint `warn`-level findings
+ * (severity 1) match `pnpm lint` / CI, which exit 0 on warnings — so by default
+ * they are reported but do not gate. A consumer that wants warn-level findings
+ * to block sets `blockOnWarnings: true` in `preflight.config.json` (A-601).
+ *
+ * markdownlint/actionlint findings are always tagged `error` (those tools exit
+ * non-zero on any finding, so CI blocks on them) and therefore always block.
+ * @param {Violation[]} introduced
+ * @param {boolean} blockOnWarnings
+ * @returns {{ blocking: Violation[]; warnings: Violation[] }}
+ */
+export function splitBySeverity(introduced, blockOnWarnings) {
+  const warnings = introduced.filter(
+    (violation) => violation.severity === "warning",
+  );
+  const blocking = blockOnWarnings
+    ? introduced
+    : introduced.filter((violation) => violation.severity !== "warning");
+  return { blocking, warnings };
+}
+
+/**
  * @param {string} eslintJson
  * @returns {Violation[]}
  */
@@ -61,9 +84,10 @@ export function parseEslintJson(eslintJson) {
   for (const result of data) {
     const file = toRepoRelative(result.filePath ?? "");
     for (const message of result.messages ?? []) {
-      // Drop severity 0 (off) only. Severity 1 (warn) is kept and counts as a
-      // blocking violation when on an introduced line — preflight is
-      // deliberately strict about warnings the branch adds.
+      // Drop severity 0 (off) only. Severity 1 (warn) is kept but tagged
+      // `warning` so it can be surfaced non-blockingly by default — matching
+      // `pnpm lint` / CI, which exit 0 on warnings (A-601). Severity 2 is an
+      // error and always blocks.
       if (message.severity === 0 || !message.line) {
         continue;
       }
@@ -74,6 +98,7 @@ export function parseEslintJson(eslintJson) {
         line: message.line,
         message: message.message,
         ruleId: message.ruleId,
+        severity: message.severity === 1 ? "warning" : "error",
         source: "eslint",
       });
     }
@@ -129,6 +154,9 @@ export function parseMarkdownlintJson(mdJson) {
       ruleId: Array.isArray(item.ruleNames)
         ? item.ruleNames.join("/")
         : item.ruleName,
+      // markdownlint-cli2 exits non-zero on any finding, so CI blocks on them —
+      // tag as error to mirror that (the warn/error severity split is ESLint-only).
+      severity: "error",
       source: "markdownlint",
     });
   }
@@ -182,6 +210,7 @@ export function parseMarkdownlintText(text) {
       ...(match[3] ? { column: Number(match[3]) } : {}),
       message,
       ruleId,
+      severity: "error",
       source: "markdownlint",
     });
   }
@@ -216,6 +245,7 @@ export function parseActionlintText(stderr, workflowFiles) {
         file: toRepoRelative(match[1]),
         line: Number(match[2]),
         message: match[4],
+        severity: "error",
         source: "actionlint",
       });
       continue;
@@ -226,6 +256,7 @@ export function parseActionlintText(stderr, workflowFiles) {
         file: workflowFiles[0],
         line: 1,
         message: line,
+        severity: "error",
         source: "actionlint",
       });
     }

@@ -69,8 +69,18 @@ export function finaliseEntry(raw, version, resolvePr) {
   const branch = typeof fm.branch === "string" ? fm.branch : "";
   // Include blank(fm.stats) so a hand-authored entry that pre-fills
   // merged_at/commit/pr but leaves stats blank still gets stats from the PR.
+  // Also treat a populated-but-commits-less stats block as enrichable: an entry
+  // finalised in the window between `stats` first existing (A-380) and
+  // `stats.commits` being added (A-560) has every other field set, so without
+  // the `stats.commits` check needsEnrich is false, enrich is skipped, the entry
+  // is version-stamped, and the later line-63 short-circuit makes the missing
+  // `commits` un-backfillable through finalise forever (A-579).
   const needsEnrich =
-    blank(fm.merged_at) || blank(fm.commit) || blank(fm.pr) || blank(fm.stats);
+    blank(fm.merged_at) ||
+    blank(fm.commit) ||
+    blank(fm.pr) ||
+    blank(fm.stats) ||
+    blank(fm.stats?.commits);
   if (branch && needsEnrich) {
     const pr = resolvePr(branch);
     if (pr) {
