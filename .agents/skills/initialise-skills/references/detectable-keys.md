@@ -10,7 +10,7 @@ detector serves every skill that uses a key. A key found in a skill's
 | `issueKeys` | changelog, cleanup-repo, linear-sync, triage-pr | Leading `<KEY>-<num>` (uppercased; single-letter keys like `A` accepted) from the **most recently committed** branch — `git for-each-ref --sort=-committerdate` — so a renamed team yields its current key, not the historical union; or supplied facts | `needs-manual-input` when no branches match |
 | `linearTeamName` | cleanup-repo, linear-sync, triage-pr | Supplied via stdin `facts` (Linear MCP `list_teams`) | `needs-manual-input` |
 | `linearWorkspaceSlug` | changelog | Supplied via stdin `facts` (Linear MCP) | `needs-manual-input` |
-| `changelog` | send-it | `true` when the `changelog` skill is installed alongside or a `changelog/` directory exists; `false` when the repo has neither (no changelog flow) | `true` |
+| `changelog` | send-it | `true` when a `changelog/` directory exists at the repo root; `false` otherwise (no changelog flow). Skill-presence alone does **not** enable it — a repo that vendors the `changelog` skill but keeps no `changelog/` dir stays `false` (A-570) | `true` |
 | `changelogDir` | changelog | Structural default | `changelog` |
 | `packageRoots` | changelog | `pnpm-workspace.yaml` `packages:` globs → top dirs; else root `package.json` `workspaces` field | `["apps", "packages", "services"]` |
 | `fallbackPackage` | changelog | Structural default | `infrastructure` |
@@ -38,7 +38,7 @@ detector serves every skill that uses a key. A key found in a skill's
   send-it's `config.example.json` (the single-package template), so it is never
   *added* by detection — only kept (`unknown-kept`) where a consumer already set
   it. Multi-bundle consumers add it by hand.
-- **`issueKeys` order is not drift.** Detected `["A"]` vs configured `["A"]`
+- **`issueKeys` order does not count as drift.** Detected `["A"]` vs configured `["A"]`
   compares with set semantics (order-insensitive); the existing order is preserved
   on write to avoid churn.
 - **`issueKeys` prefers the current key, not the historical union.** Detection reads

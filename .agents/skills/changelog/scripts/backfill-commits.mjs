@@ -124,18 +124,26 @@ function setStatsCommits(raw, commits) {
   }
 
   // Walk the indented children of the stats block. The first dedented (or
-  // closing-fence) line ends it. Track the last child to append after, and any
-  // existing commits line to replace in place.
+  // closing-fence) line ends it. Track the last child to append after, any
+  // existing commits line to replace in place, and the child indent so an
+  // inserted line nests under stats: at the same depth (don't hard-code two
+  // spaces — a 4-space block would otherwise be mis-nested; A-581).
   let lastChild = statsIndex;
   let commitsIndex = -1;
+  let childIndent = null;
   for (let index = statsIndex + 1; index < fmEnd; index++) {
     const line = lines[index];
     if (line.trim() === "") {
       continue;
     }
 
-    if (!/^\s+/.test(line)) {
+    const indentMatch = /^(\s+)/.exec(line);
+    if (!indentMatch) {
       break;
+    }
+
+    if (childIndent === null) {
+      childIndent = indentMatch[1];
     }
 
     lastChild = index;
@@ -144,7 +152,9 @@ function setStatsCommits(raw, commits) {
     }
   }
 
-  const newLine = `  commits: ${commits}`;
+  // Fall back to two spaces only when the stats block has no children to mirror.
+  const indent = childIndent ?? "  ";
+  const newLine = `${indent}commits: ${commits}`;
   if (commitsIndex === -1) {
     lines.splice(lastChild + 1, 0, newLine);
   } else {

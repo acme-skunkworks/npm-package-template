@@ -146,7 +146,6 @@ function main() {
   const { acceptDrift, facts } = readStdinPayload();
   const skills = discoverSkills(options.skillsDir);
   const { detect } = createDetectors({
-    installedSkills: new Set(skills.map((skill) => skill.name)),
     linearFacts: facts,
     repoRoot: options.repoRoot,
   });
@@ -200,13 +199,24 @@ function main() {
   // bundle is skipped by discoverSkills, so check separately (A-569).
   let gitignore = null;
   if (isPreflightInstalled(options.skillsDir)) {
-    const result = reconcilePreflightIgnore(options.repoRoot, {
-      write: options.write,
-    });
-    gitignore = {
-      path: relative(options.repoRoot, result.path),
-      status: result.status,
-    };
+    try {
+      const result = reconcilePreflightIgnore(options.repoRoot, {
+        write: options.write,
+      });
+      gitignore = {
+        path: relative(options.repoRoot, result.path),
+        status: result.status,
+      };
+    } catch (error) {
+      // The top-level main() catch already funnels this to exit(2); name the
+      // .gitignore write specifically so the failure is diagnosable, mirroring
+      // the per-skill config write handler above (A-583). The per-skill writes
+      // are idempotent, so a re-run after fixing the I/O cause is safe.
+      console.error(
+        `initialise-skills: could not reconcile .gitignore: ${error.message}`,
+      );
+      process.exit(2);
+    }
   }
 
   const report = buildReport(skillReports, options.write, gitignore);

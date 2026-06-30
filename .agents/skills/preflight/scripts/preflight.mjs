@@ -4,6 +4,7 @@ import {
   parseActionlintText,
   parseEslintJson,
   parseMarkdownlintText,
+  splitBySeverity,
 } from "./classify-lint.mjs";
 import {
   getBranchScope,
@@ -232,10 +233,17 @@ function runActionlint(files) {
  * unit-testable.
  * @param {ReturnType<import('./lib/scope.mjs').getBranchScope>} scope
  * @param {{ failedLinters?: string[], actionlintStatus?: string, markdownlintStatus?: string }} results
- * @param {{ introduced: unknown[], preExisting: unknown[] }} classified
+ * @param {{ introduced: import('./classify-lint.mjs').Violation[], preExisting: import('./classify-lint.mjs').Violation[] }} classified
  * @param {boolean} isDryRun
+ * @param {boolean} [blockOnWarnings] gate on introduced warn-severity findings too (default off — A-601)
  */
-export function buildSummary(scope, results, classified, isDryRun) {
+export function buildSummary(
+  scope,
+  results,
+  classified,
+  isDryRun,
+  blockOnWarnings = false,
+) {
   const failedLinters = results.failedLinters ?? [];
   const categories = {
     actionlint: scope.workflowsChanged ? scope.actionlintTargets : "skipped",
@@ -243,15 +251,20 @@ export function buildSummary(scope, results, classified, isDryRun) {
     markdown: scope.markdownChanged ? scope.markdown : "skipped",
   };
 
+  // Errors always block; warnings block only under blockOnWarnings (A-601).
+  const { blocking: introducedBlocking, warnings: introducedWarnings } =
+    splitBySeverity(classified.introduced, blockOnWarnings);
+
   return {
-    blocking: classified.introduced.length > 0 || failedLinters.length > 0,
+    blocking: introducedBlocking.length > 0 || failedLinters.length > 0,
     categories,
     deferred: classified.preExisting.length > 0 && !isDryRun,
     dryRun: isDryRun,
     mergeBase: scope.mergeBase,
-    passed: classified.introduced.length === 0 && failedLinters.length === 0,
+    passed: introducedBlocking.length === 0 && failedLinters.length === 0,
     results: {
       actionlint: results.actionlintStatus,
+      blockOnWarnings,
       eslintRan: scope.codeChanged,
       failedLinters,
       markdownlint:
@@ -261,7 +274,11 @@ export function buildSummary(scope, results, classified, isDryRun) {
     },
     violations: {
       introduced: classified.introduced,
+      introducedBlocking,
+      introducedBlockingCount: introducedBlocking.length,
       introducedCount: classified.introduced.length,
+      introducedWarningCount: introducedWarnings.length,
+      introducedWarnings,
       preExisting: classified.preExisting,
       preExistingCount: classified.preExisting.length,
     },
@@ -286,7 +303,7 @@ function main() {
   }
 
   const scope = getBranchScope();
-  const { baseBranch } = resolveConfig();
+  const { baseBranch, blockOnWarnings } = resolveConfig();
 
   if (scope.changedFiles.length === 0) {
     console.log(
@@ -428,6 +445,7 @@ function main() {
     { actionlintStatus, failedLinters, markdownlintStatus },
     classified,
     dryRun,
+    blockOnWarnings,
   );
   // --dry-run is a true preview: skip the summary write the ship flow reads.
   if (!dryRun) {
@@ -439,9 +457,12 @@ function main() {
   console.log(
     `  categories: eslint=${scope.codeChanged ? (dryRun ? "would-run" : "ran") : "skipped"} markdown=${markdownlintStatus} actionlint=${actionlintStatus}`,
   );
+  const { blocking: introducedBlocking, warnings: introducedWarnings } =
+    splitBySeverity(classified.introduced, blockOnWarnings);
+
   if (!dryRun) {
     console.log(
-      `  violations: introduced=${classified.introduced.length} pre-existing=${classified.preExisting.length}`,
+      `  violations: introduced=${classified.introduced.length} (blocking=${introducedBlocking.length} warnings=${introducedWarnings.length}) pre-existing=${classified.preExisting.length}`,
     );
     if (failedLinters.length > 0) {
       console.log(`  failed linters: ${failedLinters.join(", ")}`);
@@ -454,18 +475,37 @@ function main() {
     process.exit(0);
   }
 
-  if (classified.introduced.length > 0) {
+  // Non-blocking notice: warn-severity findings the branch introduced are
+  // reported but, by default, don't gate the ship — `pnpm lint` / CI exit 0 on
+  // warnings too (A-601). A consumer that wants them to block sets
+  // `blockOnWarnings: true` (which folds them into `introducedBlocking` above).
+  if (!blockOnWarnings && introducedWarnings.length > 0) {
+    console.warn(
+      "\npreflight: introduced warnings (non-blocking — set blockOnWarnings:true in preflight.config.json to gate on these):",
+    );
+    for (const violation of introducedWarnings.slice(0, 20)) {
+      console.warn(
+        `  ${violation.file}:${violation.line} [${violation.source}] ${violation.message}`,
+      );
+    }
+
+    if (introducedWarnings.length > 20) {
+      console.warn(`  … and ${introducedWarnings.length - 20} more`);
+    }
+  }
+
+  if (introducedBlocking.length > 0) {
     console.error(
       "\npreflight: blocking — introduced violations must be fixed (run node skills/preflight/scripts/lint-fix.mjs and re-run preflight)",
     );
-    for (const violation of classified.introduced.slice(0, 20)) {
+    for (const violation of introducedBlocking.slice(0, 20)) {
       console.error(
         `  ${violation.file}:${violation.line} [${violation.source}] ${violation.message}`,
       );
     }
 
-    if (classified.introduced.length > 20) {
-      console.error(`  … and ${classified.introduced.length - 20} more`);
+    if (introducedBlocking.length > 20) {
+      console.error(`  … and ${introducedBlocking.length - 20} more`);
     }
 
     process.exit(1);
