@@ -51,8 +51,7 @@ and fill it in by hand.
 
 **Release-type is decided by category, not path (A-598).** send-it reads the
 Conventional-Commit type of the work it committed: `feat`/`fix`/`perf` — or any
-breaking change — cut a release; `docs`/`refactor`/`chore`/`ci`/`
-build`/`test`/`style`
+breaking change — cut a release; `docs`/`refactor`/`chore`/`ci`/`build`/`test`/`style`
 do not, wherever the files live. So a docs-only edit under `skills/` is `docs:` (no
 release), not `feat:`. `shippablePaths`/`shippableManifestKeys` are advisory only.
 
