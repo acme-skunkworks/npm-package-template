@@ -2,7 +2,7 @@
 # .github/actions/load-repo-config — see CLAUDE.md (A-176).
 #
 # NOTE: Workflow triggers (on.push.branches) cannot reference this file at runtime;
-# keep defaultBranch in sync with branches listed in release.yml.
+# keep defaultBranch in sync with branches listed in pkg-release.yml.
 
 defaultBranch: main
 nodeVersionFile: .nvmrc
