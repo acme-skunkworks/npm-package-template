@@ -17,17 +17,18 @@ npx skills add https://github.com/acme-skunkworks/agent-skills --skill linear-sy
 
 ## Configure
 
-The shipped [`config.json`](config.json) carries **ACME Skunkworks defaults**
-(`linearTeamName` and `issueKeys`) — update them for your organisation on install,
-or the state lookups will target the wrong team and branch issue-IDs won't match.
-A neutral [`config.example.json`](config.example.json) ships alongside it as a
-template — copy it over `config.json` and fill in your values, or edit
-`config.json` directly.
+This skill ships only [`config.example.json`](config.example.json), a neutral
+template — the per-skill `config.json` is generated on install, not vendored, so
+you never inherit another repo's values. Run the `initialise-skills` skill to
+generate `config.json` from the example with your repo's facts, or copy it to
+`config.json` and fill it in by hand. Set `linearTeamName` and `issueKeys` for
+your organisation, or the state lookups will target the wrong team and branch
+issue-IDs won't match.
 
-| Key | Meaning | Default |
-| --- | --- | --- |
+| Key              | Meaning                                                                                                                | Default             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | `linearTeamName` | Linear team **name** used to resolve live state IDs. Stable across team-key renames — always resolve by name, not key. | `"ACME Skunkworks"` |
-| `issueKeys` | Team-key prefixes that may appear in branch names; the issue-ID regex is built from these. | `["A"]` |
+| `issueKeys`      | Team-key prefixes that may appear in branch names; the issue-ID regex is built from these.                             | `["A"]`             |
 
 ## Requirements
 

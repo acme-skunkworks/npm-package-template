@@ -17,19 +17,20 @@ npx skills add https://github.com/acme-skunkworks/agent-skills --skill cleanup-r
 
 ## Configure
 
-The shipped [`config.json`](config.json) carries **ACME Skunkworks defaults**
-(`linearTeamName` and `issueKeys`) — update them for your organisation on install,
-or the Linear lookups will target the wrong team and branch issue-IDs won't match.
-A neutral [`config.example.json`](config.example.json) ships alongside it as a
-template — copy it over `config.json` and fill in your values, or edit
-`config.json` directly.
+This skill ships only [`config.example.json`](config.example.json), a neutral
+template — the per-skill `config.json` is generated on install, not vendored, so
+you never inherit another repo's values. Run the `initialise-skills` skill to
+generate `config.json` from the example with your repo's facts, or copy it to
+`config.json` and fill it in by hand. Set `linearTeamName` and `issueKeys` for
+your organisation, or the Linear lookups will target the wrong team and branch
+issue-IDs won't match.
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `linearTeamName` | Linear team **name** used to resolve the live `Done` state. Stable across team-key renames. | `"ACME Skunkworks"` |
-| `issueKeys` | Team-key prefixes that may appear in branch names; the issue-ID regex is built from these. | `["A"]` |
-| `mainBranch` | Trunk a branch must be merged into to count as merged; both passes diff against `origin/<mainBranch>`. Set it for repos whose trunk isn't `main` (`master`, `develop`, …). | `"main"` |
-| `protectedBranches` | Branches never deleted, locally or remotely. | `["main"]` |
+| Key                 | Meaning                                                                                                                                                                    | Default             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `linearTeamName`    | Linear team **name** used to resolve the live `Done` state. Stable across team-key renames.                                                                                | `"ACME Skunkworks"` |
+| `issueKeys`         | Team-key prefixes that may appear in branch names; the issue-ID regex is built from these.                                                                                 | `["A"]`             |
+| `mainBranch`        | Trunk a branch must be merged into to count as merged; both passes diff against `origin/<mainBranch>`. Set it for repos whose trunk isn't `main` (`master`, `develop`, …). | `"main"`            |
+| `protectedBranches` | Branches never deleted, locally or remotely.                                                                                                                               | `["main"]`          |
 
 > **Base branch.** The trunk defaults to `origin/main`; set the `mainBranch`
 > config key for repositories on `master` / `develop` / similar — both merge

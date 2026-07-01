@@ -21,7 +21,7 @@ compatibility: >-
   `linear-sync` skills — install them alongside this one. The In Review writeback
   needs the Linear MCP server (via `linear-sync`); it is skipped if unavailable.
 metadata:
-  version: 0.5.0
+  version: 0.5.1
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -73,13 +73,13 @@ A few knobs live in [`config.json`](config.json) beside this file; edit your
 copied `config.json` to match the consuming repo (a neutral
 [`config.example.json`](config.example.json) ships as a template):
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `baseBranch` | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base. | `"main"` |
-| `shippablePaths` *(advisory)* | Path prefixes that make up the published surface — a documentation hint for reviewers, **not** the release decision (A-598; see Step 6). Release-type is decided by the change's semantic category, so these no longer gate the title. Kept for the optional publish-surface cross-check note. | `["skills/"]` |
-| `shippableManifestKeys` *(advisory)* | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate. | `["name", "version", "files", "publishConfig"]` |
-| `changelog` *(optional)* | Whether to author a dated `changelog/` entry at all (Steps 7–8). Set `false` for repos with **no changelog flow** — no `changelog/` directory and no `changelog` skill installed (e.g. a `private` repo with no release pipeline). When `false`, send-it skips changelog authoring entirely, and the category decision continues to drive only the PR title. **Omit it (or set `true`) whenever the `changelog` skill is installed.** | `true` |
-| `bundleVersioning` *(optional)* | Enables the per-bundle version-bump check (Step 6) for repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` naming the bundle parent dir and the manifest / skill-manifest filenames each bundle carries. **Omit it entirely in single-package repos** — the check then no-ops. | unset (disabled) |
+| Key                                  | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                               | Default                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `baseBranch`                         | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base.                                                                                                                                                                                                                                                                                                                                                   | `"main"`                                        |
+| `shippablePaths` _(advisory)_        | Path prefixes that make up the published surface — a documentation hint for reviewers, **not** the release decision (A-598; see Step 6). Release-type is decided by the change's semantic category, so these no longer gate the title. Kept for the optional publish-surface cross-check note.                                                                                                                                        | `["skills/"]`                                   |
+| `shippableManifestKeys` _(advisory)_ | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate.                                                                                                                                                                                                                                                                                                       | `["name", "version", "files", "publishConfig"]` |
+| `changelog` _(optional)_             | Whether to author a dated `changelog/` entry at all (Steps 7–8). Set `false` for repos with **no changelog flow** — no `changelog/` directory and no `changelog` skill installed (e.g. a `private` repo with no release pipeline). When `false`, send-it skips changelog authoring entirely, and the category decision continues to drive only the PR title. **Omit it (or set `true`) whenever the `changelog` skill is installed.** | `true`                                          |
+| `bundleVersioning` _(optional)_      | Enables the per-bundle version-bump check (Step 6) for repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` naming the bundle parent dir and the manifest / skill-manifest filenames each bundle carries. **Omit it entirely in single-package repos** — the check then no-ops.                                                                                                      | unset (disabled)                                |
 
 The team name, issue-ID prefixes, and workspace slug are **not** configured here —
 they live in the `linear-sync` and `changelog` skills' own `config.json` files,
@@ -112,7 +112,7 @@ before any other step runs. Skip this step otherwise.
    - **Otherwise**: treat as a branch name and match against the
      `branch refs/heads/<name>` field.
 3. **No match** — exit immediately with: `No worktree found for <arg>. Available:
-   <comma-separated paths>`.
+<comma-separated paths>`.
 4. **Match** — `cd` into the resolved worktree path. The `cwd` persists for the
    rest of the workflow, so all subsequent `git` and `gh` calls operate on the
    worktree.
@@ -176,7 +176,7 @@ don't use pnpm.)
 ### Step 3: Commit uncommitted changes
 
 send-it is the all-in-one finisher: whatever's uncommitted should be committed
-before the changelog/PR work begins — but only what belongs to *this* branch.
+before the changelog/PR work begins — but only what belongs to _this_ branch.
 
 1. `git status --porcelain`. If clean, skip this step.
 2. Inspect uncommitted files: `git status --porcelain` for the list, `git diff` and
@@ -312,7 +312,7 @@ as `feat:`/`fix:` and cut a spurious release.)
    ```
 
    It prints `{ "configured", "unbumped": [{ name, currentVersion, suggestedBump,
-   suggestedVersion, manifestPath, skillPath }], "bumped" }`. For **each** `unbumped`
+suggestedVersion, manifestPath, skillPath }], "bumped" }`. For **each** `unbumped`
    entry, surface the proposal and apply it on confirmation:
 
    > `skills/<name>` changed but its version is still `<currentVersion>`. Suggested
@@ -382,6 +382,7 @@ Follow the [`changelog`](../changelog/SKILL.md) skill to author or update the en
    Leave the post-merge fields (`merged_at`, `commit`, `pr`, `merge_strategy`, `stats`)
    and `version` as blank placeholders — the release step finalises them (a non-release
    entry keeps `version` blank, as no release is cut for it).
+
 3. Run the enrichment scripts: `node skills/changelog/scripts/set-affected-packages.mjs`
    then `node skills/changelog/scripts/add-links.mjs`.
 4. **Validate:** `node skills/changelog/scripts/validate-changelog.mjs`. It must pass
@@ -411,11 +412,11 @@ run so it stays in sync with the branch's commits).
 
 1. Check for an existing PR: `gh pr view --json number,url 2>/dev/null`.
 2. **If creating:** `gh pr create --base <base> --draft --title "<title>" --body
-   "<body>"`. Use `--ready` (the flag) instead of `--draft` if the user passed
+"<body>"`. Use `--ready` (the flag) instead of `--draft` if the user passed
    `--ready`.
 3. **If updating:** `gh pr edit <number> --title "<title>" --body "<body>"`.
 4. **If `--merge-when-ready` was passed:** after create/update, run `gh pr merge
-   --auto --squash <number>` to enable auto-merge once requirements are met.
+--auto --squash <number>` to enable auto-merge once requirements are met.
 5. Return the PR URL via `gh pr view --json url -q '.url'`.
 
 **PR body template:**
@@ -429,6 +430,7 @@ run so it stays in sync with the branch's commits).
 ## Related Issues
 
 <!-- Linear identifiers extracted from the branch and commits -->
+
 - <ISSUE-ID>
 
 ## Test Plan

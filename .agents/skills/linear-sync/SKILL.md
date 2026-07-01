@@ -15,7 +15,7 @@ compatibility: >-
   read needs the `git` CLI. If the Linear MCP server is unavailable the skill
   cannot run — it has no non-MCP fallback.
 metadata:
-  version: 0.3.2
+  version: 0.3.3
   author: Rob Easthope
 allowed-tools: Read, Bash(git:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -35,10 +35,10 @@ Two knobs live in [`config.json`](config.json) beside this file. Read it at the
 start of a run and use its values throughout. Edit your copied `config.json` to
 match the consuming repo:
 
-| Key | Meaning | Default |
-| --- | --- | --- |
+| Key              | Meaning                                                                                                                                   | Default             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
 | `linearTeamName` | Linear team **name** used to resolve the live state IDs. Use the name, not the key — the key is renamed over time but the name is stable. | `"ACME Skunkworks"` |
-| `issueKeys` | Team-key prefixes that may appear in branch names. The issue-ID regex is built from these. | `["A"]` |
+| `issueKeys`      | Team-key prefixes that may appear in branch names. The issue-ID regex is built from these.                                                | `["A"]`             |
 
 A neutral [`config.example.json`](config.example.json) ships alongside it as a
 template — copy it over `config.json` and fill in your values, or edit

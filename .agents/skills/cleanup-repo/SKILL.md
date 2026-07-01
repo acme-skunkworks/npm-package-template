@@ -15,7 +15,7 @@ compatibility: >-
   Linear MCP server; if it is unavailable, skip that step silently. The
   filesystem pass needs Node.js ≥22.
 metadata:
-  version: 0.3.2
+  version: 0.3.3
   author: Rob Easthope
 allowed-tools: Read, Bash(git:*), Bash(gh:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -37,17 +37,17 @@ Four knobs live in [`config.json`](config.json) beside this file. Read it at the
 start of a run and use its values throughout. Edit your copied `config.json` to
 match the consuming repo:
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `linearTeamName` | Linear team **name** used to resolve the live `Done` state. Use the name, not the key — the key is renamed over time but the name is stable. | `"ACME Skunkworks"` |
-| `issueKeys` | Team-key prefixes that may appear in branch names. The issue-ID regex is built from these. | `["A"]` |
-| `mainBranch` | The trunk a branch must be merged into to count as merged — both passes diff against `origin/<mainBranch>`. Set it for repos whose trunk is `master`, `develop`, or similar. | `"main"` |
-| `protectedBranches` | Branches that are **never** deleted, locally or remotely. | `["main"]` |
+| Key                 | Meaning                                                                                                                                                                      | Default             |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `linearTeamName`    | Linear team **name** used to resolve the live `Done` state. Use the name, not the key — the key is renamed over time but the name is stable.                                 | `"ACME Skunkworks"` |
+| `issueKeys`         | Team-key prefixes that may appear in branch names. The issue-ID regex is built from these.                                                                                   | `["A"]`             |
+| `mainBranch`        | The trunk a branch must be merged into to count as merged — both passes diff against `origin/<mainBranch>`. Set it for repos whose trunk is `master`, `develop`, or similar. | `"main"`            |
+| `protectedBranches` | Branches that are **never** deleted, locally or remotely.                                                                                                                    | `["main"]`          |
 
 Build the issue-ID regex **deterministically**: escape each key's regex
 metacharacters, and when there is more than one key wrap the alternation in
 `(?:…)` so the `-\d+` binds to all of them — `\b(?:A|B)-\d+\b`, never the naive
-join `\bA|B-\d+\b` (which parses as `\bA` *or* `B-\d+\b`). A single key needs no
+join `\bA|B-\d+\b` (which parses as `\bA` _or_ `B-\d+\b`). A single key needs no
 wrapper: `\bA-\d+\b`. With no keys configured, match nothing. This mirrors the
 canonical `buildIssueRe` in the repo-root `lib/issue-keys.mjs`, which
 `pnpm vendor:sync` copies into each consuming bundle (ADR-0004). Match it
@@ -119,7 +119,7 @@ git worktree list
 - Identify worktrees with uncommitted changes: `git -C <path> status --porcelain`
   non-empty. These are surfaced separately in Step 6 and **never removed
   automatically** — the user handles them manually (`git worktree remove --force
-  <path>` once they have moved or discarded the work).
+<path>` once they have moved or discarded the work).
 - Worktree location is irrelevant to detection; `git worktree list` enumerates
   them wherever they live (e.g. a gitignored `.claude/worktrees/<branch>/`).
 
@@ -147,7 +147,7 @@ gh pr list --head <branch-name> --base <mainBranch> --state merged \
 `--repo` flag is needed.
 
 - **`--base <mainBranch>` is required.** `gh pr list --head` does **not** filter on
-  base on its own, so without it a branch merged into a *different* base (a
+  base on its own, so without it a branch merged into a _different_ base (a
   stacked/feature base, not the trunk) would be wrongly counted as merged-to-trunk
   and deleted. Scoping to `--base <mainBranch>` (default `main`) restricts the match
   to PRs actually merged into the trunk.
@@ -159,7 +159,7 @@ gh pr list --head <branch-name> --base <mainBranch> --state merged \
   - **Equal** → the branch is fully merged; add it to the squash-merged cleanup
     list (Step 9.3 force-deletes it, which is safe because the tip matched).
   - **Not equal** → the local branch carries commits added **after** the PR merged.
-    Do **not** delete it; add it to a *"Skipped — local tip ahead of merged PR"*
+    Do **not** delete it; add it to a _"Skipped — local tip ahead of merged PR"_
     group so a plain `-D` can't silently discard unpushed work.
 - An empty result means the branch is genuinely unmerged — leave it alone.
 
@@ -259,10 +259,10 @@ Confirm the two passes **separately** — their blast radii and reversibility di
 so the user may accept one and decline the other:
 
 1. **Branch/worktree pass** — ask `Delete these worktrees and branches (local +
-   remote)? (yes/no)`. On `no`, skip the worktree/branch/remote deletion (Step
+remote)? (yes/no)`. On `no`, skip the worktree/branch/remote deletion (Step
    9.1–9.4) and the Linear `Done` writeback (Step 10).
 2. **Filesystem pass** — ask `Remove these empty directories and orphan
-   node_modules? (yes/no)`. On `no`, skip the filesystem removal (Step 9.5).
+node_modules? (yes/no)`. On `no`, skip the filesystem removal (Step 9.5).
 
 Rules:
 
@@ -303,8 +303,8 @@ runs **after** worktree removal so a just-emptied worktree parent (e.g.
    ```
 
    Force-delete (`-D`) only the squash-merged branches confirmed in Step 3 — those
-   whose local tip equalled the merged PR's `headRefOid`. Branches in the *"Skipped
-   — local tip ahead of merged PR"* group are **never** force-deleted here: they
+   whose local tip equalled the merged PR's `headRefOid`. Branches in the _"Skipped
+   — local tip ahead of merged PR"_ group are **never** force-deleted here: they
    carry commits added after the merge, and `-D` would discard them. The base-scoped
    `gh pr list --base <mainBranch>` and the tip check together are what make the
    force safe; without them `-D` could drop a branch merged into a different base or
@@ -338,14 +338,14 @@ runs **after** worktree removal so a just-emptied worktree parent (e.g.
 If any Linear issues from Step 4 are not `Done`:
 
 - Ask: `These Linear issues are linked to merged branches but aren't Done. Set
-  them to Done? (yes/no)`. **Default no** — Linear's GitHub integration normally
+them to Done? (yes/no)`. **Default no** — Linear's GitHub integration normally
   handles this on PR merge, so this exists only for the rare case where it didn't
   fire (e.g. the issue ID was added after the merge).
 - If yes:
   - Resolve the live `Done` state ID **once** via
     `mcp__linear-server__list_issue_statuses` with `team: <linearTeamName>` —
     state IDs are per-team and the team key changes over time, so pass the team
-    *name*.
+    _name_.
   - For each open issue, call `mcp__linear-server__save_issue` with
     `state: <Done state ID>`.
 - If no, skip without changes.
