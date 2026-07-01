@@ -24,7 +24,7 @@ permissions:
 # together (SK-446). The two checks that have no reusable lane stay inline:
 # `pr-title` (its own consumer-migration track, SK-428/SK-403) and the
 # changelog-completeness gate (it reads the PR title, which a reusable workflow
-# can't). The `go/no-go` aggregator (SK-412/SK-424) stays local and unchanged —
+# can't). The `GO/NO GO` aggregator (SK-412/SK-424) stays local and unchanged —
 # it is the estate-canonical required check and lives per-repo by design.
 jobs:
   # Loads infrastructure/repo-config.yaml once and exposes it to the reusable
@@ -192,25 +192,21 @@ jobs:
         run: pnpm tsx infrastructure/scripts/check-changelog-completeness.ts
 
   # Single estate release gate (SK-412/SK-424). An always()-run aggregator whose
-  # intrinsic check-run, named `go/no-go`, succeeds iff every required job above
+  # intrinsic check-run, named `GO/NO GO`, succeeds iff every required job above
   # passed or legitimately skipped. A check-run (not a commit status) is
   # App-only — minted solely by this repo's own Actions run — so a push-scoped
   # token or a fork contributor cannot forge it; require it on `main` via a
-  # ruleset pinned to the GitHub Actions integration. The literal `/` in the job
-  # name surfaces verbatim as `check_run.name == "go/no-go"` (emoji and spaces
-  # already survive in `lint / Lint`); if it ever doesn't, fall back to
-  # explicit-create (POST /check-runs, Option A). Transitional (SK-419): the
-  # release-orchestrator still waits on `🔬 Build & Lint` until it is flipped to
-  # `go/no-go` (dual-accept) — that context no longer exists here, so the fleet
-  # rollout (SK-420) must land alongside SK-419. Safe on THIS repo: Release is
-  # disabled, so nothing here waits on the orchestrator.
+  # ruleset pinned to the GitHub Actions integration. The literal `/` and space
+  # in the job name surface verbatim as `check_run.name == "GO/NO GO"` (emoji and
+  # spaces already survive in `lint / Lint`); if it ever doesn't, fall back to
+  # explicit-create (POST /check-runs, Option A).
   #
   # The caller swap SK-411 foreshadowed has now landed (SK-447): the lint /
   # build-test work runs through acme-skunkworks/shared-workflows reusable
   # workflows; this aggregator stays put across that swap, which is exactly why
   # it lives here (custom per-repo) and not upstream.
   go-no-go:
-    name: go/no-go
+    name: GO/NO GO
     needs: [config, lint, build-test, pr-title, changelog-completeness]
     if: ${{ always() }} # MANDATORY — else the aggregator skips and the gate never reports
     runs-on: ubuntu-latest
