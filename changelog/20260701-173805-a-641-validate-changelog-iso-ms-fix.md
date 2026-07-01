@@ -27,5 +27,5 @@ stats:
   gray-matter parses it to a JS `Date` and the validator's own `asIso()` renders it
   via `Date.toISOString()` — which always emits milliseconds — so the previous
   second-only regex rejected the validator's own output. A regression test covers
-  the unquoted-timestamp (`Date` → `asIso`) path the existing quoted-string cases
-  never exercised.
+  the unquoted-timestamp (`Date` → `asIso`) path that the existing quoted-string
+  cases never exercised.
