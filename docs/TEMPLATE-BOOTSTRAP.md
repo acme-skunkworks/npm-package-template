@@ -4,7 +4,7 @@ The one-time setup that turns `acme-skunkworks/npm-package-template` into a work
 GitHub **Template repository**, plus the org/repo settings every spawned repo inherits.
 
 These settings were proven on the `eslint-config` testbed (A-311 / A-312 / A-313 /
-A-314) and reconciled to the current estate (release-please, the `go/no-go` aggregator
+A-314) and reconciled to the current estate (release-please, the `GO/NO GO` aggregator
 check-run, and shared reusable CI callers — A-371 / A-413 / A-424 / A-447 / A-432).
 
 > **Important:** branch protection, rulesets, and repo/org settings are **not** copied by
@@ -39,13 +39,13 @@ Set once for the organisation; these protect the release identity across every r
 
 ### The required-check ruleset
 
-`ci.yml` ends with a single **`go/no-go`** aggregator job whose intrinsic **check-run** is the
+`ci.yml` ends with a single **`GO/NO GO`** aggregator job whose intrinsic **check-run** is the
 one stable required gate. Require it on `main` via a ruleset:
 
 - [ ] PR required before merging.
 - [ ] **0 required approvals.** ⚠️ A non-zero count blocks the orchestrator's own release-PR merge.
-- [ ] Required status check: **`go/no-go`** — **not** the retired `🔬 Build & Lint`. The caller
-      swap (A-447) replaced it with `lint / Lint` + `build-test / Build & Test`, and `go/no-go`
+- [ ] Required status check: **`GO/NO GO`** — **not** the retired `🔬 Build & Lint`. The caller
+      swap (A-447) replaced it with `lint / Lint` + `build-test / Build & Test`, and `GO/NO GO`
       aggregates them all.
 - [ ] Ruleset **pinned to the GitHub Actions integration** (`integration_id: 15368`), so nothing
       but this repo's Actions can satisfy it.
@@ -96,8 +96,8 @@ the bot key, runs `release-please release-pr` + `finalise-changelog.ts`, and mer
 - [ ] Add the repo to the orchestrator's `matrix.repo`.
 - [ ] Confirm the CI callers run on the `release-please--*` branch (they do — no skip), so the
       changelog lane validates the finalised entries before the release PR merges.
-- [ ] The required check the orchestrator waits on is **`go/no-go`** (the orchestrator's
-      `🔬 Build & Lint` → `go/no-go` transition is A-419 / A-420).
+- [ ] The required check the orchestrator waits on is **`GO/NO GO`** (the orchestrator's
+      `🔬 Build & Lint` → `GO/NO GO` cutover completed via A-419 / A-596 / A-437).
 
 > The old A-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies:
 > release-please runs with `skip-changelog`, so there is no root `CHANGELOG.md` — the dated
