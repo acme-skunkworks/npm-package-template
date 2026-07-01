@@ -58,7 +58,7 @@ jobs:
   # (was the old build-and-lint's `validate:changelog` step, ASW-311).
   lint:
     needs: config
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
     with:
       node-version-file: ${{ needs.config.outputs.node_version_file }}
       # Directory args, NOT globs: the action runs `eslint $ESLINT_ARGS`
@@ -90,7 +90,7 @@ jobs:
   # Absorbs the old build-and-lint `build` step plus the entire `infra` job.
   build-test:
     needs: config
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-build-test.yml@9b7e7dca9c2c0ad3e1dd8a4ea4dcaa8442d4aee0 # 9b7e7dc
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-build-test.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
     with:
       node-version-file: ${{ needs.config.outputs.node_version_file }}
       # Off to preserve current behaviour: CI runs no standalone typecheck today
