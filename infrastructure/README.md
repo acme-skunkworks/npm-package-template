@@ -16,8 +16,8 @@ infrastructure/
     enrich-changelog.ts             # pure lib used by finalise: fills entry fields once + overwrites stats, idempotently
     add-links-changelog.ts          # pure lib used by finalise: rewrites bare Linear IDs to links (masking code/links)
     stamp-changelog-version.ts      # pure lib used by finalise: stamps the just-bumped version once, leaving absent fields
-    publish-via-raw-npm.sh          # release.yml npm publish step (bypasses pnpm)
-    publish-to-github-packages.sh   # release.yml publish-github-packages job (token auth, attested tarball)
+    publish-via-raw-npm.sh          # CI-unused since A-639 (reusable-pkg-release.yml inlines the npm publish); local + reference
+    publish-to-github-packages.sh   # CI-unused since A-639 (reusable-pkg-release.yml inlines the GH Packages publish); local + reference
   tests/
     *.test.ts                       # vitest, run via `pnpm test`
     *.bats                          # bats-core, run via `pnpm test:sh`
