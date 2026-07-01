@@ -16,7 +16,7 @@ compatibility: >-
   `preflight-changelog-ci.mjs` step assumes the consumer repo uses pnpm with a
   committed lockfile; skip it if yours does not.
 metadata:
-  version: 0.8.0
+  version: 0.8.1
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(node:*), Bash(pnpm:*)
 ---
@@ -52,15 +52,15 @@ default, so a missing `config.json` or either key absent makes the scripts fail
 loudly rather than silently inherit ACME's identity. The rest are structural and
 keep generic, overridable defaults:
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `issueKeys` | Team-key prefixes used to recognise issue IDs in the branch and body. The issue-ID regex is built from these. | **required** |
-| `linearWorkspaceSlug` | Linear workspace slug used to build issue links (`https://linear.app/<slug>/issue/<id>`). | **required** |
-| `baseBranch` | The trunk the branch diff is taken against (`origin/<baseBranch>`). Overridable per-run via the `BASE_REF` env var. | `"main"` |
-| `changelogDir` | Directory the dated entries live in (scanned by the enrichment + validation scripts). | `"changelog"` |
-| `packageRoots` | Monorepo dir prefixes mapping `<root>/<x>/…` → package `<x>` when deriving `affected_packages`. | `["apps", "packages", "services"]` |
-| `fallbackPackage` | Package name for changed paths matching no `packageRoots` prefix. | `"infrastructure"` |
-| `affectedPackages` | Whether to emit the `affected_packages` field at all. Leave `false` for single-package repos (the field is write-only and redundant there — entries stay clean); set `true` in genuine monorepos. `initialise-skills` flips it on when it detects a workspace config. | `false` |
+| Key                   | Meaning                                                                                                                                                                                                                                                               | Default                            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `issueKeys`           | Team-key prefixes used to recognise issue IDs in the branch and body. The issue-ID regex is built from these.                                                                                                                                                         | **required**                       |
+| `linearWorkspaceSlug` | Linear workspace slug used to build issue links (`https://linear.app/<slug>/issue/<id>`).                                                                                                                                                                             | **required**                       |
+| `baseBranch`          | The trunk the branch diff is taken against (`origin/<baseBranch>`). Overridable per-run via the `BASE_REF` env var.                                                                                                                                                   | `"main"`                           |
+| `changelogDir`        | Directory the dated entries live in (scanned by the enrichment + validation scripts).                                                                                                                                                                                 | `"changelog"`                      |
+| `packageRoots`        | Monorepo dir prefixes mapping `<root>/<x>/…` → package `<x>` when deriving `affected_packages`.                                                                                                                                                                       | `["apps", "packages", "services"]` |
+| `fallbackPackage`     | Package name for changed paths matching no `packageRoots` prefix.                                                                                                                                                                                                     | `"infrastructure"`                 |
+| `affectedPackages`    | Whether to emit the `affected_packages` field at all. Leave `false` for single-package repos (the field is write-only and redundant there — entries stay clean); set `true` in genuine monorepos. `initialise-skills` flips it on when it detects a workspace config. | `false`                            |
 
 All bundled scripts use only Node built-ins — no `npm install`, no build step.
 They operate on the **consumer repo's root `changelog/` directory** (run them

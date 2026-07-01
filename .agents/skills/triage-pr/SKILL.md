@@ -19,7 +19,7 @@ compatibility: >-
   Designed for repositories whose AI review runs only on
   ready-for-review PRs (draft-gated), so Phase A and Phase B do not overlap.
 metadata:
-  version: 0.5.0
+  version: 0.5.1
   author: Rob Easthope
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses, mcp__linear-server__list_projects
 ---
@@ -41,7 +41,7 @@ phases, choosing the phase from the PR's draft state:
 
 This skill complements `/send-it` (which **opens** the draft PR). The draft→ready
 flip is governed by a single control — `promoteOnGreen` in [`config.json`](config.json)
-— and **an enabled config *is* the authorisation** for it: when `promoteOnGreen` is
+— and **an enabled config _is_ the authorisation** for it: when `promoteOnGreen` is
 `true` (the default), human authorisation for the flip is **already acquired via the
 repo config**, so after a cleanly-green Phase A the skill flips the PR to ready and
 continues into Phase B without stopping to seek a separate sign-off (the ready-flip is
@@ -61,12 +61,12 @@ match the consuming repo's review bots and (optionally) its Linear workspace.
 
 The first four govern the **CI + review** loop:
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `reviewBots` | GitHub login names whose comments and threads are treated as first-class AI review feedback. Matched against `author.login`; the `[bot]` suffix is normalised, so `claude` and `claude[bot]` both match (the GraphQL API returns the bare form). Edit to match your install — review-bot logins vary per repo. `github-actions` is deliberately excluded by default: it posts CI status and release-PR comments, not code review, so Phase B would otherwise action them as findings; add it only if your install genuinely posts review-type comments via the Actions bot. | `["claude", "cursor", "coderabbitai"]` |
-| `maxCiRounds` | Maximum Phase-A re-watch iterations before stopping and reporting blockers. Bounds the fix-and-watch loop so it can't spin forever. | `5` |
-| `replyOnAccept` | Whether an **accepted** finding gets a factual thread reply referencing the fixing commit before the thread is resolved (the audit trail). `false` resolves accepted threads silently for maintainers who dislike bot-reply noise — declines always reply with reasoning regardless. | `true` |
-| `promoteOnGreen` | The single control for the draft→ready flip. When `true`, after Phase A finishes with **every** required check genuinely green on a **draft** PR, run `gh pr ready <pr>` to flip it to ready-for-review (the gate that turns AI review on), then continue into Phase B — instead of stopping at green. **Default-on**, and an enabled config *is* the human authorisation for the flip: proceed on proven green without seeking a separate sign-off. Set `false` (or pass `--no-promote`) to opt out and stop at green. Promotion is suppressed unless the green is *proven* (Step 6's watched rollup, never "no failures yet"), there are **no unresolved human review threads**, and `mergeStateStatus` shows no unresolved base drift (`BEHIND` / `DIRTY`). An explicit user prompt — or `--promote` / `--no-promote` — overrides this per run; `--ci-only` and `--dry-run` never promote. | `true` |
+| Key              | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Default                                |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `reviewBots`     | GitHub login names whose comments and threads are treated as first-class AI review feedback. Matched against `author.login`; the `[bot]` suffix is normalised, so `claude` and `claude[bot]` both match (the GraphQL API returns the bare form). Edit to match your install — review-bot logins vary per repo. `github-actions` is deliberately excluded by default: it posts CI status and release-PR comments, not code review, so Phase B would otherwise action them as findings; add it only if your install genuinely posts review-type comments via the Actions bot.                                                                                                                                                                                                                                                                                                                   | `["claude", "cursor", "coderabbitai"]` |
+| `maxCiRounds`    | Maximum Phase-A re-watch iterations before stopping and reporting blockers. Bounds the fix-and-watch loop so it can't spin forever.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `5`                                    |
+| `replyOnAccept`  | Whether an **accepted** finding gets a factual thread reply referencing the fixing commit before the thread is resolved (the audit trail). `false` resolves accepted threads silently for maintainers who dislike bot-reply noise — declines always reply with reasoning regardless.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `true`                                 |
+| `promoteOnGreen` | The single control for the draft→ready flip. When `true`, after Phase A finishes with **every** required check genuinely green on a **draft** PR, run `gh pr ready <pr>` to flip it to ready-for-review (the gate that turns AI review on), then continue into Phase B — instead of stopping at green. **Default-on**, and an enabled config _is_ the human authorisation for the flip: proceed on proven green without seeking a separate sign-off. Set `false` (or pass `--no-promote`) to opt out and stop at green. Promotion is suppressed unless the green is _proven_ (Step 6's watched rollup, never "no failures yet"), there are **no unresolved human review threads**, and `mergeStateStatus` shows no unresolved base drift (`BEHIND` / `DIRTY`). An explicit user prompt — or `--promote` / `--no-promote` — overrides this per run; `--ci-only` and `--dry-run` never promote. | `true`                                 |
 
 The remaining five configure the **follow-up capture** step (Step 10) — turning a
 valid-but-out-of-scope finding into a tracked Linear issue. They are **opt-in**:
@@ -74,13 +74,13 @@ when `linearTeamName` is empty, capture is disabled and the step is skipped
 silently (no Linear MCP calls). Capture also needs the Linear MCP server; skip it
 silently when it is unavailable.
 
-| Key | Meaning | Default |
-| --- | --- | --- |
-| `linearTeamName` | Linear team **name** (not the key — the key is renamed over time, the name is stable) the follow-up issues are created under. Empty disables capture entirely. | `""` |
-| `issueKeys` | Team-key prefixes that may appear in branch names, used to recognise issue ids the same way `linear-sync` does. Mirrors the established `issueKeys` convention. | `[]` |
-| `followUpLabel` | Optional label applied to each created follow-up issue (e.g. `follow-up`). Empty = no label. | `""` |
-| `followUpProject` | Optional Linear project (name, id, or slug) the follow-up issues are filed under. Empty = no project. | `""` |
-| `followUpState` | Optional initial workflow state (type, name, or id — e.g. `Backlog`) for created issues. Empty = the team's default state. | `"Backlog"` |
+| Key               | Meaning                                                                                                                                                         | Default     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| `linearTeamName`  | Linear team **name** (not the key — the key is renamed over time, the name is stable) the follow-up issues are created under. Empty disables capture entirely.  | `""`        |
+| `issueKeys`       | Team-key prefixes that may appear in branch names, used to recognise issue ids the same way `linear-sync` does. Mirrors the established `issueKeys` convention. | `[]`        |
+| `followUpLabel`   | Optional label applied to each created follow-up issue (e.g. `follow-up`). Empty = no label.                                                                    | `""`        |
+| `followUpProject` | Optional Linear project (name, id, or slug) the follow-up issues are filed under. Empty = no project.                                                           | `""`        |
+| `followUpState`   | Optional initial workflow state (type, name, or id — e.g. `Backlog`) for created issues. Empty = the team's default state.                                      | `"Backlog"` |
 
 Only the configured `reviewBots` are actioned in Phase B. Human review comments
 are surfaced in the final report but never auto-actioned, replied to, or
@@ -210,7 +210,7 @@ gh pr checks <pr> --watch
   → report green and **stop**.
 - Green **and draft**, promotion **enabled** (default, or `--promote`) → run
   the **promotion gate** before flipping. All three must hold:
-  1. **Proven green** — the green is *this step's* watched-rollup green (not pending /
+  1. **Proven green** — the green is _this step's_ watched-rollup green (not pending /
      "no failures yet"); apply the same exit-code discipline Phase A already enforces,
      never greenwash to reach the flip.
   2. **No unresolved human threads** — run
@@ -228,7 +228,7 @@ gh pr checks <pr> --watch
   (Step 7). The ready-flip and Phase B's pushes re-fire CI + AI review, and the whole
   loop stays bounded by `maxCiRounds`. Any gate fails → **do not flip**; report green
   plus the specific reason it wasn't promoted, and stop. Under `--dry-run`, report
-  that it *would* promote (or why not) and flip nothing. Under `--ci-only`, never
+  that it _would_ promote (or why not) and flip nothing. Under `--ci-only`, never
   promote — stop at green regardless of the knob.
 
 ### Step 7 — Phase B: fetch unresolved review feedback
@@ -250,7 +250,7 @@ It prints minimal JSON with three groups:
 
 - `unresolvedThreads` — inline review threads (`isResolved == false`) raised by a
   configured `reviewBot`, trimmed to `{threadId, path, line, isOutdated, author,
-  comments}`. This is the actionable set.
+comments}`. This is the actionable set.
 - `humanThreads` — the same shape, for unresolved threads **not** raised by a
   review bot. Surface these in the report for the human; do not auto-action them.
 - `aiSummaryComments` — the sticky issue-level summary the review action posts via
@@ -296,6 +296,7 @@ Apply the six-step reception (full rules in
      thread. Never create an issue here.
 
    No sycophancy ("You're absolutely right!", "Great point!") — state facts.
+
 6. **IMPLEMENT** accepted findings one at a time (Step 9), then reply+resolve.
 
 The bundled `respond-threads.mjs` is the write side (its path is **relative to
@@ -321,7 +322,7 @@ network, no `gh`) — a quick way to confirm the script is healthy after install
 
 Resolving uses GitHub's GraphQL `resolveReviewThread` — the only per-thread
 programmatic resolve, idempotent on an already-resolved thread. Do **not** use the
-bulk `@coderabbitai resolve`: it resolves *every* CodeRabbit thread at once,
+bulk `@coderabbitai resolve`: it resolves _every_ CodeRabbit thread at once,
 including declined or not-yet-handled ones (see
 [`references/review-discipline.md`](references/review-discipline.md)).
 
@@ -337,7 +338,7 @@ including declined or not-yet-handled ones (see
   resolved thread behind. Decline/outdated threads resolve immediately (no code
   rides on them).
 - **Convergence.** Loop Phase B ↔ Phase A until CI is green **and** every bot
-  thread is *handled* — resolved-by-us (accept, post-CI-green), declined+resolved,
+  thread is _handled_ — resolved-by-us (accept, post-CI-green), declined+resolved,
   a human thread (never auto-actioned), or **flagged as a follow-up candidate**
   (a recognised transient state — left unresolved on purpose, settled at Step 10) —
   with **no accepted fix still awaiting CI-green**. Because each push re-triggers
@@ -395,7 +396,7 @@ Then write each created issue's id/URL back:
 - **Issue-level** candidate → carry it into Step 11 as
   `{ "title": "…", "status": "out-of-scope", "reference": "<issue-id>" }`.
 
-Under `--dry-run`, list the candidates that *would* be proposed and create nothing.
+Under `--dry-run`, list the candidates that _would_ be proposed and create nothing.
 
 ### Step 11 — Phase B: acknowledge issue-level review comments
 
@@ -461,8 +462,8 @@ Summarise:
 - **Evidence before claims.** Never say CI is green or a fix works without freshly
   running the proving command and reading its exit code.
 - **Draft → ready is guarded, and on by default.** `promoteOnGreen` is the single
-  control for the flip, and an enabled config *is* the authorisation: with it on (the
-  default) the skill flips the PR — **only** after a *proven*-green Phase A, with **no
+  control for the flip, and an enabled config _is_ the authorisation: with it on (the
+  default) the skill flips the PR — **only** after a _proven_-green Phase A, with **no
   unresolved human threads** and no unresolved base drift — then continues into Phase B,
   without seeking a separate human sign-off. Set `promoteOnGreen: false` / pass
   `--no-promote` to stop at green; an explicit user prompt or `--promote` /
