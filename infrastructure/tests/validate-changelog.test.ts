@@ -46,6 +46,23 @@ describe("validateEntry", () => {
     expect(validateEntry(VALID_NAME, raw)).toEqual([]);
   });
 
+  it("accepts unquoted YAML timestamps (Date → asIso millisecond precision)", () => {
+    // gray-matter parses unquoted ISO timestamps to JS Date objects, so asIso()
+    // runs them through Date.toISOString() and emits a `.sssZ` fraction. This is
+    // the path the quoted-string cases above never exercise; the regex must
+    // accept the millisecond fraction it produces (regression for A-641).
+    const raw = entry(
+      [
+        'title: "Fix a thing"',
+        "created_at: 2026-05-23T14:55:37Z",
+        "merged_at: 2026-05-24T09:00:00Z",
+        "category: fix",
+        "breaking: false",
+      ].join("\n"),
+    );
+    expect(validateEntry(VALID_NAME, raw)).toEqual([]);
+  });
+
   it("rejects a bad filename", () => {
     const errors = validateEntry(
       "not-a-changelog.md",
