@@ -38,7 +38,7 @@
   "scripts": {
     "act:ci": "act pull_request -W .github/workflows/ci.yml --eventpath .github/act-events/pull_request.json",
     "act:list": "act --list",
-    "act:release:dry": "act push -W .github/workflows/release.yml",
+    "act:release:dry": "act push -W .github/workflows/pkg-release.yml",
     "build": "tsc",
     "changelog:finalise": "tsx infrastructure/scripts/finalise-changelog.ts",
     "ci:list": "gh run list --limit 10",

@@ -1,0 +1,87 @@
+# Publish-only release workflow, migrated from the ~380-line inline release.yml to
+# a thin caller of the estate's shared reusable-pkg-release.yml (A-639 / A-447
+# pattern). All the release logic — the unprivileged build+pack job, the npm-OIDC
+# Trusted Publishing leg, the version-vs-tag gate, git tag + GitHub release, and
+# the secondary GitHub Packages mirror with a build-provenance attestation — now
+# lives in the reusable workflow. The security model is unchanged and enforced
+# upstream: build-once/publish-exact-artifact (A-328), the branch-restricted
+# `npm-release` environment + main-only ref guards (A-326), and no standing
+# NPM_TOKEN (OIDC only).
+#
+# The workflow NAME stays `Release` so `gh workflow enable/disable Release` and the
+# generation checklist keep working. The FILENAME moved release.yml → pkg-release.yml
+# for estate parity with eslint-config; npm Trusted Publishing binds its OIDC
+# subject to repository + workflow filename, so a generated repo configures its
+# Trusted Publisher against `pkg-release.yml` (see docs/TEMPLATE-BOOTSTRAP.md).
+#
+# DISABLED on this template repo (`gh workflow disable Release`): the template's
+# src/ is a placeholder that is never published, so a live publish would fail on
+# every push to main. A generated repo re-enables it (`gh workflow enable Release`)
+# — see the generation checklist in CLAUDE.md.
+name: Release
+
+on:
+  push:
+    # Canonical branch mirrors infrastructure/repo-config.yaml defaultBranch
+    # (GitHub cannot derive on.push.branches from that file).
+    branches:
+      - main
+  # No workflow_dispatch (A-326). A dispatched run can target any ref, and npm
+  # Trusted Publishing binds its OIDC subject to repository + workflow filename
+  # only — NOT the trigger/ref/actor — so publishing is push-to-main only. Re-run
+  # a failed release via "Re-run jobs" on the original push run.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # Queue releases instead of cancelling.
+
+# Defence-in-depth: deny default token permissions; each job declares only what it
+# needs (A-313). The reusable workflow's own jobs re-declare their least-privilege
+# scopes; the block below is the permission set handed to the called workflow.
+permissions: {}
+
+jobs:
+  # Load the non-secret knobs from infrastructure/repo-config.yaml once and feed
+  # them to the reusable caller. This is the caller-stub pattern: a generated
+  # package that changes npmScope / nodeVersionFile / the registry URLs in
+  # repo-config.yaml has them flow through here without editing this workflow.
+  config:
+    name: ⚙️ Load repo config
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      node_version_file: ${{ steps.repo.outputs.node_version_file }}
+      npm_scope: ${{ steps.repo.outputs.npm_scope }}
+      npm_registry_url: ${{ steps.repo.outputs.npm_registry_url }}
+      github_packages_registry_url: ${{ steps.repo.outputs.github_packages_registry_url }}
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: ⚙️ Load repo config
+        id: repo
+        uses: ./.github/actions/load-repo-config
+
+  release:
+    needs: config
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-pkg-release.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
+    with:
+      npm-scope: ${{ needs.config.outputs.npm_scope }}
+      # Passed from repo-config for flow-through parity even though they equal the
+      # reusable defaults today — a generated repo that changes them in
+      # repo-config.yaml inherits them without touching this caller.
+      node-version-file: ${{ needs.config.outputs.node_version_file }}
+      npm-registry-url: ${{ needs.config.outputs.npm_registry_url }}
+      github-packages-registry-url: ${{ needs.config.outputs.github_packages_registry_url }}
+      # build:true (default) — this package has a real `build` script (tsc → dist);
+      # the A-624 build:false opt-out is only for build-less packages.
+    permissions:
+      contents: write # Git tags + GitHub releases on publish.
+      id-token: write # OIDC for npm Trusted Publishing + provenance attestation.
+      issues: write # Open a tracking issue if the release fails.
+      packages: write # Publish the secondary GitHub Packages mirror.
+      attestations: write # Upload the GitHub-native build-provenance attestation.
