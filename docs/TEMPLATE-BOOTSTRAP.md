@@ -82,10 +82,12 @@ configure Trusted Publisher → CI takes over from publish #2.
 - [ ] Manual first publish from a laptop (passkey/WebAuthn approval in the browser). The full
       runbook is in [CLAUDE.md → "Bootstrap publish"](../CLAUDE.md#bootstrap-publish--read-this-when-setting-up-a-new-package).
 - [ ] Configure the Trusted Publisher at `https://www.npmjs.com/package/<name>/access` →
-      GitHub Actions → org, repo, workflow filename `release.yml`, environment **blank**.
-      (Blank accepts any environment in `release.yml`; the form also accepts `npm-release` to
-      narrow the OIDC subject claim further. Blank is the verified default — see CLAUDE.md.)
-- [ ] Confirm publish #2 onwards flows through `release.yml` (OIDC, no token, no OTP) + provenance.
+      GitHub Actions → org, repo, workflow filename `pkg-release.yml`, environment **blank**.
+      (npm Trusted Publishing binds its OIDC subject to repository + workflow **filename**, so this
+      must be `pkg-release.yml` — the thin caller migrated from `release.yml` under A-639. Blank
+      accepts any environment in `pkg-release.yml`; the form also accepts `npm-release` to narrow the
+      OIDC subject claim further. Blank is the verified default — see CLAUDE.md.)
+- [ ] Confirm publish #2 onwards flows through `pkg-release.yml` (OIDC, no token, no OTP) + provenance.
 
 ## Release-orchestrator onboarding (hands-off releases)
 
@@ -105,8 +107,9 @@ the bot key, runs `release-please release-pr` + `finalise-changelog.ts`, and mer
 
 ## Enable the Release workflow
 
-`release.yml` is intentionally **disabled on this template repo** (its placeholder `src/` is never
-published). A spawned repo needs it on:
+The Release workflow (`pkg-release.yml`) is intentionally **disabled on this template repo** (its
+placeholder `src/` is never published). Its workflow **name** is `Release`, so a spawned repo
+enables it by name:
 
 ```bash
 gh workflow enable Release
