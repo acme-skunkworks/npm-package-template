@@ -112,6 +112,10 @@ The required check the orchestrator waits on is **`GO/NO GO`** (the `🔬 Build 
 cutover completed via A-419 / A-596 / A-437), and the CI callers already run on `release-please--*`
 (no skip), so the changelog lane validates the finalised entries before the release PR merges.
 
+> The old A-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies: release-please
+> runs with `skip-changelog`, so there is no root `CHANGELOG.md` — the dated `changelog/` directory
+> is the only changelog.
+
 ### Claude review prerequisites
 
 `claude.yml` / `claude-code-review.yml` need **two** things, and **neither is copied** by "Use this
@@ -196,7 +200,3 @@ release identity across every repo; a spawned-package owner can skip this sectio
 - [ ] "Require actions to be pinned to a full-length commit SHA" (SHA-pin enforcement) → **on**.
 - [ ] Remove the org `main`-ruleset bot `bypass: always` entry — auto-merge respects branch
       protection once the required check is green.
-
-> The old A-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies: release-please
-> runs with `skip-changelog`, so there is no root `CHANGELOG.md` — the dated `changelog/` directory
-> is the only changelog.
