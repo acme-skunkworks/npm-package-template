@@ -12,7 +12,7 @@
 # generation checklist keep working. The FILENAME moved release.yml → pkg-release.yml
 # for estate parity with eslint-config; npm Trusted Publishing binds its OIDC
 # subject to repository + workflow filename, so a generated repo configures its
-# Trusted Publisher against `pkg-release.yml` (see docs/TEMPLATE-BOOTSTRAP.md).
+# Trusted Publisher against `pkg-release.yml` (see README.md, "npm OIDC").
 #
 # DISABLED on this template repo (`gh workflow disable Release`): the template's
 # src/ is a placeholder that is never published, so a live publish would fail on
