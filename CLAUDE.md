@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Template repository for Acme Skunkworks npm packages. It ships a minimal, buildable pnpm + TypeScript ESM skeleton plus the shared workflow/release shell, so a new package can be generated and released without rebuilding the infrastructure each time.
 
-The one-time org/repo settings that stand this up as a GitHub Template repository — and the settings every spawned repo inherits (Template flag, `GO/NO GO` ruleset, npm OIDC, `npm-release` environment, orchestrator onboarding, Claude review) — live in the [Setup section of the README](README.md#setup), the single source of truth for the non-copied setup. The list below covers only the per-package edits inside a generated repo; each non-copied repo/org step below cross-links its README subsection rather than duplicating it.
+The one-time org/repo settings that stand this up as a GitHub Template repository — and the settings every spawned repo inherits (Template flag, `GO/NO GO` ruleset, npm OIDC, `npm-release` environment, orchestrator onboarding, Claude review) — live in the [Setup section of the README](README.md#setup), the single source of truth for the non-copied setup. The list below covers the per-package code edits inside a generated repo, plus the non-copied repo/org steps (each cross-links its README subsection rather than duplicating the detail).
 
 When generating a package from this template:
 
