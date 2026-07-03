@@ -32,7 +32,8 @@ After "Use this template", in the new repo:
    so `"."` matches the starting version (the #1 release-please failure mode), reset `changelog/`,
    and generate the skill configs. Full steps in [`CLAUDE.md`](CLAUDE.md#repo).
 2. Apply the [repo-level settings](#repo-level-settings) (rulesets are not copied).
-3. Create the [`npm-release` environment](#the-npm-release-environment).
+3. Create the [`npm-release` environment](#the-npm-release-environment) — called out as its own
+   step because it needs the `gh api` commands in that subsection, not just a settings toggle.
 4. Onboard the [release-orchestrator](#release-orchestrator-onboarding) — install the bot and add
    the `matrix.repo` entry.
 5. Verify the [Claude review prerequisites](#claude-review-prerequisites).
