@@ -19,10 +19,10 @@ import { describe, expect, it } from "vitest";
  */
 function fakeRun(responder) {
   const calls = [];
-  const run = (args) => {
+  function run(args) {
     calls.push(args);
     return responder(args.join(" ")) ?? { status: 0, stdout: "" };
-  };
+  }
 
   return { calls, run };
 }
@@ -44,7 +44,7 @@ describe("ensureNpmReleaseEnvironment", () => {
     });
     const result = ensureNpmReleaseEnvironment(SLUG, { run, write: true });
     expect(result.status).toBe("present");
-    expect(calls.some((c) => c.includes("PUT"))).toBe(false);
+    expect(calls.some((call) => call.includes("PUT"))).toBe(false);
   });
 
   it("creates the env + main policy when absent (write)", () => {
@@ -61,7 +61,7 @@ describe("ensureNpmReleaseEnvironment", () => {
     });
     const result = ensureNpmReleaseEnvironment(SLUG, { run, write: true });
     expect(result.status).toBe("created");
-    const put = calls.find((c) => c.includes("PUT"));
+    const put = calls.find((call) => call.includes("PUT"));
     expect(put).toContain(
       "repos/acme-skunkworks/portcullis/environments/npm-release",
     );
@@ -69,9 +69,9 @@ describe("ensureNpmReleaseEnvironment", () => {
       "deployment_branch_policy[custom_branch_policies]=true",
     );
     const post = calls.find(
-      (c) =>
-        c.includes("POST") &&
-        c.join(" ").includes("deployment-branch-policies"),
+      (call) =>
+        call.includes("POST") &&
+        call.join(" ").includes("deployment-branch-policies"),
     );
     expect(post).toContain("name=main");
   });
@@ -80,9 +80,9 @@ describe("ensureNpmReleaseEnvironment", () => {
     const { calls, run } = fakeRun(() => ({ status: 1, stdout: "" }));
     const result = ensureNpmReleaseEnvironment(SLUG, { run, write: false });
     expect(result.status).toBe("would-create");
-    expect(calls.every((c) => !c.includes("PUT") && !c.includes("POST"))).toBe(
-      true,
-    );
+    expect(
+      calls.every((call) => !call.includes("PUT") && !call.includes("POST")),
+    ).toBe(true);
   });
 });
 
@@ -94,7 +94,7 @@ describe("ensureGoNoGoRuleset", () => {
     }));
     const result = ensureGoNoGoRuleset(SLUG, { run, write: true });
     expect(result.status).toBe("present");
-    expect(calls.some((c) => c.includes("POST"))).toBe(false);
+    expect(calls.some((call) => call.includes("POST"))).toBe(false);
   });
 
   it("POSTs the pinned ruleset payload when absent (write)", () => {
@@ -107,7 +107,7 @@ describe("ensureGoNoGoRuleset", () => {
     });
     const result = ensureGoNoGoRuleset(SLUG, { run, write: true });
     expect(result.status).toBe("created");
-    const post = calls.find((c) => c.includes("POST"));
+    const post = calls.find((call) => call.includes("POST"));
     expect(post).toContain("repos/acme-skunkworks/portcullis/rulesets");
     expect(post).toContain("--input");
   });
@@ -130,7 +130,7 @@ describe("ensureReleaseEnabled", () => {
     }));
     const result = ensureReleaseEnabled(SLUG, { run, write: true });
     expect(result.status).toBe("present");
-    expect(calls.some((c) => c.includes("enable"))).toBe(false);
+    expect(calls.some((call) => call.includes("enable"))).toBe(false);
   });
 
   it("enables via the workflow filename when disabled (write)", () => {
@@ -143,7 +143,7 @@ describe("ensureReleaseEnabled", () => {
     });
     const result = ensureReleaseEnabled(SLUG, { run, write: true });
     expect(result.status).toBe("enabled");
-    const enable = calls.find((c) => c.join(" ").includes("/enable"));
+    const enable = calls.find((call) => call.join(" ").includes("/enable"));
     expect(enable).toContain(
       "repos/acme-skunkworks/portcullis/actions/workflows/pkg-release.yml/enable",
     );
@@ -172,11 +172,11 @@ describe("applyGithubSettings", () => {
       return null;
     });
     const results = applyGithubSettings(SLUG, { run, write: false });
-    expect(results.map((r) => r.op)).toEqual([
+    expect(results.map((entry) => entry.op)).toEqual([
       "environment",
       "ruleset",
       "release-workflow",
     ]);
-    expect(results.every((r) => r.status === "present")).toBe(true);
+    expect(results.every((entry) => entry.status === "present")).toBe(true);
   });
 });
