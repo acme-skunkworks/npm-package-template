@@ -1,0 +1,179 @@
+// Unit tests for the initialise-package-repo skill's in-repo file-edit logic
+// (A-663). The skill scripts are zero-dep .mjs (they travel into every spawned
+// repo), so their tests are .mjs too and import the pure cores directly — no fs,
+// no gh — asserting the transforms and, crucially, their idempotent no-op paths.
+
+import { planChangelogReset } from "../../.claude/skills/initialise-package-repo/scripts/lib/changelog-reset.mjs";
+import { reseedManifest } from "../../.claude/skills/initialise-package-repo/scripts/lib/manifest.mjs";
+import {
+  applyIdentity,
+  isPlaceholderName,
+} from "../../.claude/skills/initialise-package-repo/scripts/lib/package-identity.mjs";
+import { reconcileRepoConfigText } from "../../.claude/skills/initialise-package-repo/scripts/lib/repo-config.mjs";
+import { deriveIdentity } from "../../.claude/skills/initialise-package-repo/scripts/lib/repo-facts.mjs";
+import { describe, expect, it } from "vitest";
+
+describe("planChangelogReset", () => {
+  it("deletes every dated .md entry but keeps README.md", () => {
+    const plan = planChangelogReset([
+      "README.md",
+      "20260701-155554-a-437-thing.md",
+      "20260703-095959-a-649-other.md",
+    ]);
+    expect(plan).toEqual([
+      "20260701-155554-a-437-thing.md",
+      "20260703-095959-a-649-other.md",
+    ]);
+  });
+
+  it("is a no-op when only README.md remains (idempotent)", () => {
+    expect(planChangelogReset(["README.md"])).toEqual([]);
+  });
+
+  it("leaves non-markdown files untouched", () => {
+    expect(planChangelogReset(["README.md", ".gitkeep", "notes.txt"])).toEqual(
+      [],
+    );
+  });
+});
+
+describe("reseedManifest", () => {
+  it("re-seeds the root entry to the package version", () => {
+    const result = reseedManifest('{\n  ".": "0.0.0"\n}\n', "1.2.0");
+    expect(result).not.toBeNull();
+    expect(JSON.parse(result.text)["."]).toBe("1.2.0");
+    expect(result.from).toBe("0.0.0");
+  });
+
+  it("returns null when already equal (idempotent no-op)", () => {
+    expect(reseedManifest('{\n  ".": "1.2.0"\n}\n', "1.2.0")).toBeNull();
+  });
+
+  it("preserves other path entries in a monorepo manifest", () => {
+    const result = reseedManifest(
+      '{\n  ".": "0.0.0",\n  "packages/x": "3.0.0"\n}\n',
+      "1.0.0",
+    );
+    const data = JSON.parse(result.text);
+    expect(data["."]).toBe("1.0.0");
+    expect(data["packages/x"]).toBe("3.0.0");
+  });
+
+  it("preserves indentation and trailing newline (byte-stable formatting)", () => {
+    const result = reseedManifest('{\n    ".": "0.0.0"\n}\n', "2.0.0");
+    expect(result.text).toBe('{\n    ".": "2.0.0"\n}\n');
+  });
+});
+
+describe("deriveIdentity + applyIdentity", () => {
+  const view = {
+    defaultBranchRef: { name: "main" },
+    description: "A real package",
+    name: "portcullis",
+    owner: { login: "acme-skunkworks" },
+  };
+
+  it("derives name, scope and URLs from the repo view", () => {
+    const id = deriveIdentity(view);
+    expect(id.name).toBe("@acme-skunkworks/portcullis");
+    expect(id.scope).toBe("@acme-skunkworks");
+    expect(id.homepage).toBe(
+      "https://github.com/acme-skunkworks/portcullis#readme",
+    );
+    expect(id.bugsUrl).toBe(
+      "https://github.com/acme-skunkworks/portcullis/issues",
+    );
+    expect(id.repositoryUrl).toBe(
+      "https://github.com/acme-skunkworks/portcullis.git",
+    );
+    expect(id.defaultBranch).toBe("main");
+  });
+
+  it("honours operator overrides for name/description/keywords", () => {
+    const id = deriveIdentity(view, {
+      description: "Custom",
+      keywords: ["a"],
+      name: "@acme-skunkworks/renamed",
+    });
+    expect(id.name).toBe("@acme-skunkworks/renamed");
+    expect(id.description).toBe("Custom");
+    expect(id.keywords).toEqual(["a"]);
+  });
+
+  it("rewrites the package identity block", () => {
+    const pkg = {
+      bugs: {
+        url: "https://github.com/acme-skunkworks/npm-package-template/issues",
+      },
+      description: "Template repository",
+      keywords: ["template"],
+      name: "@acme-skunkworks/npm-package-template",
+      repository: {
+        type: "git",
+        url: "https://github.com/acme-skunkworks/npm-package-template.git",
+      },
+      version: "0.0.0",
+    };
+    const { changed, data } = applyIdentity(
+      pkg,
+      deriveIdentity(view, { keywords: ["css"] }),
+    );
+    expect(changed).toBe(true);
+    expect(data.name).toBe("@acme-skunkworks/portcullis");
+    expect(data.keywords).toEqual(["css"]);
+    expect(data.repository.url).toBe(
+      "https://github.com/acme-skunkworks/portcullis.git",
+    );
+    expect(data.version).toBe("0.0.0"); // untouched — identity only
+  });
+
+  it("leaves keywords alone when none are supplied", () => {
+    const pkg = {
+      keywords: ["template"],
+      name: "@acme-skunkworks/npm-package-template",
+    };
+    const { data } = applyIdentity(pkg, deriveIdentity(view));
+    expect(data.keywords).toEqual(["template"]);
+  });
+
+  it("recognises the placeholder name as the not-yet-renamed signal", () => {
+    expect(isPlaceholderName("@acme-skunkworks/npm-package-template")).toBe(
+      true,
+    );
+    expect(isPlaceholderName("@acme-skunkworks/portcullis")).toBe(false);
+  });
+});
+
+describe("reconcileRepoConfigText", () => {
+  const yaml = [
+    "# a comment",
+    "defaultBranch: main",
+    'npmScope: "@acme-skunkworks"',
+    "npmRegistryUrl: https://registry.npmjs.org",
+    "",
+  ].join("\n");
+
+  it("is a no-op for a same-org package (idempotent)", () => {
+    const { changes, text } = reconcileRepoConfigText(yaml, {
+      defaultBranch: "main",
+      npmScope: "@acme-skunkworks",
+    });
+    expect(changes).toEqual({});
+    expect(text).toBe(yaml);
+  });
+
+  it("rewrites a changed default branch, preserving comments and other keys", () => {
+    const { changes, text } = reconcileRepoConfigText(yaml, {
+      defaultBranch: "trunk",
+    });
+    expect(changes.defaultBranch).toEqual({ from: "main", to: "trunk" });
+    expect(text).toContain("# a comment");
+    expect(text).toContain("defaultBranch: trunk");
+    expect(text).toContain("npmRegistryUrl: https://registry.npmjs.org");
+  });
+
+  it("preserves the quoting style of the scope value", () => {
+    const { text } = reconcileRepoConfigText(yaml, { npmScope: "@acme-other" });
+    expect(text).toContain('npmScope: "@acme-other"');
+  });
+});
