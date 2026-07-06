@@ -13,6 +13,13 @@ import { defineConfig } from "eslint/config";
  * `tableComponents` — all re-exported from `@acme-skunkworks/eslint-config`.
  */
 export default defineConfig([
+  // The vendored agent-skill bundles are mirrored into `.claude/skills/` (already
+  // ignored by the preset) and `.agents/skills/` (for Cursor). Neither mirror is
+  // part of this repo's lint surface — the bundles are external, zero-dep `.mjs`
+  // that own their linting upstream, and CI's directory-scoped lint never touches
+  // them. Ignore `.agents/**` too, so the two mirrors are treated symmetrically and
+  // a newly-added bundle's Node globals don't trip the change-gated preflight.
+  { ignores: [".agents/**"] },
   ...base,
   typescript,
   // infrastructure/ holds the workflow/release shell's CLI tooling (not
@@ -21,7 +28,7 @@ export default defineConfig([
   // list of schema checks, so the default complexity ceiling doesn't apply.
   // Scoped narrowly to this directory.
   {
-    files: ["infrastructure/**/*.ts"],
+    files: ["infrastructure/**/*.{ts,mjs}"],
     rules: {
       complexity: "off",
       "import/no-extraneous-dependencies": ["error", { devDependencies: true }],

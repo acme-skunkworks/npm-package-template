@@ -27,6 +27,13 @@ This repo is both the template and its own reference package. There are two audi
 
 After "Use this template", in the new repo:
 
+> **Run the `initialise-package-repo` skill first.** It performs steps 1–3 and 6's Release-enable
+> automatically (in-repo file edits, `initialise-skills`, the ruleset + `npm-release` environment,
+> and `gh workflow enable Release`), all idempotent and dry-run-first, and verifies-and-reports
+> steps 4–5 and the npm-OIDC bootstrap. The numbered steps below are the reference for what it does
+> — walk them by hand only if you're not using the skill. See
+> [`CLAUDE.md` → Agent skills](CLAUDE.md#agent-skills).
+
 1. **Per-package code edits** — rename `package.json`, replace `src/`, point
    `infrastructure/repo-config.yaml` at the new package, **re-seed `.release-please-manifest.json`**
    so `"."` matches the starting version (the #1 release-please failure mode), reset `changelog/`,

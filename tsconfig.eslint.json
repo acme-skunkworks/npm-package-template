@@ -11,7 +11,8 @@
   "include": [
     "src/**/*.ts",
     "infrastructure/scripts/**/*.ts",
-    "infrastructure/tests/**/*.ts"
+    "infrastructure/tests/**/*.ts",
+    "vitest.config.ts"
   ],
   "exclude": ["dist", "node_modules"]
 }
