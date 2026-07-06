@@ -181,6 +181,12 @@ function main() {
   } else {
     console.log(formatHuman(report));
   }
+
+  // A GitHub setting whose `gh api` write failed reports status "error"; exit
+  // non-zero so the operator gets a real signal instead of a clean-looking run.
+  if ((ops.github ?? []).some((op) => op.status === "error")) {
+    process.exit(1);
+  }
 }
 
 // Run main() only as a CLI, not when imported by tests. Compare realpath'd paths

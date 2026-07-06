@@ -84,6 +84,52 @@ describe("ensureNpmReleaseEnvironment", () => {
       calls.every((call) => !call.includes("PUT") && !call.includes("POST")),
     ).toBe(true);
   });
+
+  it("adds only the main policy when the env exists without one (write)", () => {
+    const { calls, run } = fakeRun((cmd) => {
+      if (cmd.endsWith("environments/npm-release")) {
+        return { status: 0, stdout: '{"name":"npm-release"}' };
+      }
+
+      if (cmd.includes("deployment-branch-policies")) {
+        return { status: 0, stdout: '{"branch_policies":[]}' }; // exists, empty
+      }
+
+      return { status: 0, stdout: "" };
+    });
+    const result = ensureNpmReleaseEnvironment(SLUG, { run, write: true });
+    expect(result.status).toBe("created");
+    // PUT is still issued (idempotent, guarantees custom_branch_policies) and the
+    // POST adds the missing main policy.
+    expect(calls.some((call) => call.includes("PUT"))).toBe(true);
+    const post = calls.find(
+      (call) =>
+        call.includes("POST") &&
+        call.join(" ").includes("deployment-branch-policies"),
+    );
+    expect(post).toContain("name=main");
+  });
+
+  it("reports error (not success) when a mutating gh api call fails (write)", () => {
+    const { run } = fakeRun((cmd) => {
+      if (cmd.endsWith("environments/npm-release")) {
+        return { status: 1, stdout: "" }; // absent
+      }
+
+      if (cmd.includes("deployment-branch-policies")) {
+        return { status: 0, stdout: "" };
+      }
+
+      if (cmd.includes("PUT")) {
+        return { status: 1, stderr: "HTTP 403: must have admin rights" };
+      }
+
+      return { status: 0, stdout: "" };
+    });
+    const result = ensureNpmReleaseEnvironment(SLUG, { run, write: true });
+    expect(result.status).toBe("error");
+    expect(result.detail).toContain("admin");
+  });
 });
 
 describe("ensureGoNoGoRuleset", () => {
@@ -178,5 +224,34 @@ describe("applyGithubSettings", () => {
       "release-workflow",
     ]);
     expect(results.every((entry) => entry.status === "present")).toBe(true);
+  });
+
+  it("reports each op's own state in a mixed partial-setup repo (dry-run)", () => {
+    // env + workflow already set up, ruleset missing — a realistic partial spawn.
+    const { run } = fakeRun((cmd) => {
+      if (cmd.endsWith("environments/npm-release")) {
+        return { status: 0, stdout: '{"name":"npm-release"}' };
+      }
+
+      if (cmd.includes("deployment-branch-policies")) {
+        return { status: 0, stdout: '{"branch_policies":[{"name":"main"}]}' };
+      }
+
+      if (cmd.endsWith("rulesets")) {
+        return { status: 0, stdout: "[]" }; // ruleset absent
+      }
+
+      if (cmd.includes("workflows/pkg-release.yml")) {
+        return { status: 0, stdout: '{"state":"active"}' };
+      }
+
+      return null;
+    });
+    const results = applyGithubSettings(SLUG, { run, write: false });
+    expect(results.map((entry) => [entry.op, entry.status])).toEqual([
+      ["environment", "present"],
+      ["ruleset", "would-create"],
+      ["release-workflow", "present"],
+    ]);
   });
 });

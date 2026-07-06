@@ -44,7 +44,14 @@ function replaceScalar(text, key, value) {
   // Preserve quoting: if the source value was quoted, keep it quoted.
   const quote = openQuote || closeQuote ? '"' : "";
   const replacement = `${prefix}${quote}${value}${quote}${trailer}`;
-  return { changed: true, from: current, text: text.replace(re, replacement) };
+  // Use a replacer *function* so `$&`, `$1`, etc. in the value are treated
+  // literally — `String.replace(re, string)` would interpret them as special
+  // substitution sequences and corrupt the output.
+  return {
+    changed: true,
+    from: current,
+    text: text.replace(re, () => replacement),
+  };
 }
 
 /**

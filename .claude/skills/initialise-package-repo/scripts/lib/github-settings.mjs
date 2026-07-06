@@ -74,6 +74,28 @@ function ghJson(run, args) {
 }
 
 /**
+ * A one-line reason for a failed `gh` call, preferring its stderr. Used so a
+ * mutating write that fails (permissions, network, rate limit) surfaces a real
+ * signal instead of the call being reported as a silent success.
+ */
+function runFailure(result) {
+  const stderr = (result?.stderr || "").trim();
+  return stderr || `gh exited ${result?.status ?? "unknown"}`;
+}
+
+/**
+ * Run a mutating `gh` call and return an `{ op, status: "error", detail }` result
+ * when it fails, else `null` so the caller proceeds. Centralises the success check
+ * every write path must apply.
+ */
+function failedRun(run, args, options, op) {
+  const result = run(args, options);
+  return result?.status === 0
+    ? null
+    : { detail: runFailure(result), op, status: "error" };
+}
+
+/**
  * Ensure the `npm-release` environment exists with a single `main`-only
  * deployment-branch policy. Idempotent: the environment PUT is safe to repeat, and
  * the `main` policy POST is guarded by a GET so it is never duplicated.
@@ -106,25 +128,44 @@ export function ensureNpmReleaseEnvironment(
     };
   }
 
-  run([
-    "api",
-    "-X",
-    "PUT",
-    base,
-    "-F",
-    "deployment_branch_policy[protected_branches]=false",
-    "-F",
-    "deployment_branch_policy[custom_branch_policies]=true",
-  ]);
-  if (!hasMainPolicy) {
-    run([
+  // PUT is issued even when the environment already exists — it is idempotent and
+  // guarantees `custom_branch_policies` is on, which the policy POST below requires.
+  const putFailure = failedRun(
+    run,
+    [
       "api",
       "-X",
-      "POST",
-      `${base}/deployment-branch-policies`,
-      "-f",
-      "name=main",
-    ]);
+      "PUT",
+      base,
+      "-F",
+      "deployment_branch_policy[protected_branches]=false",
+      "-F",
+      "deployment_branch_policy[custom_branch_policies]=true",
+    ],
+    undefined,
+    "environment",
+  );
+  if (putFailure) {
+    return putFailure;
+  }
+
+  if (!hasMainPolicy) {
+    const policyFailure = failedRun(
+      run,
+      [
+        "api",
+        "-X",
+        "POST",
+        `${base}/deployment-branch-policies`,
+        "-f",
+        "name=main",
+      ],
+      undefined,
+      "environment",
+    );
+    if (policyFailure) {
+      return policyFailure;
+    }
   }
 
   return { op: "environment", status: "created" };
@@ -151,10 +192,13 @@ export function ensureGoNoGoRuleset(
     return { op: "ruleset", status: "would-create" };
   }
 
-  run(["api", "-X", "POST", `repos/${slug}/rulesets`, "--input", "-"], {
-    input: JSON.stringify(goNoGoRulesetPayload()),
-  });
-  return { op: "ruleset", status: "created" };
+  const failure = failedRun(
+    run,
+    ["api", "-X", "POST", `repos/${slug}/rulesets`, "--input", "-"],
+    { input: JSON.stringify(goNoGoRulesetPayload()) },
+    "ruleset",
+  );
+  return failure ?? { op: "ruleset", status: "created" };
 }
 
 /**
@@ -177,13 +221,18 @@ export function ensureReleaseEnabled(
     return { op: "release-workflow", status: "would-enable" };
   }
 
-  run([
-    "api",
-    "-X",
-    "PUT",
-    `repos/${slug}/actions/workflows/${RELEASE_WORKFLOW_FILE}/enable`,
-  ]);
-  return { op: "release-workflow", status: "enabled" };
+  const failure = failedRun(
+    run,
+    [
+      "api",
+      "-X",
+      "PUT",
+      `repos/${slug}/actions/workflows/${RELEASE_WORKFLOW_FILE}/enable`,
+    ],
+    undefined,
+    "release-workflow",
+  );
+  return failure ?? { op: "release-workflow", status: "enabled" };
 }
 
 /**

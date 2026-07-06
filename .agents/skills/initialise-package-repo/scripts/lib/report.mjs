@@ -40,6 +40,7 @@ const GLYPH = {
   clean: "•",
   created: "✔",
   enabled: "✔",
+  error: "✖",
   present: "•",
   reset: "✔",
   unchanged: "•",
@@ -80,7 +81,12 @@ export function formatHuman(report) {
       line(
         ".release-please-manifest.json",
         ops.files.manifest.status,
-        ops.files.manifest.to ? `\".\" → ${ops.files.manifest.to}` : "",
+        // Only show the target version when it actually moved — `to` is always the
+        // current package.json version, so showing it on `unchanged` would imply a
+        // change where there is none.
+        ops.files.manifest.status === "unchanged"
+          ? ""
+          : `"." → ${ops.files.manifest.to}`,
       ),
     );
     out.push(
@@ -110,7 +116,9 @@ export function formatHuman(report) {
   }
 
   out.push("Manual next steps (not automated):");
-  for (const reminder of MANUAL_REMINDERS) {
+  // Prefer the reminders carried on the report object (its single source of truth
+  // for both --json and human output), falling back to the constant.
+  for (const reminder of report.reminders ?? MANUAL_REMINDERS) {
     out.push(`  ▸ ${reminder.title} — ${reminder.detail}`);
   }
 

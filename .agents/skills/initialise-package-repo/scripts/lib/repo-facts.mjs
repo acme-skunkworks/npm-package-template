@@ -36,9 +36,13 @@ export function deriveIdentity(view, facts = {}) {
 
   const slug = `${owner}/${repo}`;
   const name = facts.name ?? `@${owner}/${repo}`;
-  const scope = name.startsWith("@")
-    ? name.slice(0, name.indexOf("/"))
-    : `@${owner}`;
+  // Only derive the scope from `name` when it is a well-formed scoped name
+  // (`@scope/pkg`). A malformed override like `@foo` (no slash) would otherwise
+  // slice to `@fo` and silently write a broken `npmScope`; fall back to `@owner`.
+  const scope =
+    name.startsWith("@") && name.includes("/")
+      ? name.slice(0, name.indexOf("/"))
+      : `@${owner}`;
 
   return {
     bugsUrl: `https://github.com/${slug}/issues`,

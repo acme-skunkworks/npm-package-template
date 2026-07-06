@@ -89,6 +89,14 @@ describe("deriveIdentity + applyIdentity", () => {
     expect(id.defaultBranch).toBe("main");
   });
 
+  it("falls back to @owner when a scoped override name has no slash", () => {
+    // A malformed override like "@foo" must not slice to "@fo" and silently write
+    // a broken npmScope downstream.
+    expect(deriveIdentity(view, { name: "@foo" }).scope).toBe(
+      "@acme-skunkworks",
+    );
+  });
+
   it("honours operator overrides for name/description/keywords", () => {
     const id = deriveIdentity(view, {
       description: "Custom",
@@ -175,5 +183,12 @@ describe("reconcileRepoConfigText", () => {
   it("preserves the quoting style of the scope value", () => {
     const { text } = reconcileRepoConfigText(yaml, { npmScope: "@acme-other" });
     expect(text).toContain('npmScope: "@acme-other"');
+  });
+
+  it("writes a value containing $-substitution sequences literally", () => {
+    // `String.replace(re, string)` would interpret `$&` as the whole match; the
+    // replacer-function form must keep it literal.
+    const { text } = reconcileRepoConfigText(yaml, { defaultBranch: "a$&b" });
+    expect(text).toContain("defaultBranch: a$&b");
   });
 });
