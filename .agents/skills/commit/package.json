@@ -1,0 +1,31 @@
+{
+  "name": "@acme-skunkworks/skill-commit",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Agent skill: turn the working tree into logical, atomic Conventional Commits — classify uncommitted files in-scope vs out-of-scope against the branch merge base, show a staging plan, and never git add -A. Commits only, no push/PR/changelog/Linear.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "git",
+    "commit",
+    "conventional-commits"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/commit#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/commit"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

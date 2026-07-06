@@ -41,13 +41,13 @@ generated on install, not vendored. Run the `initialise-skills` skill to generat
 `config.json` from the example with your repo's facts, or copy it to `config.json`
 and fill it in by hand.
 
-| Key                                  | Meaning                                                                                                                                                                                                                                                                                                                                                                  | Default                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `baseBranch`                         | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base.                                                                                                                                                                                                                                                                                      | `"main"`                                        |
-| `shippablePaths` _(advisory)_        | The published surface, as a documentation hint for reviewers — **not** the release decision (release-type is decided by the change's semantic category; see below). Kept for the optional publish-surface cross-check note.                                                                                                                                              | `["skills/"]`                                   |
-| `shippableManifestKeys` _(advisory)_ | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate.                                                                                                                                                                                                                                          | `["name", "version", "files", "publishConfig"]` |
-| `bundleVersioning` _(optional)_      | For repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` that turns on the per-bundle version-bump check: when a bundle's content changed but its version didn't, send-it offers to bump its `manifest` `version` + `skillFile` `metadata.version` in lockstep. **Omit it in single-package repos** — the check no-ops. | unset (disabled)                                |
-| `changelog` _(optional)_             | Whether to author a dated `changelog/` entry at all. Set `false` only for repos with no changelog flow (no `changelog/` dir, no `changelog` skill).                                                                                                                                                                                                                      | `true`                                          |
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `baseBranch` | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base. | `"main"` |
+| `shippablePaths` *(advisory)* | The published surface, as a documentation hint for reviewers — **not** the release decision (release-type is decided by the change's semantic category; see below). Kept for the optional publish-surface cross-check note. | `["skills/"]` |
+| `shippableManifestKeys` *(advisory)* | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate. | `["name", "version", "files", "publishConfig"]` |
+| `bundleVersioning` *(optional)* | For repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` that turns on the per-bundle version-bump check: when a bundle's content changed but its version didn't, send-it offers to bump its `manifest` `version` + `skillFile` `metadata.version` in lockstep. **Omit it in single-package repos** — the check no-ops. | unset (disabled) |
+| `changelog` *(optional)* | Whether to author a dated `changelog/` entry at all. Set `false` only for repos with no changelog flow (no `changelog/` dir, no `changelog` skill). | `true` |
 
 **Release-type is decided by category, not path (A-598).** send-it reads the
 Conventional-Commit type of the work it committed: `feat`/`fix`/`perf` — or any
@@ -83,6 +83,6 @@ which send-it's delegated steps read.
 - It does **not** bump the repo/npm version or write any root `CHANGELOG.md` —
   release-please does that from the merged Conventional-Commit PR title. send-it only
   writes the dated `changelog/<ts>-<slug>.md` entry (the curated per-change record),
-  which the release step finalises. (With `bundleVersioning` configured it _does_
+  which the release step finalises. (With `bundleVersioning` configured it *does*
   offer to bump a changed skill bundle's own `metadata.version` — a per-bundle label,
   separate from the repo release.)

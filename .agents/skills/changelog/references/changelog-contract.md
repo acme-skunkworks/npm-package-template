@@ -49,7 +49,7 @@ omitted or left as a blank placeholder until enrichment.
 | `created_at` | ISO 8601 UTC with `Z` suffix, quoted. **Set once; never overwritten.** |
 | `merged_at` | ISO 8601 UTC with `Z` suffix when set; blank until release. |
 | `branch` | Non-empty string — the stable lookup key for enrichment. |
-| `pr` | Integer when set; blank until the PR exists. |
+| `pr` | Integer when set; blank until post-merge enrichment resolves it from the merged PR. |
 | `commit` | 7-char hex SHA when set; blank until merge. |
 | `merge_strategy` | One of `merge`, `rebase`, `squash`; blank until merge. |
 | `author` | Non-empty string (an email). |
@@ -66,7 +66,7 @@ body must contain at least one of `## Breaking` / `## Added` / `## Changed` /
 
 ## Field ownership boundaries
 
-Four owners, never overlapping:
+Three owners, never overlapping:
 
 1. **The author (this skill).** `title`, `release_note`, `category`, `breaking`,
    `issues`, `co_authors`, `author`. Re-derived on every run.
@@ -76,11 +76,14 @@ Four owners, never overlapping:
    single-package default) the field is never emitted and the script is a no-op.
    `add-links.mjs` rewrites bare issue IDs in the body to Linear links.
 3. **The release-orchestrator (post-merge, privileged).** `merged_at`, `commit`,
-   `merge_strategy`, and authoritative `stats`, plus the published `version` where
+   `pr`, `merge_strategy`, and authoritative `stats`, plus the published `version` where
    a consumer adds one. Emit these as blank placeholders; never hand-edit them —
-   so an in-flight PR never shows numbers that drift as commits land.
-4. **The ship flow (`/send-it`).** `pr` — back-filled when the PR is opened; left
-   blank by the author and untouched by enrichment until then.
+   so an in-flight PR never shows numbers that drift as commits land. `pr` is
+   resolved from the merged PR by the entry's `branch:` (the same branch-resolution
+   finalise/enrich use for the other post-merge fields) — the ship flow never writes
+   it. npm targets fill these at release time (`finalise-changelog.mjs`); deploy
+   targets, never checked out during the release flow, fill them afterwards from the
+   enrichment cron (`enrich-changelog.mjs`, minus `version`).
 
 `branch` is set by the author at create time and is the stable lookup key for
 enrichment.

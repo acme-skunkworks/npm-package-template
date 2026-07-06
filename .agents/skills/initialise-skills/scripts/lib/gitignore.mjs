@@ -19,29 +19,39 @@ export const IGNORE_COMMENT =
   "# preflight skill scratch output (written at the repo root on each run)";
 
 /**
- * Does any line already settle the entry? Matches by exact string equality after
- * trimming — comment lines start with `#` so they can never match, which is the
- * behaviour we want (a commented-out entry does not gitignore the file). The
- * leading-slash anchored form (`/.preflight-summary.json`) ignores the same
- * root-level path, so it counts as present too — we must not append a duplicate.
+ * Classify how the .gitignore already settles the entry, honouring `.gitignore`'s
+ * last-match-wins rule: the LAST line referencing the path decides. Matches by
+ * exact string equality after trimming — comment lines start with `#` so they can
+ * never match (a commented-out entry does not gitignore the file). The
+ * leading-slash anchored forms (`/.preflight-summary.json`, `!/…`) target the same
+ * root-level path and are treated identically. Returns:
+ *   - `"positive"` — an ignore rule wins, so the file is excluded;
+ *   - `"negated"`  — a deliberate un-ignore (`!.preflight-summary.json`) wins;
+ *   - `"absent"`   — no line references the path.
  *
- * An explicit **un-ignore** (`!.preflight-summary.json` / `!/.preflight-summary.json`)
- * also counts as already-handled: the reconcile is intent-preserving and
- * append-only, and `.gitignore` is last-match-wins, so appending a positive rule
- * after a deliberate negation would silently flip the consumer's choice (A-582).
+ * Both `"positive"` and `"negated"` count as already-handled: the reconcile is
+ * intent-preserving and append-only, and appending a positive rule after a
+ * deliberate negation would silently flip the consumer's choice (A-582). The two
+ * are reported distinctly so a deliberate un-ignore isn't mislabelled "already
+ * ignored" (A-613).
  * @param {string} text
- * @returns {boolean}
+ * @returns {"positive"|"negated"|"absent"}
  */
-function hasEntry(text) {
-  return text.split(/\r?\n/).some((line) => {
+function classifyEntry(text) {
+  let verdict = "absent";
+  for (const line of text.split(/\r?\n/)) {
     const trimmed = line.trim();
-    return (
-      trimmed === IGNORE_ENTRY ||
-      trimmed === `/${IGNORE_ENTRY}` ||
+    if (trimmed === IGNORE_ENTRY || trimmed === `/${IGNORE_ENTRY}`) {
+      verdict = "positive";
+    } else if (
       trimmed === `!${IGNORE_ENTRY}` ||
       trimmed === `!/${IGNORE_ENTRY}`
-    );
-  });
+    ) {
+      verdict = "negated";
+    }
+  }
+
+  return verdict;
 }
 
 /**
@@ -60,15 +70,23 @@ function detectNewline(raw) {
  * action it WOULD take without touching disk.
  * @param {string} repoRoot
  * @param {{ write?: boolean }} [options]
- * @returns {{ path: string, status: "present"|"added"|"created"|"would-add"|"would-create" }}
+ * @returns {{ path: string, status: "present"|"negated"|"added"|"created"|"would-add"|"would-create" }}
  */
 export function reconcilePreflightIgnore(repoRoot, { write = false } = {}) {
   const gitignorePath = join(repoRoot, ".gitignore");
 
   if (existsSync(gitignorePath)) {
     const raw = readFileSync(gitignorePath, "utf8");
-    if (hasEntry(raw)) {
+    const verdict = classifyEntry(raw);
+    if (verdict === "positive") {
       return { path: gitignorePath, status: "present" };
+    }
+
+    if (verdict === "negated") {
+      // A deliberate un-ignore already settles the path — leave it untouched
+      // (A-582), but report it distinctly so it doesn't read as "already
+      // ignored" (A-613).
+      return { path: gitignorePath, status: "negated" };
     }
 
     if (!write) {

@@ -3,8 +3,9 @@
 // repo's engines/.nvmrc policy, then run `pnpm install --frozen-lockfile` so the
 // lockfile is honoured before validating. Assumes the consumer repo uses pnpm
 // with a committed lockfile; skip this step if yours does not.
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { spawnSync } from "node:child_process";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -228,21 +229,7 @@ function main() {
 }
 
 // Only run when invoked as a CLI, not when imported (e.g. by unit tests
-// exercising the pure version helpers). Compare realpath'd paths so symlinks
-// (macOS /var→/private/var, pnpm's store) don't cause a false negative that
-// skips main().
-function isCliEntry() {
-  if (!process.argv[1]) {
-    return false;
-  }
-
-  try {
-    return realpathSync(import.meta.filename) === realpathSync(process.argv[1]);
-  } catch {
-    return false;
-  }
-}
-
-if (isCliEntry()) {
+// exercising the pure version helpers).
+if (isCliEntry(import.meta.filename)) {
   main();
 }

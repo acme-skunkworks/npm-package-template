@@ -6,29 +6,30 @@ description: >-
   compose a Conventional Commits PR title (the release-please bump signal), push,
   open or update a PR, and transition linked Linear issues to In Review. Use when
   asked to ship, send it, finish a branch, open or update a PR for the current
-  work, or wrap up and push. A thin orchestrator that delegates the lint gate to
-  the `preflight` skill, the changelog to the `changelog` skill, and the Linear
-  writeback to the `linear-sync` skill; it owns the branch guard, atomic commits,
-  the release-type decision (by the change's semantic category), PR-title
-  composition, push, and PR. One skill serves monorepos and single-package repos
-  alike.
+  work, or wrap up and push. A thin orchestrator that delegates the commit step to
+  the `commit` skill, the lint gate to the `preflight` skill, the changelog to the
+  `changelog` skill, and the Linear writeback to the `linear-sync` skill; it owns
+  the branch guard, the release-type decision (by the change's semantic category),
+  PR-title composition, push, and PR. One skill serves monorepos and single-package
+  repos alike.
 license: MIT
 compatibility: >-
   Requires the `git` and `gh` CLIs (`gh` authenticated). Node.js ≥22 for the
   bundled `derive-bump.mjs` / `check-skill-bumps.mjs` helpers (Node built-ins only —
-  no npm dependencies, no build step, no tsx). Delegates to the `preflight`,
-  `changelog`, and
+  no npm dependencies, no build step, no tsx). Delegates to the `commit`,
+  `preflight`, `changelog`, and
   `linear-sync` skills — install them alongside this one. The In Review writeback
   needs the Linear MCP server (via `linear-sync`); it is skipped if unavailable.
 metadata:
-  version: 0.5.1
+  version: 0.6.1
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
 
 # send-it
 
-Bundle uncommitted work into atomic commits, run the change-gated lint
+Bundle uncommitted work into atomic commits (via the
+[`commit`](../commit/SKILL.md) skill), run the change-gated lint
 [`preflight`](../preflight/SKILL.md), author or update the dated
 `changelog/<ts>-<slug>.md` entry (via the [`changelog`](../changelog/SKILL.md)
 skill), compose a **Conventional Commits PR title** (the squash subject
@@ -38,9 +39,11 @@ a pull request against the base branch, and transition any linked Linear issues 
 
 This skill is the single source of truth for the **ship flow**. It is a thin
 orchestrator: it owns only the glue no sibling skill does — the branch guard,
-worktree resolution, atomic commits, the release-type decision (by category),
-PR-title composition, push, and the PR — and delegates the rest:
+worktree resolution, the release-type decision (by category), PR-title
+composition, push, and the PR — and delegates the rest:
 
+- **Commit** → the `commit` skill (classify in-scope vs out-of-scope, atomic
+  Conventional Commits, out-of-scope guard).
 - **Lint gate** → the `preflight` skill (change-gated; no-ops when nothing
   lint-relevant changed).
 - **Changelog** → the `changelog` skill (author/update + validate; an entry for
@@ -53,14 +56,14 @@ The delegated skills auto-detect their own scope, so monorepo features
 single-package repo. send-it configures nothing about them.
 
 > **Install the delegated skills alongside `send-it`.** This bundle invokes and
-> links its siblings by relative path (`../preflight/SKILL.md`,
+> links its siblings by relative path (`../commit/SKILL.md`, `../preflight/SKILL.md`,
 > `../changelog/SKILL.md`, `../linear-sync/SKILL.md`), so a `--skill send-it`-only
-> install leaves the lint, changelog, and Linear steps unavailable and those links
-> dangling. Install them together:
+> install leaves the commit, lint, changelog, and Linear steps unavailable and those
+> links dangling. Install them together:
 >
 > ```bash
 > npx skills add https://github.com/acme-skunkworks/agent-skills \
->   --skill send-it --skill preflight --skill changelog --skill linear-sync \
+>   --skill send-it --skill commit --skill preflight --skill changelog --skill linear-sync \
 >   --agent claude-code --agent cursor --copy
 > ```
 
@@ -73,13 +76,13 @@ A few knobs live in [`config.json`](config.json) beside this file; edit your
 copied `config.json` to match the consuming repo (a neutral
 [`config.example.json`](config.example.json) ships as a template):
 
-| Key                                  | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                               | Default                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| `baseBranch`                         | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base.                                                                                                                                                                                                                                                                                                                                                   | `"main"`                                        |
-| `shippablePaths` _(advisory)_        | Path prefixes that make up the published surface — a documentation hint for reviewers, **not** the release decision (A-598; see Step 6). Release-type is decided by the change's semantic category, so these no longer gate the title. Kept for the optional publish-surface cross-check note.                                                                                                                                        | `["skills/"]`                                   |
-| `shippableManifestKeys` _(advisory)_ | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate.                                                                                                                                                                                                                                                                                                       | `["name", "version", "files", "publishConfig"]` |
-| `changelog` _(optional)_             | Whether to author a dated `changelog/` entry at all (Steps 7–8). Set `false` for repos with **no changelog flow** — no `changelog/` directory and no `changelog` skill installed (e.g. a `private` repo with no release pipeline). When `false`, send-it skips changelog authoring entirely, and the category decision continues to drive only the PR title. **Omit it (or set `true`) whenever the `changelog` skill is installed.** | `true`                                          |
-| `bundleVersioning` _(optional)_      | Enables the per-bundle version-bump check (Step 6) for repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` naming the bundle parent dir and the manifest / skill-manifest filenames each bundle carries. **Omit it entirely in single-package repos** — the check then no-ops.                                                                                                      | unset (disabled)                                |
+| Key | Meaning | Default |
+| --- | --- | --- |
+| `baseBranch` | The trunk the branch diff is taken against (`origin/<baseBranch>`) and the PR base. | `"main"` |
+| `shippablePaths` *(advisory)* | Path prefixes that make up the published surface — a documentation hint for reviewers, **not** the release decision (A-598; see Step 6). Release-type is decided by the change's semantic category, so these no longer gate the title. Kept for the optional publish-surface cross-check note. | `["skills/"]` |
+| `shippableManifestKeys` *(advisory)* | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate. | `["name", "version", "files", "publishConfig"]` |
+| `changelog` *(optional)* | Whether to author a dated `changelog/` entry at all (Steps 7–8). Set `false` for repos with **no changelog flow** — no `changelog/` directory and no `changelog` skill installed (e.g. a `private` repo with no release pipeline). When `false`, send-it skips changelog authoring entirely, and the category decision continues to drive only the PR title. **Omit it (or set `true`) whenever the `changelog` skill is installed.** | `true` |
+| `bundleVersioning` *(optional)* | Enables the per-bundle version-bump check (Step 6) for repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` naming the bundle parent dir and the manifest / skill-manifest filenames each bundle carries. **Omit it entirely in single-package repos** — the check then no-ops. | unset (disabled) |
 
 The team name, issue-ID prefixes, and workspace slug are **not** configured here —
 they live in the `linear-sync` and `changelog` skills' own `config.json` files,
@@ -95,7 +98,7 @@ read by the delegated steps.
 ## Prerequisites
 
 - `gh` CLI installed and authenticated (`gh auth status`).
-- The sibling skills (`preflight`, `changelog`, `linear-sync`) installed.
+- The sibling skills (`commit`, `preflight`, `changelog`, `linear-sync`) installed.
 
 ## Process
 
@@ -112,7 +115,7 @@ before any other step runs. Skip this step otherwise.
    - **Otherwise**: treat as a branch name and match against the
      `branch refs/heads/<name>` field.
 3. **No match** — exit immediately with: `No worktree found for <arg>. Available:
-<comma-separated paths>`.
+   <comma-separated paths>`.
 4. **Match** — `cd` into the resolved worktree path. The `cwd` persists for the
    rest of the workflow, so all subsequent `git` and `gh` calls operate on the
    worktree.
@@ -173,39 +176,31 @@ Skip this step if no `package.json` was touched on the branch.
 This keeps CI's `--frozen-lockfile` install green. (Skip silently in repos that
 don't use pnpm.)
 
-### Step 3: Commit uncommitted changes
+### Step 3: Commit uncommitted changes — delegate to the `commit` skill
 
 send-it is the all-in-one finisher: whatever's uncommitted should be committed
-before the changelog/PR work begins — but only what belongs to _this_ branch.
+before the changelog/PR work begins — but only what belongs to *this* branch.
 
-1. `git status --porcelain`. If clean, skip this step.
-2. Inspect uncommitted files: `git status --porcelain` for the list, `git diff` and
-   `git diff --cached` for hunks.
-3. **Filter for branch relevance.** Multi-worktree and multi-agent setups can leave
-   stray files in the working tree that belong to other branches. Decide which
-   uncommitted files are in scope:
-   - Compute the merge base: `git merge-base HEAD origin/<base>`.
-   - Files the branch already touches: `git diff --name-only <merge-base>...HEAD`.
-   - **In scope** by default: any uncommitted file already touched on the branch,
-     or sitting in a directory the branch already touches, or any uncommitted file
-     when the branch has no commits yet (first run on a fresh branch).
-   - **Out of scope** (suspicious): uncommitted files in directories the branch
-     hasn't touched, when the branch already has its own commits.
-4. Show the user the staging plan: in-scope files grouped by proposed commit, plus
-   an explicit list of **out-of-scope files** flagged as "uncertain — possibly from
-   another branch/worktree." Ask: "Stage in-scope files and create the commits
-   below? (yes / no / customise)". Out-of-scope files are never staged
-   automatically.
-5. Group in-scope files into **logical atomic commits**:
-   - One commit per coherent unit (a feature, a bug fix, a refactor, a docs change,
-     a tooling tweak). Don't bundle unrelated edits.
-   - Use Conventional Commits–style subjects (`feat:`, `fix:`, `chore:`, `docs:`,
-     `refactor:`, `perf:`, `test:`), with a scope when one is obvious.
-6. On confirmation, create the commits with `git add <specific files>` (never
-   `git add -A`) and `git commit -m "<subject>"`.
+Follow the [`commit`](../commit/SKILL.md) skill to do this: classify uncommitted
+files **in-scope vs out-of-scope** against the merge base (`git merge-base HEAD
+origin/<base>`), show a staging plan flagging any out-of-scope files (never `git
+add -A`; stray files from another branch/worktree are never staged silently), and
+create **logical atomic Conventional Commits** (type + optional scope +
+British-English body; `!` / `BREAKING CHANGE:` for breaking changes). If clean,
+skip this step. Direct the `commit` skill to classify against **this** send-it
+run's resolved base — `<base>` is `baseBranch` (from `config.json`), or `--base`
+when passed — **not** the `commit` skill's own `config.json` `baseBranch`, which
+differs on a `--base` run (the stacked-PR case). The scope classification and the
+out-of-scope guard must be computed against the same base send-it ships against,
+or a stacked PR would mis-classify files.
 
-If a pre-commit hook reformats files, the commit still succeeds with the formatted
-content.
+The Conventional-Commit types this step writes are the input to Step 6's release
+decision (`derive-bump.mjs` reads them back out of the commits), so the honest
+types and `!` / `BREAKING CHANGE:` markers matter.
+
+This delegation covers only the *initial* commit of uncommitted work. send-it's own
+later, targeted commits stay here: the lockfile refresh (Step 2), the optional
+bundle-version bump (Step 6), and the changelog entry (Step 8).
 
 ### Step 4: Fetch the base branch and confirm there's something to ship
 
@@ -312,7 +307,7 @@ as `feat:`/`fix:` and cut a spurious release.)
    ```
 
    It prints `{ "configured", "unbumped": [{ name, currentVersion, suggestedBump,
-suggestedVersion, manifestPath, skillPath }], "bumped" }`. For **each** `unbumped`
+   suggestedVersion, manifestPath, skillPath }], "bumped" }`. For **each** `unbumped`
    entry, surface the proposal and apply it on confirmation:
 
    > `skills/<name>` changed but its version is still `<currentVersion>`. Suggested
@@ -381,8 +376,9 @@ Follow the [`changelog`](../changelog/SKILL.md) skill to author or update the en
 
    Leave the post-merge fields (`merged_at`, `commit`, `pr`, `merge_strategy`, `stats`)
    and `version` as blank placeholders — the release step finalises them (a non-release
-   entry keeps `version` blank, as no release is cut for it).
-
+   entry keeps `version` blank, as no release is cut for it). This includes `pr`: no
+   step here writes it back after the PR opens; the release/enrich step resolves it
+   post-merge from the entry's `branch:`.
 3. Run the enrichment scripts: `node skills/changelog/scripts/set-affected-packages.mjs`
    then `node skills/changelog/scripts/add-links.mjs`.
 4. **Validate:** `node skills/changelog/scripts/validate-changelog.mjs`. It must pass
@@ -412,11 +408,11 @@ run so it stays in sync with the branch's commits).
 
 1. Check for an existing PR: `gh pr view --json number,url 2>/dev/null`.
 2. **If creating:** `gh pr create --base <base> --draft --title "<title>" --body
-"<body>"`. Use `--ready` (the flag) instead of `--draft` if the user passed
+   "<body>"`. Use `--ready` (the flag) instead of `--draft` if the user passed
    `--ready`.
 3. **If updating:** `gh pr edit <number> --title "<title>" --body "<body>"`.
 4. **If `--merge-when-ready` was passed:** after create/update, run `gh pr merge
---auto --squash <number>` to enable auto-merge once requirements are met.
+   --auto --squash <number>` to enable auto-merge once requirements are met.
 5. Return the PR URL via `gh pr view --json url -q '.url'`.
 
 **PR body template:**
@@ -430,7 +426,6 @@ run so it stays in sync with the branch's commits).
 ## Related Issues
 
 <!-- Linear identifiers extracted from the branch and commits -->
-
 - <ISSUE-ID>
 
 ## Test Plan

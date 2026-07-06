@@ -1,0 +1,32 @@
+{
+  "name": "@acme-skunkworks/skill-release-status",
+  "version": "0.1.3",
+  "private": true,
+  "description": "Agent skill: diagnose the release-please pipeline — preview the next version, surface the release PR and its gate, detect the stale autorelease: pending stall, and confirm tag-vs-version parity.",
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "cursor",
+    "github",
+    "release-please",
+    "release",
+    "diagnostics"
+  ],
+  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/release-status#readme",
+  "bugs": {
+    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "directory": "skills/release-status"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Rob Easthope",
+    "url": "https://github.com/RobEasthope"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

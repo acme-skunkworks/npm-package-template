@@ -138,6 +138,6 @@ Proving commands by claim:
 | Lint clean | the lint command's output showing zero errors |
 | Tests pass | the test command's output showing zero failures |
 | Build succeeds | the build command exiting `0` |
-| Manifest valid | `npx skills-ref validate ./skills/<name>` exiting `0` |
+| Manifest valid | `npx --yes skills-ref@0.1.5 validate ./skills/<name>` exiting `0` |
 | CI green | `gh pr checks <pr>` showing every required check passed |
 | Bug fixed | the original failing symptom now passing |

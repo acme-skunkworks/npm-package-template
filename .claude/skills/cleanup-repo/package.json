@@ -1,6 +1,6 @@
 {
   "name": "@acme-skunkworks/skill-cleanup-repo",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "private": true,
   "description": "Agent skill: clean up merged Git branches and worktrees, plus a filesystem-hygiene pass (empty directories and orphan node_modules).",
   "keywords": [

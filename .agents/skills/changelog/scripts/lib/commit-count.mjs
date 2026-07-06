@@ -33,6 +33,11 @@ export function nonMergeCommitCount(run, prNumber) {
     return null;
   }
 
+  // Exclude only commits we can positively identify as merges (>1 parent). The
+  // REST commits endpoint always includes `parents`, so a missing/malformed
+  // `parents` is anomalous — treat it as 0 parents (a normal commit) so we err
+  // toward counting authored work rather than silently dropping it; a real merge
+  // always arrives with its two parents present.
   const count = commits.filter(
     (commit) =>
       (Array.isArray(commit?.parents) ? commit.parents.length : 0) <= 1,

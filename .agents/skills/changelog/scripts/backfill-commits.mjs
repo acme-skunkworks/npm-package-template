@@ -28,6 +28,7 @@
 // Zero-dep: composes the bundle's own lib modules and the vendored frontmatter
 // parser, so it runs under bare `node`.
 
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { nonMergeCommitCount } from "./lib/commit-count.mjs";
 import { loadConfig } from "./lib/config.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
@@ -86,9 +87,10 @@ export function resolvePrNumber(run, fm) {
 
 /**
  * Splice a `commits: <n>` line into an entry's raw `stats:` block — replacing an
- * existing `commits:` line, else appending after the block's last child. Leaves
- * every other byte of the entry untouched. Throws when there's no `stats:` block
- * to extend (so the caller surfaces it rather than silently skipping).
+ * existing `commits:` line, else appending after the block's last child. When the
+ * entry omits `stats` entirely (the contract allows it), synthesise a minimal
+ * `stats:` block carrying just the commits count. Leaves every other byte of the
+ * entry untouched.
  * @param {string} raw entry markdown
  * @param {number} commits non-merge commit count
  * @returns {string} rewritten markdown
@@ -120,7 +122,13 @@ function setStatsCommits(raw, commits) {
   }
 
   if (statsIndex === -1) {
-    throw new Error("no stats block to extend");
+    // The contract lets an entry omit `stats` entirely (A-613). Rather than
+    // throwing, synthesise a minimal block carrying just the commits count,
+    // appended as the last frontmatter field (its canonical position) so no
+    // existing line shifts. The other stats children stay absent — this script
+    // sets only stats.commits.
+    lines.splice(fmEnd, 0, "stats:", `  commits: ${commits}`);
+    return lines.join("\n");
   }
 
   // Walk the indented children of the stats block. The first dedented (or
@@ -258,7 +266,8 @@ function main() {
   );
 }
 
-// Only run the filesystem pass when invoked as a CLI, not when imported by tests.
-if (argv[1] && import.meta.filename === argv[1]) {
+// Only run the filesystem pass when invoked as a CLI, not when imported by
+// tests.
+if (isCliEntry(import.meta.filename)) {
   main();
 }

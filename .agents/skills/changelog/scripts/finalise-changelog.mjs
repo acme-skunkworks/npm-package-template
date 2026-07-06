@@ -20,6 +20,7 @@
 // via add-links, not hardcoded constants.
 
 import { rewriteBody, splitFrontmatter } from "./add-links.mjs";
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { nonMergeCommitCount } from "./lib/commit-count.mjs";
 import { loadConfig } from "./lib/config.mjs";
 import { enrichFrontmatter } from "./lib/enrich.mjs";
@@ -339,6 +340,6 @@ function main() {
 
 // Only run the filesystem pass when invoked as a CLI, not when imported (e.g.
 // by unit tests exercising finaliseEntry/makeResolver).
-if (argv[1] && import.meta.filename === argv[1]) {
+if (isCliEntry(import.meta.filename)) {
   main();
 }

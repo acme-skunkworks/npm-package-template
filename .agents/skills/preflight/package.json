@@ -1,6 +1,6 @@
 {
   "name": "@acme-skunkworks/skill-preflight",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Agent skill: change-gated, branch-scoped lint preflight — lint only the categories a branch touched (ESLint / markdownlint / actionlint), classify violations as introduced vs pre-existing, and drive the fix/defer loop via an exit-code contract.",
   "keywords": [
