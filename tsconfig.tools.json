@@ -1,18 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noEmit": true,
-    "rootDir": ".",
     "declaration": false,
     "declarationMap": false,
-    "incremental": false
+    "incremental": false,
+    "noEmit": true,
+    "rootDir": "."
   },
+  "exclude": ["dist", "node_modules"],
+  "extends": "./tsconfig.json",
   "include": [
     "eslint.config.ts",
     "infrastructure/scripts/**/*.ts",
     "infrastructure/tests/**/*.ts",
     "vitest.config.ts"
-  ],
-  "exclude": ["dist", "node_modules"]
+  ]
 }
