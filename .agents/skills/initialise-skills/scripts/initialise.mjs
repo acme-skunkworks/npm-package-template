@@ -7,19 +7,44 @@
 // slug) and the confirmation gate are owned by the SKILL.md orchestration, which
 // pipes those facts — and any per-key drift opt-ins — in as stdin JSON.
 //
-//   node scripts/initialise.mjs [--dry-run|--write] [--json]
+//   node scripts/initialise.mjs [--dry-run|--write|--review] [--json]
+//                               [--set <skill>.<key>=<value>]...
 //                               [--repo-root <path>] [--skills-dir <path>]
 //   echo '{"facts":{"linearTeamName":"…"},"acceptDrift":{"changelog":["baseBranch"]}}' \
 //     | node scripts/initialise.mjs --write --json
 //
+// `--set` pushes an arbitrary value a detector wouldn't produce into a named
+// skill's config.json — validated against that skill's config.example.json key
+// set, applied through the same merge/serialise path (dry-run first, --write to
+// commit), so key order + formatting are preserved (A-704).
+//
 // Exit codes: 0 success; 2 usage/IO error.
 
 import { createDetectors } from "./lib/detectors.mjs";
-import { discoverSkills, isPreflightInstalled } from "./lib/discover.mjs";
+import {
+  defaultSkillsDirectory,
+  discoverSkills,
+  isPreflightInstalled,
+} from "./lib/discover.mjs";
 import { reconcilePreflightIgnore } from "./lib/gitignore.mjs";
 import { serialiseConfig } from "./lib/jsonio.mjs";
 import { mergeConfig } from "./lib/merge.mjs";
-import { buildReport, formatHuman } from "./lib/report.mjs";
+import { resolveOverrides } from "./lib/overrides.mjs";
+import { loadDetectableKeys } from "./lib/references.mjs";
+import {
+  buildReport,
+  buildReviewReport,
+  formatHuman,
+  formatReview,
+} from "./lib/report.mjs";
+import { readInstalledVersions } from "./lib/skill-version.mjs";
+import {
+  buildLock,
+  readLock,
+  resolveRef,
+  resolveSource,
+  writeLock,
+} from "./lib/skills-lock.mjs";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { relative } from "node:path";
 
@@ -41,6 +66,8 @@ export function parseArgs(argv) {
   const options = {
     json: false,
     repoRoot: process.cwd(),
+    review: false,
+    set: [],
     skillsDir: undefined,
     write: false,
   };
@@ -50,6 +77,16 @@ export function parseArgs(argv) {
       options.write = true;
     } else if (argument === "--dry-run") {
       options.write = false;
+    } else if (argument === "--set") {
+      // Repeatable: collect the raw `<skill>.<key>=<value>` string. The
+      // structured parse + validation (skill installed, key known, type match)
+      // happens in main(), where the discovered skills are available.
+      options.set.push(requireValue(argument, argv[++index]));
+    } else if (argument === "--review") {
+      // Read-only: report each skill's full current config, never write. The
+      // write path is force-disabled after the loop (below), so this stays
+      // read-only regardless of flag order.
+      options.review = true;
     } else if (argument === "--json") {
       options.json = true;
     } else if (argument === "--repo-root") {
@@ -62,6 +99,14 @@ export function parseArgs(argv) {
       console.error(`initialise-skills: unknown argument "${argument}"`);
       process.exit(2);
     }
+  }
+
+  // --review is strictly read-only: force the write path off no matter the flag
+  // order, so neither `--write --review` nor `--review --write` can leave both
+  // active (which would write config.json and then render a stale pre-write
+  // snapshot).
+  if (options.review) {
+    options.write = false;
   }
 
   return options;
@@ -138,13 +183,37 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
     console.log(
-      "Usage: node scripts/initialise.mjs [--dry-run|--write] [--json] [--repo-root <p>] [--skills-dir <p>]",
+      "Usage: node scripts/initialise.mjs [--dry-run|--write|--review] [--json] [--set <skill>.<key>=<value>]... [--repo-root <p>] [--skills-dir <p>]",
     );
     return;
   }
 
+  // --set mutates config.json; --review is strictly read-only. Combining them is
+  // a usage error rather than a silent no-op preview.
+  if (options.review && options.set.length) {
+    console.error(
+      "initialise-skills: --set cannot be combined with --review (--review is read-only)",
+    );
+    process.exit(2);
+  }
+
   const { acceptDrift, facts } = readStdinPayload();
   const skills = discoverSkills(options.skillsDir);
+
+  // Resolve + validate --set overrides up front, before any write, so an unknown
+  // skill/key or a type mismatch fails fast and touches nothing.
+  const { errors: setErrors, overrides } = resolveOverrides(
+    options.set,
+    skills,
+  );
+  if (setErrors.length) {
+    for (const message of setErrors) {
+      console.error(`initialise-skills: ${message}`);
+    }
+
+    process.exit(2);
+  }
+
   const { detect } = createDetectors({
     linearFacts: facts,
     repoRoot: options.repoRoot,
@@ -168,6 +237,7 @@ function main() {
       config: skill.config.data,
       detect,
       example: skill.example,
+      set: overrides.get(skill.name) ?? {},
     });
 
     if (options.write && changed) {
@@ -187,11 +257,26 @@ function main() {
     }
 
     skillReports.push({
+      config: skill.config.data,
       configPath: relative(options.repoRoot, skill.configPath),
       malformed: false,
       name: skill.name,
       results,
     });
+  }
+
+  // Read-only review: the merge above classified every key without writing (the
+  // write branch is gated on --write). Render the full current config per skill,
+  // skipping the .gitignore reconcile — a review mutates nothing.
+  if (options.review) {
+    const descriptions = loadDetectableKeys();
+    const reviewReport = buildReviewReport(skillReports, descriptions);
+    console.log(
+      options.json
+        ? JSON.stringify(reviewReport, null, 2)
+        : formatReview(reviewReport),
+    );
+    return;
   }
 
   // One mutation outside config.json: ensure preflight's scratch output is
@@ -219,7 +304,40 @@ function main() {
     }
   }
 
-  const report = buildReport(skillReports, options.write, gitignore);
+  // Emit/refresh the consumer's .claude/skills.lock inventory (A-616). A full walk
+  // of every installed bundle (not the config-filtered `skills` list), gated on at
+  // least one bundle being present so a skill-less repo gets no spurious file. The
+  // source/ref provenance is facts-only — supplied via stdin, preserved from any
+  // existing lock, else written as null and flagged (needsFacts). Mirrors the
+  // gitignore block: dry-run reports the pending action, write persists it, and an
+  // IO error is named before funnelling to exit(2).
+  let lock = null;
+  const skillsDirectory = options.skillsDir ?? defaultSkillsDirectory();
+  const installedVersions = readInstalledVersions(skillsDirectory);
+  if (Object.keys(installedVersions).length > 0) {
+    const existingLock = readLock(options.repoRoot);
+    const source = resolveSource(existingLock, facts);
+    const ref = resolveRef(existingLock, facts);
+    try {
+      const result = writeLock(
+        options.repoRoot,
+        buildLock({ installedVersions, ref, source }),
+        { write: options.write },
+      );
+      lock = {
+        needsFacts: source === null || ref === null,
+        path: relative(options.repoRoot, result.path),
+        status: result.status,
+      };
+    } catch (error) {
+      console.error(
+        `initialise-skills: could not write skills.lock: ${error.message}`,
+      );
+      process.exit(2);
+    }
+  }
+
+  const report = buildReport(skillReports, options.write, gitignore, lock);
   if (options.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {

@@ -17,12 +17,12 @@
 //   BRANCH_NAME — entry lookup key (default: current branch via git)
 
 import { findEntryByBranch } from "./lib/changelog.mjs";
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { loadConfig } from "./lib/config.mjs";
 import { derivePackagesFromPaths } from "./lib/derive-packages.mjs";
 import { parseFrontmatter, stringifyFrontmatter } from "./lib/frontmatter.mjs";
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
-import { argv } from "node:process";
 
 /**
  * Rebuild an entry's frontmatter with `affected_packages` set, in canonical
@@ -246,6 +246,6 @@ function main() {
 
 // Only run when invoked as a CLI, not when imported (e.g. by unit tests
 // exercising `buildAffectedPackagesFrontmatter`).
-if (argv[1] && import.meta.filename === argv[1]) {
+if (isCliEntry(import.meta.filename)) {
   main();
 }

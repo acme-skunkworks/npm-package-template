@@ -104,10 +104,11 @@ export function valuesEqual(key, a, b) {
 
 /**
  * @typedef {object} KeyResult
- * @property {"inferred" | "unchanged" | "drift" | "needs-manual-input" | "manual-kept" | "unknown-kept"} status - how the key was classified
- * @property {unknown} [write] - value to persist (inferred / accepted drift)
+ * @property {"inferred" | "unchanged" | "drift" | "needs-manual-input" | "manual-kept" | "unknown-kept" | "set"} status - how the key was classified
+ * @property {unknown} [write] - value to persist (inferred / accepted drift / set)
  * @property {unknown} [keep] - value left untouched (drift / manual-kept / unknown-kept)
  * @property {unknown} [detected] - detector value (drift — shown alongside `keep`)
+ * @property {unknown} [from] - previous value an explicit `set` override replaced (omitted when the key was unset)
  */
 
 /**
@@ -167,13 +168,21 @@ export function classifyKey(key, base, ours, theirs) {
  * @param {Record<string, unknown>} params.config   existing config.json contents
  * @param {(key: string) => ({ value: unknown } | null)} params.detect
  * @param {string[]} [params.acceptDrift]  keys whose drift the caller accepts
+ * @param {Record<string, unknown>} [params.set]  explicit `--set` overrides for
+ *   this skill (already validated to example keys); each wins over detection.
  * @returns {{
  *   results: Record<string, KeyResult>,
  *   data: Record<string, unknown>,
  *   changed: boolean,
  * }}
  */
-export function mergeConfig({ acceptDrift = [], config, detect, example }) {
+export function mergeConfig({
+  acceptDrift = [],
+  config,
+  detect,
+  example,
+  set = {},
+}) {
   const exampleKeys = Object.keys(example ?? {});
   const configKeys = Object.keys(config ?? {});
   // Example drives reconciliation; config-only keys are reported but never touched.
@@ -214,10 +223,44 @@ export function mergeConfig({ acceptDrift = [], config, detect, example }) {
     }
   }
 
+  // Explicit `--set` overrides win over whatever detection classified: the caller
+  // has already validated each key against config.example.json and coerced the
+  // value, so we apply it verbatim and authoritatively — `data[key]` always ends
+  // up exactly what was asked for, so the persisted value matches the reported
+  // `write`. `had`/`from` and the `changed` comparison read the ORIGINAL `config`,
+  // not `data`: when a key has both a live detector and a `--set` (the documented
+  // "detection still runs and your values are layered on top" case) an earlier
+  // `inferred` write has already mutated `data[key]`, so reading `data` would report
+  // the in-run inferred value — not the real previous `config.json` value — and mark
+  // `had` true for a never-previously-set key. `changed` flips on an EXACT
+  // (`deepEqual`) difference from the original config, not the set-aware
+  // `valuesEqual`: for a set-semantic key (`issueKeys`) a reordering `--set` is a
+  // genuine change the user asked for, and reusing `valuesEqual` would report `set`
+  // while silently keeping the old order. An identical value still leaves `changed`
+  // false, so a repeated `--set` stays a no-op; `from` records the replaced config
+  // value so the report can show "was …".
+  const original = config ?? {};
+  for (const [key, value] of Object.entries(set)) {
+    const had = Object.prototype.hasOwnProperty.call(original, key);
+    /** @type {KeyResult} */
+    const result = { status: "set", write: value };
+    if (had) {
+      result.from = original[key];
+    }
+
+    results[key] = result;
+
+    if (!had || !deepEqual(original[key], value)) {
+      changed = true;
+    }
+
+    data[key] = value;
+  }
+
   return { changed, data, results };
 }
 
 /**
  * Statuses that represent an applied change (for summary counts).
  */
-export const APPLIED_STATUSES = new Set(["inferred"]);
+export const APPLIED_STATUSES = new Set(["inferred", "set"]);

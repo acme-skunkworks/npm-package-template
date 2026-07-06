@@ -11,8 +11,8 @@
 //   slug             : branch-name-derived slug (changelog/<ts>-<slug>.md filename)
 //   bump             : major | minor | patch (release magnitude when it IS a release)
 //   body             : a one-line draft summary (the ship flow may rewrite this)
-//   type             : the Conventional-Commit type of the lead commit (feat/fix/
-//                      perf/docs/refactor/chore/…) — the PR-title prefix
+//   type             : the strongest Conventional-Commit type across all commits
+//                      (feat/fix/perf/docs/refactor/chore/…) — the PR-title prefix
 //   breaking         : whether any commit is breaking (`!` or BREAKING CHANGE:)
 //   category         : the dated changelog `category` enum value for this change
 //   releaseTriggering: whether this change cuts a release (A-598 — by the change's
@@ -47,7 +47,6 @@ export function deriveSlug(branch) {
 }
 
 const BREAKING_SUBJECT = /^[a-z]+(\([^)]+\))?!:/;
-const FEAT_SUBJECT = /^feat(\([^)]+\))?:/;
 
 export function deriveBump(commits) {
   if (commits.length === 0) {
@@ -63,7 +62,9 @@ export function deriveBump(commits) {
     return "major";
   }
 
-  if (FEAT_SUBJECT.test(commits[0].subject)) {
+  // Minor when the branch's strongest type is a feat — scanned across all
+  // commits, not just HEAD (A-387), mirroring the all-commits breaking scan.
+  if (deriveDominantType(commits) === "feat") {
     return "minor";
   }
 
@@ -103,10 +104,47 @@ export function deriveType(subject) {
   return match ? match[1].toLowerCase() : "chore";
 }
 
+// Release-significant types, ranked: feat (minor) outranks fix/perf (patch);
+// every non-release type ranks 0. Used to pick the branch's dominant type.
+const TYPE_SIGNIFICANCE = { feat: 3, fix: 2, perf: 2 };
+
+function significance(type) {
+  // `Object.hasOwn` guard for the same reason `CATEGORY_BY_TYPE` carries one: a
+  // type colliding with an inherited Object key (`constructor` survives
+  // deriveType's lower-casing) would otherwise resolve to the prototype's value
+  // (a function, not nullish), so `?? 0` wouldn't fire — and `n > <function>`
+  // coerces to `n > NaN` (false), silently pinning the dominant type to that
+  // commit and defeating the all-commits scan.
+  return Object.hasOwn(TYPE_SIGNIFICANCE, type) ? TYPE_SIGNIFICANCE[type] : 0;
+}
+
+// The strongest Conventional-Commit type across ALL commits (A-387). Starts from
+// the lead commit and only upgrades to a strictly-stronger later commit, so a
+// branch whose HEAD is chore/docs but which contains an earlier feat/fix derives
+// from that feat/fix. When no commit is a release type it stays on the lead
+// commit's type — preserving the changelog category for non-release branches.
+// `git log` is newest-first, so ties keep the newest (lead) commit.
+export function deriveDominantType(commits) {
+  if (commits.length === 0) {
+    return "chore";
+  }
+
+  let best = deriveType(commits[0].subject);
+  for (const commit of commits.slice(1)) {
+    const type = deriveType(commit.subject);
+    if (significance(type) > significance(best)) {
+      best = type;
+    }
+  }
+
+  return best;
+}
+
 // Decide release-type by the change's semantic category, not by path (A-598).
-// The lead commit's type drives the title/category (mirroring deriveBump /
-// deriveBody, which key off commits[0]); breaking-change detection scans all
-// commits (mirroring deriveBump). Returns the PR-title `type`, whether it's
+// The branch's strongest type drives the title/category — scanned across all
+// commits, not just HEAD (A-387) — as does breaking-change detection; both
+// mirror deriveBump. (deriveBody stays on commits[0]: it is an explicitly-draft
+// summary the ship flow may rewrite.) Returns the PR-title `type`, whether it's
 // `breaking`, the changelog `category`, and whether it is `releaseTriggering`.
 export function deriveCategory(commits) {
   const breaking = commits.some(
@@ -114,7 +152,7 @@ export function deriveCategory(commits) {
       BREAKING_SUBJECT.test(commit.subject) ||
       /BREAKING CHANGE:/.test(commit.body),
   );
-  const type = commits.length > 0 ? deriveType(commits[0].subject) : "chore";
+  const type = deriveDominantType(commits);
   return {
     breaking,
     // `Object.hasOwn` guard so a type colliding with an inherited Object key

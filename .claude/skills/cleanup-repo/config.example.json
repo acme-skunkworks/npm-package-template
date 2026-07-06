@@ -2,5 +2,6 @@
   "linearTeamName": "Your Linear Team",
   "issueKeys": ["ABC", "XYZ"],
   "mainBranch": "main",
-  "protectedBranches": ["main"]
+  "protectedBranches": ["main"],
+  "linearWritebackDefault": "no"
 }

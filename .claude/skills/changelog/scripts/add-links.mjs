@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { loadConfig } from "./lib/config.mjs";
 import { buildIssueRe } from "./lib/vendor/issue-keys.mjs";
 import { spawnSync } from "node:child_process";
@@ -292,6 +293,6 @@ function main() {
 
 // Only run the filesystem pass when invoked as a CLI, not when imported (e.g.
 // by unit tests exercising `rewriteBody`).
-if (argv[1] && import.meta.filename === argv[1]) {
+if (isCliEntry(import.meta.filename)) {
   main();
 }

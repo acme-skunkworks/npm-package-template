@@ -18,6 +18,7 @@
 //
 // Zero-dep: Node built-ins only — no tsx, so CI runs it under bare `node`.
 
+import { isCliEntry } from "./lib/cli-entry.mjs";
 import { execFileSync } from "node:child_process";
 import { argv } from "node:process";
 
@@ -189,6 +190,6 @@ function main() {
 
 // Only run when invoked as a CLI, not when imported (e.g. by unit tests
 // exercising the pure functions).
-if (argv[1] && import.meta.filename === argv[1]) {
+if (isCliEntry(import.meta.filename)) {
   main();
 }

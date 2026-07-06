@@ -318,6 +318,7 @@ function main() {
           preExisting: [],
         },
         dryRun,
+        blockOnWarnings,
       );
       writeFileSync(SUMMARY_PATH, `${JSON.stringify(earlySummary, null, 2)}\n`);
     }
@@ -338,6 +339,7 @@ function main() {
           preExisting: [],
         },
         dryRun,
+        blockOnWarnings,
       );
       writeFileSync(SUMMARY_PATH, `${JSON.stringify(earlySummary, null, 2)}\n`);
     }
