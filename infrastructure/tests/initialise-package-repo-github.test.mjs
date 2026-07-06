@@ -165,6 +165,8 @@ describe("ensureGoNoGoRuleset", () => {
     expect(goNoGoRulesetPayload().conditions.ref_name.include).toEqual([
       "~DEFAULT_BRANCH",
     ]);
+    // bypass_actors must be sent explicitly — the API rejects a null/omitted value.
+    expect(goNoGoRulesetPayload().bypass_actors).toEqual([]);
   });
 });
 

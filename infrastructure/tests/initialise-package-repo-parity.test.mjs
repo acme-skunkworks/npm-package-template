@@ -9,17 +9,20 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const SKILL = "skills/initialise-package-repo";
-const CLAUDE = join(process.cwd(), ".claude", SKILL);
-const AGENTS = join(process.cwd(), ".agents", SKILL);
+// This test lives at infrastructure/tests/<file>; the repo root is two levels up.
+// Resolve from the module's own directory so it does not depend on the cwd.
+const REPO_ROOT = join(import.meta.dirname, "..", "..");
+const SKILL = join("skills", "initialise-package-repo");
+const CLAUDE = join(REPO_ROOT, ".claude", SKILL);
+const AGENTS = join(REPO_ROOT, ".agents", SKILL);
 
 /**
- * Repo-relative file paths under `dir`, sorted, for a stable set comparison.
+ * Repo-relative file paths under `root`, sorted, for a stable set comparison.
  */
-function walk(dir, base = dir) {
+function walk(root, base = root) {
   const found = [];
-  for (const name of readdirSync(dir)) {
-    const full = join(dir, name);
+  for (const name of readdirSync(root)) {
+    const full = join(root, name);
     if (statSync(full).isDirectory()) {
       found.push(...walk(full, base));
     } else {

@@ -34,6 +34,9 @@ export const RELEASE_WORKFLOW_FILE = "pkg-release.yml";
  */
 export function goNoGoRulesetPayload() {
   return {
+    // Must be sent explicitly: the rulesets API does not default bypass_actors and
+    // rejects a null value — `[]` is "no bypass", matching the live ruleset.
+    bypass_actors: [],
     conditions: { ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] } },
     enforcement: "active",
     name: RULESET_NAME,
