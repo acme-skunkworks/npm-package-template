@@ -1,0 +1,25 @@
+name: Validate PR title
+
+on:
+  pull_request:
+    # `edited` re-runs when a title is corrected — the PR title is the
+    # release-please bump signal (SK-371), so a stale pass on an old title
+    # would be unsafe.
+    types: [opened, edited, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # Job id MUST stay `pr-title`: a reusable-workflow check renders as
+  # `<caller-job-id> / <reusable-job-name>`, giving the estate-canonical context
+  # `pr-title / Validate PR title is a Conventional Commit` that one required-check
+  # rule pins across the estate (A-400/A-405). Do not rename.
+  pr-title:
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-pr-title.yml@v1
+    secrets: inherit

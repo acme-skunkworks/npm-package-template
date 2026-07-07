@@ -2,10 +2,11 @@ name: CI
 
 on:
   pull_request:
-    # `edited` is included so the conventional-PR-title lint (pr-title job) and
-    # the changelog-completeness gate re-run when a title is corrected — the PR
-    # title is the release-please bump signal (SK-371), so a stale pass on an
-    # old title would be unsafe. The default set is opened/synchronize/reopened.
+    # `edited` is included so the changelog-completeness gate re-runs when a
+    # title is corrected — the PR title is the release-please bump signal
+    # (SK-371), so a stale pass on an old title would be unsafe. (The PR-title
+    # lint itself now lives in validate-pr-title.yml, which also re-runs on
+    # `edited`.) The default set is opened/synchronize/reopened.
     types: [opened, edited, synchronize, reopened]
 
 concurrency:
@@ -20,12 +21,13 @@ permissions:
 # The lint + build-test work runs through the estate's shared reusable
 # workflows (SK-447, completing SK-424's deferred caller half); the template is
 # the reference consumer that proves the pattern before the fleet rollout
-# (SK-420). Both callers are SHA-pinned to one commit so Dependabot bumps them
-# together (SK-446). The two checks that have no reusable lane stay inline:
-# `pr-title` (its own consumer-migration track, SK-428/SK-403) and the
-# changelog-completeness gate (it reads the PR title, which a reusable workflow
-# can't). The `GO/NO GO` aggregator (SK-412/SK-424) stays local and unchanged —
-# it is the estate-canonical required check and lives per-repo by design.
+# (SK-420). The callers float on the shared-workflows `@v1` major tag so
+# non-breaking releases arrive without a per-release Dependabot SHA bump (A-662
+# / A-672). PR-title validation now runs through its own `validate-pr-title.yml`
+# caller (A-695), leaving only the changelog-completeness gate inline here (it
+# reads the PR title, which a reusable workflow can't). The `GO/NO GO`
+# aggregator (SK-412/SK-424) stays local and unchanged — it is the
+# estate-canonical required check and lives per-repo by design.
 jobs:
   # Loads infrastructure/repo-config.yaml once and exposes it to the reusable
   # callers, which — being `uses:` jobs — cannot run a step to read it inline
@@ -58,7 +60,7 @@ jobs:
   # (was the old build-and-lint's `validate:changelog` step, ASW-311).
   lint:
     needs: config
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@v1
     with:
       node-version-file: ${{ needs.config.outputs.node_version_file }}
       # Directory args, NOT globs: the action runs `eslint $ESLINT_ARGS`
@@ -90,7 +92,7 @@ jobs:
   # Absorbs the old build-and-lint `build` step plus the entire `infra` job.
   build-test:
     needs: config
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-build-test.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-build-test.yml@v1
     with:
       node-version-file: ${{ needs.config.outputs.node_version_file }}
       # Off to preserve current behaviour: CI runs no standalone typecheck today
@@ -107,46 +109,6 @@ jobs:
       # devDependency (bats@1.13.0, matching ensure-bats.sh's pin). bats-paths
       # defaults to infrastructure/tests, recursive.
       bats: true
-
-  # Conventional-PR-title lint (SK-371). The repo squash-merges, so the PR title
-  # IS the squash subject release-please parses to decide the bump — a mistyped
-  # prefix silently ships the wrong semver. This guards the format. Runs on every
-  # PR including the release-please PR (whose `chore: release …` title is a valid
-  # conventional subject, so it passes cleanly — no skip needed).
-  #
-  # The job `name` below IS the GitHub status-check context, and it is the
-  # estate-canonical string shared verbatim with octavo and the other release
-  # repos (SK-400) so SK-405 can pin ONE required-check context across the whole
-  # estate. It intentionally breaks this repo's emoji-prefixed job-name
-  # convention — do NOT "tidy" it back; the exact text must stay stable or the
-  # estate-wide required-check pin breaks. Stays inline (its own caller-migration
-  # track, SK-428/SK-403) until a shared pr-title reusable workflow exists.
-  pr-title:
-    name: Validate PR title is a Conventional Commit
-    runs-on: ubuntu-latest
-    permissions:
-      pull-requests: read
-    steps:
-      - name: 🔠 Lint PR title
-        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # Mirror the Conventional Commits types /send-it emits. Only feat / fix
-          # / a `!` breaking marker are release-triggering (release-please default
-          # node bump table); the rest are non-release types.
-          types: |
-            feat
-            fix
-            docs
-            chore
-            ci
-            refactor
-            perf
-            test
-            build
-            style
-            revert
 
   # Changelog-completeness gate (SK-371): a release-triggering PR title
   # (feat/fix/breaking) must carry a dated changelog/ entry. Restores the
@@ -207,7 +169,7 @@ jobs:
   # it lives here (custom per-repo) and not upstream.
   go-no-go:
     name: GO/NO GO
-    needs: [config, lint, build-test, pr-title, changelog-completeness]
+    needs: [config, lint, build-test, changelog-completeness]
     if: ${{ always() }} # MANDATORY — else the aggregator skips and the gate never reports
     runs-on: ubuntu-latest
     steps:

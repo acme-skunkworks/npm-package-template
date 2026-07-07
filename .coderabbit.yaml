@@ -1,0 +1,55 @@
+# CodeRabbit configuration — the estate's canonical source of truth (A-667 / A-732).
+#
+# The release-orchestrator fans this file out *verbatim* to every consumer flagged
+# `coderabbit: true` (A-712), so it becomes each repo's entire CodeRabbit config:
+# anything omitted here reverts that consumer to CodeRabbit's own defaults. Keep it a
+# strict superset of every estate skip convention so a fan-out never re-reviews a PR
+# that one repo already silences.
+
+# Review prose in British English, matching the estate's house style.
+language: "en-GB"
+
+reviews:
+  # Balanced signal-to-noise: fewer nitpicks than `assertive`, more than `quiet`.
+  profile: "chill"
+
+  auto_review:
+    # Denylist: review every PR *except* those carrying the `skip-review` label
+    # (A-667). A `!`-prefixed entry is a negative match. It fails safe — a forgotten
+    # label means more review, not less.
+    labels:
+      - "!skip-review"
+    # The release-orchestrator's changelog-enrichment PRs are mechanical,
+    # bot-authored post-merge field fills — skip them so they don't burn review
+    # quota. The title match is primary; the bot login is the belt-and-braces and,
+    # being a username skip, also covers road-runner-bot's release-please PRs.
+    # Dependabot PRs are deliberately NOT skipped — dependency bumps warrant a review.
+    ignore_title_keywords:
+      - "enrich entry for"
+    ignore_usernames:
+      - "road-runner-bot[bot]"
+
+  # Skip vendored and generated trees — reviewing them is noise and burns quota. The
+  # `!`-prefix excludes; everything else stays in review. Excluding a path a given
+  # consumer lacks is harmless.
+  path_filters:
+    - "!pnpm-lock.yaml"
+    - "!**/dist/**"
+    - "!**/node_modules/**"
+    - "!.claude/skills/**" # re-vendored @acme-skunkworks/agent-skills bundles
+    - "!.agents/skills/**" # Cursor mirror of the same bundles
+
+  # Encode estate policy as reviewer guidance for the paths it applies to.
+  path_instructions:
+    - path: "**/*.md"
+      instructions: >-
+        Prose must be British English (colour, behaviour, organise, licence as a
+        noun, analyse, recognise). Flag American spellings in prose only — never in
+        code identifiers, action inputs, or third-party API field names that mirror
+        upstream spelling (e.g. `track_progress`, `paths-ignore`).
+    - path: ".github/**"
+      instructions: >-
+        Third-party actions must be SHA-pinned with a `# vX.Y.Z` comment (estate
+        policy) — flag any `uses:` on a floating tag or branch. A `reusable-*.yml`
+        (a `workflow_call` workflow) must not declare a top-level `concurrency:`; it
+        deadlock-cancels the caller. Concurrency belongs in the caller stub.
