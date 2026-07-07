@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Claude Code reads only `CLAUDE.md`, so the `@AGENTS.md` line below imports the canonical shared
+block (which Cursor reads from `AGENTS.md` natively). Estate-wide guidance lives there;
+repo-specific guidance follows below.
+
+@AGENTS.md
+
 ## Repo
 
 Template repository for Acme Skunkworks npm packages. It ships a minimal, buildable pnpm + TypeScript ESM skeleton plus the shared workflow/release shell, so a new package can be generated and released without rebuilding the infrastructure each time.
@@ -37,14 +43,6 @@ decision record: follow the ID to Linear for the full rationale. A repo generate
 template inherits this convention — capture new decisions as Linear issues and reference their
 IDs in commits, PR bodies, and comments rather than adding a `docs/adr/` tree. The template
 itself is catalogued in the Open Source initiative in Linear (A-238).
-
-## British English
-
-Write all prose in British English — code comments, documentation, commit messages, PR titles/bodies, and any user-facing strings.
-
-- **Spelling:** use British forms — _colour_, _behaviour_, _organisation_, _centre_, _catalogue_, _recognise_, _analyse_.
-- **Grammar/punctuation:** follow British conventions where they differ — single quotes for quoting where appropriate, full stops outside the closing quotation mark when the quoted phrase is partial, _whilst_/_amongst_ acceptable.
-- **Scope vs. identifiers:** this applies to prose only. Do **not** apply it to identifiers or APIs that mirror upstream names (e.g. `color` props in CSS, third-party API field names) — those stay spelled as the upstream defines them.
 
 ## Package manager and Node
 
