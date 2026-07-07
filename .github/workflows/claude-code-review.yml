@@ -19,6 +19,6 @@ permissions:
 
 jobs:
   claude-review:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-claude-code-review.yml@9febdb14373f383e3ae4f5a6e3f6bb75a59d0c3d # v1.0.2
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-claude-code-review.yml@v1
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
