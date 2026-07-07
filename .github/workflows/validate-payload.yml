@@ -1,0 +1,17 @@
+name: Validate fanned payload
+
+# VENDORED for the A-738 payload-exercising check (validate-payload / Validate
+# fanned payload); required in this repo's main ruleset.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-payload:
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-payload.yml@eab5ceeef79f0b6cad10e6cb1a871ae4bcc37aa8
+    with:
+      skills: true
+      coderabbit: true
