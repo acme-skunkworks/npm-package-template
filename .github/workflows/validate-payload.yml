@@ -1,7 +1,12 @@
 name: Validate fanned payload
 
-# VENDORED for the A-738 payload-exercising check (validate-payload / Validate
-# fanned payload); required in this repo's main ruleset.
+# VENDORED by the release-orchestrator fan-out (A-738) — do not hand-edit; the
+# next fan-out overwrites it. Calls the estate's shared payload-exercising
+# check; `skills`/`coderabbit` are stamped from this repo's fleet.json install
+# profile. The status context `validate-payload / Validate fanned payload` is
+# pinned REQUIRED in this repo's main ruleset so a broken fanned payload turns
+# `mergeable_state` from `unstable` to `blocked` (the fan-out spine then refuses
+# to merge it).
 on:
   pull_request:
     branches: [main]
