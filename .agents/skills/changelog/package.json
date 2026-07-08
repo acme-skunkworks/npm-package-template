@@ -1,6 +1,6 @@
 {
   "name": "@acme-skunkworks/skill-changelog",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "private": true,
   "description": "Agent skill: author, refresh, or repair the per-branch changelog entry — derive metadata, write the frontmatter and grouped body, run the deterministic enrichment scripts, and validate against the changelog contract.",
   "keywords": [

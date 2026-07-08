@@ -271,6 +271,22 @@ function run(command, args) {
 }
 
 /**
+ * Parse JSON from a subprocess or file, turning an opaque `SyntaxError` into a
+ * diagnosed error that names what failed. `gh` can emit a warning line, an auth
+ * prompt, or empty output where JSON was expected — so the raw parser error alone
+ * ("Unexpected token…") gives the caller nothing to act on.
+ */
+export function parseJson(raw, context) {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`could not parse ${context}: ${error?.message ?? error}`, {
+      cause: error,
+    });
+  }
+}
+
+/**
  * Return the current repository as `owner/name`.
  */
 function detectRepo() {
@@ -290,7 +306,10 @@ function detectRepo() {
 function readPackageVersion() {
   // Resolve the repo root from the git toplevel so the helper works from any cwd.
   const top = run("git", ["rev-parse", "--show-toplevel"]).trim();
-  const pkg = JSON.parse(readFileSync(join(top, "package.json"), "utf8"));
+  const pkg = parseJson(
+    readFileSync(join(top, "package.json"), "utf8"),
+    "root package.json",
+  );
   return String(pkg.version);
 }
 
@@ -369,7 +388,7 @@ function fetchMergedPrsSinceLastTag(repo, mainBranch) {
     args.push("--search", search);
   }
 
-  const prs = JSON.parse(run("gh", args));
+  const prs = parseJson(run("gh", args), "merged-PR list from gh");
 
   // If the window filled the cap, the diagnosis may be built on a truncated set —
   // warn (to stderr, so `--json` stdout stays clean) rather than silently under-report.
@@ -398,7 +417,7 @@ function fetchMergedPrsSinceLastTag(repo, mainBranch) {
  * required-check rollup so the caller can read the gate state in one call.
  */
 function fetchOpenReleasePr(repo, releaseBranch, mainBranch) {
-  const list = JSON.parse(
+  const list = parseJson(
     run("gh", [
       "pr",
       "list",
@@ -415,6 +434,7 @@ function fetchOpenReleasePr(repo, releaseBranch, mainBranch) {
       "--limit",
       "1",
     ]),
+    "open release PR from gh",
   );
   return list[0] ?? null;
 }
@@ -424,7 +444,7 @@ function fetchOpenReleasePr(repo, releaseBranch, mainBranch) {
  * its labels — the input to the stale-pending detector.
  */
 function fetchLastMergedReleasePr(repo, releaseBranch, mainBranch) {
-  const list = JSON.parse(
+  const list = parseJson(
     run("gh", [
       "pr",
       "list",
@@ -441,6 +461,7 @@ function fetchLastMergedReleasePr(repo, releaseBranch, mainBranch) {
       "--limit",
       "1",
     ]),
+    "last merged release PR from gh",
   );
   return list[0] ?? null;
 }

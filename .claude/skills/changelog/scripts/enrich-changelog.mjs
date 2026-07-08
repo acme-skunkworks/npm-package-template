@@ -40,7 +40,7 @@ import { loadConfig } from "./lib/config.mjs";
 import { enrichFrontmatter } from "./lib/enrich.mjs";
 import { parseFrontmatter } from "./lib/frontmatter.mjs";
 import { readFileSync, writeFileSync } from "node:fs";
-import { argv, env } from "node:process";
+import { argv, env, exit } from "node:process";
 
 /**
  * Map the orchestrator's env-var interface into an EnrichInput. Absent or empty
@@ -173,7 +173,7 @@ function main() {
       console.log("✓ enrich-changelog self-test passed");
     } catch (error) {
       console.error(`✗ enrich-changelog self-test failed: ${error.message}`);
-      process.exit(1);
+      exit(1);
     }
 
     return;
@@ -190,7 +190,7 @@ function main() {
       "enrich-changelog: BRANCH_NAME, MERGED_AT and MERGE_SHA are required.\n",
     );
     console.error(USAGE);
-    process.exit(2);
+    exit(2);
   }
 
   const path = findEntryByBranch(input.branch, loadConfig().changelogDir);
@@ -208,7 +208,7 @@ function main() {
     next = enrichEntry(readFileSync(path, "utf8"), input);
   } catch (error) {
     console.error(`enrich-changelog: ${path}: ${error.message}`);
-    process.exit(1);
+    exit(1);
   }
 
   if (next === null) {
@@ -219,7 +219,7 @@ function main() {
   if (check) {
     // Completeness gate: the entry still needs enriching.
     console.log(`would enrich: ${path}`);
-    process.exit(1);
+    exit(1);
   }
 
   if (dryRun) {

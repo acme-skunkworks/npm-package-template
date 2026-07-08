@@ -61,9 +61,11 @@ prints a structured report (or `--json`):
    version-vs-tag gate.
 
 ```bash
-node scripts/release-status.mjs            # human-readable report
-node scripts/release-status.mjs --json     # machine-readable JSON
-node scripts/release-status.mjs --self-test  # offline assertions (no network)
+node scripts/release-status.mjs                    # human-readable report
+node scripts/release-status.mjs --json             # machine-readable JSON
+node scripts/release-status.mjs --repo owner/name  # target a repo (else auto-detected)
+node scripts/release-status.mjs --self-test        # offline assertions (no network)
+node scripts/release-status.mjs --help             # usage (alias: -h)
 ```
 
 ## Read-only / advisory

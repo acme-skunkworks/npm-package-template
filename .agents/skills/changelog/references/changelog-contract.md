@@ -83,7 +83,8 @@ Three owners, never overlapping:
    finalise/enrich use for the other post-merge fields) — the ship flow never writes
    it. npm targets fill these at release time (`finalise-changelog.mjs`); deploy
    targets, never checked out during the release flow, fill them afterwards from the
-   enrichment cron (`enrich-changelog.mjs`, minus `version`).
+   enrichment cron (`enrich-changelog.mjs`, minus `version` and `commits` — the cron
+   passes no commit count, so `stats.commits` is left to the release-time path).
 
 `branch` is set by the author at create time and is the stable lookup key for
 enrichment.

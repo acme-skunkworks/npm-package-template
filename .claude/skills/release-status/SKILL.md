@@ -22,7 +22,7 @@ compatibility: >-
   road-runner-bot `release-orchestrator`), with a publish-only `release.yml`
   gated on a version-vs-tag check.
 metadata:
-  version: 0.1.3
+  version: 0.1.4
   author: Rob Easthope
 allowed-tools: Read, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*)
 ---
@@ -54,7 +54,9 @@ doing. The two never call each other. This skill may reference `send-it` in pros
 
 ## Configuration
 
-Four knobs live in [`config.json`](config.json) beside this file. Read it at the
+Four knobs live in `config.json` beside this file, vendored from the tracked
+[`config.example.json`](config.example.json) template (the runtime `config.json`
+is generated per consumer and is not itself tracked). Read `config.json` at the
 start of a run and use its values throughout. Edit your copied `config.json` to
 match the consuming repo.
 
