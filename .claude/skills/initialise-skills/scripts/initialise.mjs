@@ -26,6 +26,7 @@ import {
   discoverSkills,
   isPreflightInstalled,
 } from "./lib/discover.mjs";
+import { restoreClobberedConfigs } from "./lib/git.mjs";
 import { reconcilePreflightIgnore } from "./lib/gitignore.mjs";
 import { serialiseConfig } from "./lib/jsonio.mjs";
 import { mergeConfig } from "./lib/merge.mjs";
@@ -179,6 +180,28 @@ export function acceptedDriftFor(skill, acceptDrift, repoRoot) {
   ];
 }
 
+/**
+ * The A-706 clobber-restore message suffix, worded on what actually happened —
+ * not just the mode. A `--write` whose `git checkout` failed (permissions, disk,
+ * git error) restores nothing (`restoredCount === 0`), so it must NOT claim
+ * success: the reconcile that follows would then regress the values. Pure.
+ * @param {number} clobberedCount  config.json files git shows clobbered vs HEAD
+ * @param {number} restoredCount   how many were actually restored (0 in dry-run)
+ * @param {boolean} write          whether --write asked for a restore
+ * @returns {string}
+ */
+export function restoreOutcomeSuffix(clobberedCount, restoredCount, write) {
+  if (!write) {
+    return "— re-run with --write to restore from HEAD before values regress";
+  }
+
+  if (restoredCount === clobberedCount) {
+    return "— restored from HEAD before reconciling";
+  }
+
+  return "— but the restore from HEAD FAILED; reconcile may regress these values";
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
@@ -198,7 +221,41 @@ function main() {
   }
 
   const { acceptDrift, facts } = readStdinPayload();
-  const skills = discoverSkills(options.skillsDir);
+  let skills = discoverSkills(options.skillsDir);
+
+  // A-706: a `skills add --copy` re-vendor clobbers each tracked config.json
+  // (agent-skills ships none — A-615), so restore them from HEAD *before*
+  // reconciling — otherwise the merge runs against the wiped/example values and
+  // silently regresses every no-detector key. --write restores; a dry-run/review
+  // only warns. Re-discover after a restore so the reconcile reads the recovered
+  // values. (fleet-update does this too for its own pipeline; this protects a
+  // human running `skills add --copy` + initialise directly.)
+  const configPaths = skills
+    .filter((skill) => !skill.malformed)
+    .map((skill) => relative(options.repoRoot, skill.configPath));
+  const { clobbered, restored } = restoreClobberedConfigs(
+    options.repoRoot,
+    configPaths,
+    { write: options.write },
+  );
+  if (clobbered.length > 0) {
+    console.error(
+      `initialise-skills: ${clobbered.length} config.json clobbered by a --copy re-vendor ${restoreOutcomeSuffix(
+        clobbered.length,
+        restored.length,
+        options.write,
+      )} (A-706):`,
+    );
+    for (const path of clobbered) {
+      console.error(`  ${path}`);
+    }
+
+    // Only re-read when a restore actually landed; otherwise `skills` still holds
+    // the clobbered values (and the message above says so).
+    if (restored.length > 0) {
+      skills = discoverSkills(options.skillsDir);
+    }
+  }
 
   // Resolve + validate --set overrides up front, before any write, so an unknown
   // skill/key or a type mismatch fails fast and touches nothing.
@@ -315,10 +372,10 @@ function main() {
   const skillsDirectory = options.skillsDir ?? defaultSkillsDirectory();
   const installedVersions = readInstalledVersions(skillsDirectory);
   if (Object.keys(installedVersions).length > 0) {
-    const existingLock = readLock(options.repoRoot);
-    const source = resolveSource(existingLock, facts);
-    const ref = resolveRef(existingLock, facts);
     try {
+      const existingLock = readLock(options.repoRoot);
+      const source = resolveSource(existingLock, facts);
+      const ref = resolveRef(existingLock, facts);
       const result = writeLock(
         options.repoRoot,
         buildLock({ installedVersions, ref, source }),
@@ -331,7 +388,7 @@ function main() {
       };
     } catch (error) {
       console.error(
-        `initialise-skills: could not write skills.lock: ${error.message}`,
+        `initialise-skills: could not reconcile skills.lock: ${error.message}`,
       );
       process.exit(2);
     }

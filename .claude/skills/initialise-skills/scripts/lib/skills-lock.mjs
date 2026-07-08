@@ -115,7 +115,9 @@ export function serialiseLock(lock) {
 /**
  * Read an existing lock from a consumer repo root. Returns null when the file is
  * absent or unparseable (a malformed lock is treated as "no prior provenance" —
- * the next write regenerates it cleanly rather than throwing).
+ * the next write regenerates it cleanly rather than throwing). A genuine IO error
+ * (e.g. EACCES/EISDIR on a file that exists but can't be read) is *not* masked —
+ * it throws, so real provenance is never silently discarded by an unreadable lock.
  * @param {string} repoRoot
  * @returns {object | null}
  */
@@ -125,8 +127,20 @@ export function readLock(repoRoot) {
     return null;
   }
 
+  // Read and parse in separate steps so only a *malformed* lock collapses to null.
+  // existsSync already ruled out "absent", so a readFileSync failure here is a real
+  // IO error — surface it rather than mistaking it for "no lock".
+  let raw;
   try {
-    const data = JSON.parse(readFileSync(path, "utf8"));
+    raw = readFileSync(path, "utf8");
+  } catch (error) {
+    throw new Error(`could not read ${path}: ${error?.message ?? error}`, {
+      cause: error,
+    });
+  }
+
+  try {
+    const data = JSON.parse(raw);
     return data && typeof data === "object" && !Array.isArray(data)
       ? data
       : null;

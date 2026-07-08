@@ -193,7 +193,6 @@ export function mergeConfig({
   const results = {};
   /** @type {Record<string, unknown>} */
   const data = { ...config };
-  let changed = false;
 
   for (const key of keys) {
     const inExample = Object.prototype.hasOwnProperty.call(example ?? {}, key);
@@ -219,7 +218,6 @@ export function mergeConfig({
 
     if (result.status === "inferred" && "write" in result) {
       data[key] = result.write;
-      changed = true;
     }
   }
 
@@ -227,18 +225,13 @@ export function mergeConfig({
   // has already validated each key against config.example.json and coerced the
   // value, so we apply it verbatim and authoritatively — `data[key]` always ends
   // up exactly what was asked for, so the persisted value matches the reported
-  // `write`. `had`/`from` and the `changed` comparison read the ORIGINAL `config`,
-  // not `data`: when a key has both a live detector and a `--set` (the documented
-  // "detection still runs and your values are layered on top" case) an earlier
-  // `inferred` write has already mutated `data[key]`, so reading `data` would report
-  // the in-run inferred value — not the real previous `config.json` value — and mark
-  // `had` true for a never-previously-set key. `changed` flips on an EXACT
-  // (`deepEqual`) difference from the original config, not the set-aware
-  // `valuesEqual`: for a set-semantic key (`issueKeys`) a reordering `--set` is a
-  // genuine change the user asked for, and reusing `valuesEqual` would report `set`
-  // while silently keeping the old order. An identical value still leaves `changed`
-  // false, so a repeated `--set` stays a no-op; `from` records the replaced config
-  // value so the report can show "was …".
+  // `write`. `had`/`from` read the ORIGINAL `config`, not `data`: when a key has
+  // both a live detector and a `--set` (the documented "detection still runs and
+  // your values are layered on top" case) an earlier `inferred` write has already
+  // mutated `data[key]`, so reading `data` would report the in-run inferred value —
+  // not the real previous `config.json` value — and mark `had` true for a
+  // never-previously-set key. `changed` is NOT accumulated per key; it is computed
+  // once after the loop from the final `data` vs the original (see below).
   const original = config ?? {};
   for (const [key, value] of Object.entries(set)) {
     const had = Object.prototype.hasOwnProperty.call(original, key);
@@ -250,12 +243,17 @@ export function mergeConfig({
 
     results[key] = result;
 
-    if (!had || !deepEqual(original[key], value)) {
-      changed = true;
-    }
-
     data[key] = value;
   }
+
+  // Report `changed` from the net result, once, after all inferred + `--set`
+  // writes: a change survived only if the final `data` differs from the original
+  // `config`. This correctly reports `false` when a `--set` restores a key that
+  // detection had inferred away (the intermediate inferred write is undone, so
+  // there is no net change). `deepEqual` is EXACT (order-sensitive for arrays),
+  // not the set-aware `valuesEqual`: a reordering `--set` on a set-semantic key
+  // (`issueKeys`) is a genuine change the user asked for and must still count.
+  const changed = !deepEqual(data, original);
 
   return { changed, data, results };
 }

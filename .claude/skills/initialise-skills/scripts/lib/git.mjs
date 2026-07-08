@@ -159,3 +159,66 @@ export function currentIssueKeys(branchesByRecency) {
 export function detectIssueKeys(root) {
   return currentIssueKeys(listBranchNamesByRecency(root));
 }
+
+/**
+ * From `git diff HEAD --name-only --diff-filter=DM` output, the config.json paths
+ * a `skills add --copy` re-vendor clobbered (deleted OR overwritten with the
+ * neutral example). Pure — parses text, touches no filesystem. Mirrors
+ * fleet-update's `detectClobberedConfigs` so the two restore paths agree.
+ * @param {string} gitDiffOutput
+ * @returns {string[]}
+ */
+export function parseClobberedConfigs(gitDiffOutput) {
+  return gitDiffOutput
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /(^|\/)config\.json$/.test(line))
+    .toSorted();
+}
+
+/**
+ * Restore per-skill config.json files a `skills add --copy` re-vendor clobbered —
+ * deleted, or overwritten with the neutral example — back to their tracked HEAD
+ * content (A-706). agent-skills gitignores its own config.json (A-615) so the
+ * source bundle ships none; a --copy clean-replace therefore wipes the consumer's
+ * REAL (tracked) values, and the reconcile that follows would silently regress
+ * every no-detector key (linearTeamName, changelog.packageRoots, …). Scoped to
+ * `configPaths` (repo-relative, from the discovered skills) so nothing outside the
+ * reconciled skills dir is ever touched.
+ *
+ * Detect-only when `write` is false (a dry-run/review mutates nothing): returns the
+ * clobbered set with `restored: []`. A no-op (empty result) outside a git repo,
+ * when `configPaths` is empty, or on a first-ever install — a never-committed
+ * config is untracked, not D/M, so it never matches.
+ * @param {string} root
+ * @param {string[]} configPaths  repo-relative config.json paths to consider
+ * @param {{ write: boolean }} options
+ * @returns {{ clobbered: string[], restored: string[] }}
+ */
+export function restoreClobberedConfigs(root, configPaths, { write }) {
+  if (!configPaths || configPaths.length === 0) {
+    return { clobbered: [], restored: [] };
+  }
+
+  const diff = spawnSync(
+    "git",
+    ["diff", "HEAD", "--name-only", "--diff-filter=DM", "--", ...configPaths],
+    { cwd: root, encoding: "utf8", maxBuffer: 10 * 1024 * 1024 },
+  );
+  // No git repo, an unborn HEAD, or any git error → nothing we can safely
+  // restore. Degrade to a no-op, like the other git.mjs wrappers.
+  if (diff.status !== 0 || typeof diff.stdout !== "string") {
+    return { clobbered: [], restored: [] };
+  }
+
+  const clobbered = parseClobberedConfigs(diff.stdout);
+  if (clobbered.length === 0 || !write) {
+    return { clobbered, restored: [] };
+  }
+
+  const checkout = spawnSync("git", ["checkout", "HEAD", "--", ...clobbered], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return { clobbered, restored: checkout.status === 0 ? clobbered : [] };
+}

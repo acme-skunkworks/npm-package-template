@@ -1,6 +1,6 @@
 {
   "name": "@acme-skunkworks/skill-release-status",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "description": "Agent skill: diagnose the release-please pipeline — preview the next version, surface the release PR and its gate, detect the stale autorelease: pending stall, and confirm tag-vs-version parity.",
   "keywords": [

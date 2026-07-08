@@ -23,7 +23,7 @@ compatibility: >-
   App / token check is optional — it uses `gh` when authenticated, else falls
   back to a reminder.
 metadata:
-  version: 0.10.2
+  version: 0.10.6
   author: Rob Easthope
 allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
 ---
@@ -217,8 +217,9 @@ set that no skill template knows about show as `unknown-kept` (kept verbatim, no
 description), and template keys not yet present in `config.json` show as
 `— not set`, so the review is the whole picture rather than just the pending
 diff a dry-run would show. The human text shows each key's `used by … —
-<detection source>` line; the key's fallback default is carried in the `--json`
-form only, to keep the human table readable. Add `--json` for the
+<detection source>` line, and — for an unset key — the `fallback:` default that
+applies until it's configured (set keys omit it, since the live value already
+shows what's in effect). Add `--json` for the
 machine-readable form (a `skills[]` array of `{ key, value, isSet, status,
 usedBy, detectionSource, fallback }` entries, plus `totals`). It never writes to
 disk and skips the `.gitignore` step.

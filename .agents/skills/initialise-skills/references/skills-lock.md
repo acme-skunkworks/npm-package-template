@@ -68,8 +68,16 @@ It diffs the lock's `skills` against the target versions and partitions them:
 | `removed` | Skills in the lock but absent upstream. |
 | `downgrades` | `[{ name, from, to }]` where the consumer is ahead of the target. |
 | `unknown` | `[{ name, from, to }]` where a version couldn't be compared. |
-| `updatesAvailable` | `true` when `updates` is non-empty. |
+| `updatesAvailable` | `true` when `updates` **or** `added` is non-empty — i.e. the consumer is behind on a locked skill or has yet to vendor a brand-new upstream one. |
 
 Versions compare on the `major.minor.patch` release core (pre-release/build
 metadata is ignored). A fleet-update orchestrator uses `updatesAvailable` to skip
 already-current repos and `updates` to populate an update PR's body.
+
+> **`updatesAvailable: false` is not the same as "nothing to report."** The flag
+> reflects only the *forward-actionable* buckets (`updates` + `added`). A repo can
+> have `updatesAvailable: false` yet still carry `removed`, `downgrades`, or
+> `unknown` entries — surfaced as their own fields (and, in the human report, as
+> their own lines) but deliberately not treated as an available update. A consumer
+> that wants "is there anything at all to look at?" should inspect those fields too,
+> not just `updatesAvailable`.

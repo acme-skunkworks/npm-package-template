@@ -17,6 +17,13 @@
 // the caller to surface and decide on.
 
 /**
+ * Config keys that must never be written through the bracket-notation assignment
+ * below — they could reach `Object.prototype` and pollute it. Belt-and-braces atop
+ * the config.example allowlist (the key must also be an own key of the example).
+ */
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/**
  * Split one `--set` argument into `{ skill, key, rawValue }`. Splits on the first
  * `=` (value keeps any further `=`) then the first `.` (key keeps any further `.`,
  * though config keys are flat today). Throws a descriptive Error on a malformed
@@ -118,6 +125,17 @@ export function resolveOverrides(rawSetArgs, skills) {
     }
 
     const { key, rawValue, skill: skillName } = parsed;
+
+    // Reject prototype-polluting keys before the bracket-notation write further
+    // down (`overrides.get(skillName)[key] = value`). The config.example allowlist
+    // would normally exclude them, but guard the raw user-supplied key directly.
+    if (DANGEROUS_KEYS.has(key)) {
+      errors.push(
+        `--set "${skillName}.${key}": "${key}" is not an assignable config key`,
+      );
+      continue;
+    }
+
     const skill = byName.get(skillName);
     if (!skill) {
       errors.push(
