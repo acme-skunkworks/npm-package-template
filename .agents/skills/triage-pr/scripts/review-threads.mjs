@@ -9,6 +9,12 @@
 //   - unresolvedThreads : inline review threads with `isResolved == false`,
 //                         raised by a configured review bot. Each is trimmed to
 //                         { threadId, path, line, isOutdated, author, comments }.
+//   - deferredThreads   : the same, for bot threads already carrying our
+//                         non-resolving defer marker (recorded at SKILL.md Step 8
+//                         but not yet ticketed/resolved at Step 10). Bucketed apart
+//                         so they are NOT re-emitted as fresh findings on the next
+//                         pass, and so a fresh invocation can rediscover the pending
+//                         defers it holds no in-memory record of.
 //   - humanThreads      : the same, for threads NOT raised by a review bot —
 //                         surfaced so a human isn't silently dropped, but the
 //                         skill does not auto-action them.
@@ -40,6 +46,12 @@ import { realpathSync } from "node:fs";
 // many docs show the suffixed form (`claude[bot]`). `botMatches` normalises both
 // sides, so a consumer's config can use either form.
 const DEFAULT_BOTS = ["claude", "cursor", "coderabbitai"];
+
+// Non-resolving defer marker written by respond-threads.mjs at SKILL.md Step 8. A
+// bot thread bearing it in any comment is a pending follow-up, not a fresh finding,
+// so buildResult buckets it into `deferredThreads`. Keep this string in sync with
+// respond-threads.mjs (DEFER_PENDING_MARKER there).
+const DEFER_PENDING_MARKER = "<!-- triage-pr:defer-pending -->";
 
 // ---- pure transform (no network) ----------------------------------------
 
@@ -143,9 +155,20 @@ export function selectSummaryComments(commentNodes, isBot) {
 }
 
 /**
+ * True when any of a thread's comments carries the non-resolving defer marker.
+ */
+function isDeferPending(thread) {
+  return thread.comments.some((comment) =>
+    String(comment.body ?? "").includes(DEFER_PENDING_MARKER),
+  );
+}
+
+/**
  * Build the minimal result from raw GraphQL nodes. Splitting bot threads from
  * human threads honours the skill's "AI bots only" contract while still
- * surfacing human threads for the report.
+ * surfacing human threads for the report. A bot thread already bearing our
+ * non-resolving defer marker is bucketed apart into `deferredThreads` so it is not
+ * re-emitted as a fresh finding (and stays rediscoverable by a later invocation).
  */
 export function buildResult({
   bots,
@@ -157,6 +180,7 @@ export function buildResult({
 }) {
   const isBot = makeBotMatcher(bots);
   const unresolvedThreads = [];
+  const deferredThreads = [];
   const humanThreads = [];
 
   for (const node of threadNodes ?? []) {
@@ -165,10 +189,12 @@ export function buildResult({
     }
 
     const thread = shapeThread(node);
-    if (isBot(thread.author)) {
-      unresolvedThreads.push(thread);
-    } else {
+    if (!isBot(thread.author)) {
       humanThreads.push(thread);
+    } else if (isDeferPending(thread)) {
+      deferredThreads.push(thread);
+    } else {
+      unresolvedThreads.push(thread);
     }
   }
 
@@ -176,6 +202,7 @@ export function buildResult({
 
   return {
     aiSummaryComments,
+    deferredThreads,
     humanThreads,
     isDraft: Boolean(isDraft),
     pr: number,
@@ -441,6 +468,24 @@ function selfTest() {
       line: 3,
       path: "c.ts",
     },
+    // A bot thread we deferred (Step 8): the bot's finding plus our own
+    // non-resolving marker reply. It must bucket into deferredThreads.
+    {
+      comments: {
+        nodes: [
+          { author: { login: "coderabbitai" }, body: "extract this helper" },
+          {
+            author: { login: "RobEasthope" },
+            body: `Noted as out of scope.\n\n${DEFER_PENDING_MARKER}`,
+          },
+        ],
+      },
+      id: "T_bot_deferred",
+      isOutdated: false,
+      isResolved: false,
+      line: 12,
+      path: "e.ts",
+    },
   ];
   const commentNodes = [
     {
@@ -514,6 +559,16 @@ function selfTest() {
       ok:
         ids(result.humanThreads).includes("T_human") &&
         !ids(result.unresolvedThreads).includes("T_human"),
+    },
+    {
+      name: "defer-pending bot thread is bucketed into deferredThreads",
+      ok:
+        ids(result.deferredThreads).includes("T_bot_deferred") &&
+        !ids(result.unresolvedThreads).includes("T_bot_deferred"),
+    },
+    {
+      name: "a plain unresolved bot thread stays out of deferredThreads",
+      ok: !ids(result.deferredThreads).includes("T_bot_unresolved"),
     },
     {
       name: "comments are trimmed to author + body only",

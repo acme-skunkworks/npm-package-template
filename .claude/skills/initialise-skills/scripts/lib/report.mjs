@@ -324,6 +324,13 @@ export function formatReview(report) {
       const name = keyResult.key.padEnd(22);
       const value = keyResult.isSet ? fmt(keyResult.value) : "— not set";
       lines.push(`  ${label}${name}${value}`.trimEnd());
+      // For an unset key, surface the fallback default that applies until it's
+      // configured — actionable context that otherwise only appeared in --json.
+      // (Set keys omit it: the live value already shows what's in effect.)
+      if (!keyResult.isSet && keyResult.fallback) {
+        lines.push(`      fallback: ${keyResult.fallback}`);
+      }
+
       // Long detection-source prose lives on its own indented line so it never
       // blows out the value column. Omitted for keys with no reference row (e.g.
       // unknown-kept), which have nothing to describe.

@@ -9,12 +9,21 @@
 //     and skip repos that are already current.
 //
 //   node scripts/check-updates.mjs --source <agent-skills-checkout> [--ref <ref>]
-//                                  [--lock <path>] [--json]
+//                                  [--lock <path>] [--skills <a,b,c>] [--json]
 //
 // The consumer holds only OLD vendored copies, so the target versions must come
 // from a source checkout. With --ref, each version is read at that ref via
 // `git show <ref>:skills/<name>/SKILL.md` (mirroring send-it's check-skill-bumps);
 // without it, the source working tree is read. Exit codes: 0 success; 2 usage/IO.
+//
+// --skills scopes the diff to a consumer's canonical install set (both sides). A
+// consumer installs a FIXED profile via explicit `skills add --skill` flags, so an
+// upstream bundle it never vendors — most notably the repo-internal
+// `scaffold-new-skill` (A-729), which is present in every source checkout but in no
+// consumer — must NOT count as an `added` update, or `updatesAvailable` is stuck
+// true forever and the fan-out verify can never pass (A-741). Passing the resolved
+// skill set restricts the comparison to those bundles; omit it (local "am I behind?"
+// use) to diff every installed bundle against every upstream one, unchanged.
 //
 // The pure functions (compareVersions, diffLock) keep no git/fs state, so they're
 // exported for vitest and exercised by --self-test. main() does the I/O.
@@ -83,6 +92,18 @@ function byName(a, b) {
 }
 
 /**
+ * Whether a diff means the consumer is behind: a locked skill has a newer target
+ * (`updates`) *or* a brand-new upstream bundle it hasn't vendored appeared
+ * (`added`). Both are actionable, so a repo missing a whole new skill is correctly
+ * "not up to date" rather than falsely clean.
+ * @param {ReturnType<typeof diffLock>} diff
+ * @returns {boolean}
+ */
+export function hasUpdates(diff) {
+  return diff.updates.length > 0 || diff.added.length > 0;
+}
+
+/**
  * Diff a lock's installed versions against a target's versions.
  *   updates   : [{name, from, to, bump}] where the target is strictly newer
  *               (bump ∈ major|minor|patch) — the actionable upgrade list.
@@ -138,12 +159,39 @@ export function diffLock(lockSkills, targetVersions) {
   };
 }
 
+/**
+ * Restrict a version map to an allow-list of skill names. An empty/absent
+ * allow-list is a no-op (returns the map unchanged), preserving the local
+ * "diff everything" behaviour; a non-empty one keeps only the named skills, so a
+ * comparison scoped to a consumer's canonical install set never sees an upstream
+ * bundle it doesn't vendor (e.g. the repo-internal `scaffold-new-skill`). Pure.
+ * @param {Record<string, string | null>} versions
+ * @param {string[] | undefined} allowlist
+ * @returns {Record<string, string | null>}
+ */
+export function restrictToAllowlist(versions, allowlist) {
+  if (!allowlist || allowlist.length === 0) {
+    return versions;
+  }
+
+  const allowed = new Set(allowlist);
+  const restricted = {};
+  for (const name of Object.keys(versions)) {
+    if (allowed.has(name)) {
+      restricted[name] = versions[name];
+    }
+  }
+
+  return restricted;
+}
+
 function parseArgs(argv) {
   const options = {
     json: false,
     lock: undefined,
     ref: undefined,
     selfTest: false,
+    skills: undefined,
     source: undefined,
   };
   for (let index = 0; index < argv.length; index++) {
@@ -160,6 +208,15 @@ function parseArgs(argv) {
       options.ref = requireValue(argument, argv[++index]);
     } else if (argument === "--lock") {
       options.lock = requireValue(argument, argv[++index]);
+    } else if (argument === "--skills") {
+      // Comma-separated allow-list; repeated flags accumulate. Blank entries are
+      // dropped so `--skills ""` is an explicit no-op rather than a phantom skill.
+      const value = requireValue(argument, argv[++index]);
+      const names = value
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+      options.skills = [...(options.skills ?? []), ...names];
     } else {
       fail(`unknown argument "${argument}"`);
     }
@@ -200,6 +257,11 @@ function gitShow(sourceDirectory, ref, path) {
       ["-C", sourceDirectory, "show", `${ref}:${path}`],
       {
         encoding: "utf8",
+        // Force a stable locale: the absent-path check below matches git's fatal
+        // stderr text, which is localised under LANG/LC_ALL. Without this, a genuine
+        // missing path in a non-English locale misses the regex and falls through to
+        // a noisy warning.
+        env: { ...process.env, LC_ALL: "C" },
         maxBuffer: 10 * 1024 * 1024,
         stdio: ["ignore", "pipe", "pipe"],
       },
@@ -301,11 +363,15 @@ Usage:
   node check-updates.mjs --help         Show this message (alias: -h)
 
 Flags:
-  --source <path>  A checkout of the source agent-skills repo (required).
-  --ref <ref>      Read target versions at this git ref; default: the source's
-                   working tree.
-  --lock <path>    The consumer lock to diff; default: <cwd>/.claude/skills.lock.
-  --json           Emit the machine-readable report; human text otherwise.`;
+  --source <path>   A checkout of the source agent-skills repo (required).
+  --ref <ref>       Read target versions at this git ref; default: the source's
+                    working tree.
+  --lock <path>     The consumer lock to diff; default: <cwd>/.claude/skills.lock.
+  --skills <a,b,c>  Restrict the diff to this canonical install set (both sides),
+                    so upstream bundles the consumer never vendors (e.g. the
+                    repo-internal scaffold-new-skill) don't count as updates.
+                    Repeatable; comma-separated. Omit to diff every bundle.
+  --json            Emit the machine-readable report; human text otherwise.`;
 
 function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -375,7 +441,13 @@ function main() {
   const lockSkills =
     lock && typeof lock.skills === "object" && lock.skills ? lock.skills : {};
   const targetVersions = readTargetVersions(options.source, options.ref);
-  const diff = diffLock(lockSkills, targetVersions);
+  // Scope both sides to the consumer's canonical set when given, so upstream
+  // bundles it never installs (the repo-internal scaffold-new-skill) can't show up
+  // as a perpetual `added` update and wedge the fan-out verify (A-741).
+  const diff = diffLock(
+    restrictToAllowlist(lockSkills, options.skills),
+    restrictToAllowlist(targetVersions, options.skills),
+  );
 
   const report = {
     // `ref` is the target we diffed against (null → the source working tree);
@@ -386,7 +458,7 @@ function main() {
     ref: options.ref ?? null,
     source: options.source,
     ...diff,
-    updatesAvailable: diff.updates.length > 0,
+    updatesAvailable: hasUpdates(diff),
   };
 
   if (options.json) {
@@ -396,13 +468,23 @@ function main() {
   }
 }
 
-function formatHuman(report) {
+export function formatHuman(report) {
   const lines = [];
   const target = report.ref ? `ref ${report.ref}` : "working tree";
   lines.push(
     `check-updates — ${report.lock} vs ${report.source} (${target})`,
     "",
   );
+
+  // The all-clear line may only appear when there is genuinely nothing to report;
+  // otherwise "up to date" reads as contradictory printed above added/removed
+  // /downgrade/unknown lines (a repo can have no updates yet still be off-target).
+  const nothingToReport =
+    !report.updates.length &&
+    !report.added.length &&
+    !report.removed.length &&
+    !report.downgrades.length &&
+    !report.unknown.length;
 
   if (report.updates.length) {
     lines.push(`${report.updates.length} update(s) available:`);
@@ -413,7 +495,7 @@ function formatHuman(report) {
     }
 
     lines.push("");
-  } else {
+  } else if (nothingToReport) {
     lines.push("All installed skills are up to date.", "");
   }
 
@@ -496,6 +578,38 @@ function selfTest() {
     {
       name: "diff finds the downgrade",
       ok: diff.downgrades.length === 1 && diff.downgrades[0].name === "ahead",
+    },
+    {
+      name: "restrictToAllowlist is a no-op without an allow-list",
+      ok:
+        Object.keys(restrictToAllowlist({ a: "1", b: "2" }, undefined))
+          .length === 2 &&
+        Object.keys(restrictToAllowlist({ a: "1", b: "2" }, [])).length === 2,
+    },
+    {
+      name: "restrictToAllowlist keeps only allow-listed skills",
+      ok: (() => {
+        const kept = restrictToAllowlist({ internal: "0.1.1", send: "1.0.0" }, [
+          "send",
+        ]);
+        return Object.keys(kept).length === 1 && kept.send === "1.0.0";
+      })(),
+    },
+    {
+      name: "restricting both sides drops an upstream-only internal skill from `added`",
+      ok: (() => {
+        // The A-741 regression: an upstream bundle the consumer never vendors
+        // (scaffold-new-skill) is `added` unscoped, but must vanish once the diff
+        // is scoped to the canonical set.
+        const lockSkills = { send: "1.0.0" };
+        const target = { "scaffold-new-skill": "0.1.1", send: "1.0.0" };
+        const unscoped = diffLock(lockSkills, target);
+        const scoped = diffLock(
+          restrictToAllowlist(lockSkills, ["send"]),
+          restrictToAllowlist(target, ["send"]),
+        );
+        return hasUpdates(unscoped) === true && hasUpdates(scoped) === false;
+      })(),
     },
   ];
 

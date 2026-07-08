@@ -19,7 +19,7 @@ compatibility: >-
   Designed for repositories whose AI review runs only on
   ready-for-review PRs (draft-gated), so Phase A and Phase B do not overlap.
 metadata:
-  version: 0.5.2
+  version: 0.6.0
   author: Rob Easthope
 allowed-tools: Read, Edit, Write, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses, mcp__linear-server__list_projects
 ---
@@ -247,11 +247,17 @@ This fetcher is **read-only** (it only fetches and prints), so it has no
 `--dry-run` flag — running it never changes anything. The write side is
 `respond-threads.mjs` (Step 8), which is where `--dry-run` lives.
 
-It prints minimal JSON with three groups:
+It prints minimal JSON with four groups:
 
 - `unresolvedThreads` — inline review threads (`isResolved == false`) raised by a
   configured `reviewBot`, trimmed to `{threadId, path, line, isOutdated, author,
   comments}`. This is the actionable set.
+- `deferredThreads` — the same shape, for bot threads already carrying our
+  **non-resolving defer marker** (recorded at Step 8, not yet ticketed/resolved at
+  Step 10). They are bucketed apart so a still-pending defer is **not** re-emitted
+  as a fresh finding on the next pass, and so a fresh invocation — which holds no
+  in-memory candidate list — can rediscover them at Step 10. Do not re-triage these
+  in Step 8.
 - `humanThreads` — the same shape, for unresolved threads **not** raised by a
   review bot. Surface these in the report for the human; do not auto-action them.
 - `aiSummaryComments` — the sticky issue-level summary the review action posts via
@@ -265,8 +271,10 @@ It prints minimal JSON with three groups:
   review.
 
 Resolved threads are filtered out so the context stays small. Empty
-`unresolvedThreads` **and** no AI summary → report "no actionable AI review
-feedback" and skip to Step 12.
+`unresolvedThreads`, no AI summary, **and** no `deferredThreads` → report "no
+actionable AI review feedback" and skip to Step 12. If only `deferredThreads`
+remain, there is nothing to triage but their follow-ups still need minting — go
+straight to Step 10.
 
 ### Step 8 — Phase B: validate each finding before touching code
 
@@ -291,10 +299,14 @@ Apply the six-step reception (full rules in
    - **Defer** (the finding is **valid but out of scope** for this PR — a
      worthwhile follow-up, not a change to make here) → **do not** resolve it now.
      Set it aside as a follow-up **candidate**, recording
-     `{title, rationale, threadId, path, line}`, and leave the thread unresolved.
+     `{title, rationale, threadId, path, line}`, and **immediately mark the thread
+     durably** with the non-resolving `defer-pending` decision (below) — a reply
+     carrying a hidden marker, but **no** resolve. That marker is what stops the
+     thread being re-emitted as a fresh finding on the next pass (the fetcher
+     buckets it into `deferredThreads`) and lets a fresh invocation rediscover it.
      Candidates are captured as tracked Linear issues — **only on explicit human
-     approval** — at Step 10, which then posts the defer reply and resolves the
-     thread. Never create an issue here.
+     approval** — at Step 10, which then posts the final defer reply and resolves
+     the thread. Never create an issue here.
 
    No sycophancy ("You're absolutely right!", "Great point!") — state facts.
 6. **IMPLEMENT** accepted findings one at a time (Step 9), then reply+resolve.
@@ -302,17 +314,23 @@ Apply the six-step reception (full rules in
 The bundled `respond-threads.mjs` is the write side (its path is **relative to
 this skill's directory**, like `review-threads.mjs`). It builds the reply body
 (carrying a hidden idempotency marker), honours `replyOnAccept`, and skips any
-thread already bearing our marker, then runs the reply + resolve mutations. Pass
-`--bots` (the same `config.reviewBots` list) so it classifies the thread's author
-and **refuses to action a human thread** even if its id is passed by mistake. Add
-`--dry-run` to preview without writing:
+thread already bearing our marker, then runs the reply + resolve mutations. The
+`defer-pending` decision is the exception: it posts a reply carrying a **distinct,
+non-resolving** marker and does **not** resolve — leaving the thread open for
+Step 10 while making the defer durable — and is idempotent against its own marker,
+so recording the same candidate twice never double-posts. Pass `--bots` (the same
+`config.reviewBots` list) so it classifies the thread's author and **refuses to
+action a human thread** even if its id is passed by mistake. Add `--dry-run` to
+preview without writing:
 
 ```bash
 # accepted finding, after its fix is pushed and proven/green:
 node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision accept --sha <sha> --bots "claude,cursor,coderabbitai"
 # declined finding:
 node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision decline --reason "<technical reasoning>" --bots "claude,cursor,coderabbitai"
-# deferred finding, after Step 10 mints its follow-up ticket:
+# deferred finding, recorded at Step 8 — durably mark it, but do NOT resolve yet:
+node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision defer-pending --bots "claude,cursor,coderabbitai"
+# deferred finding, after Step 10 mints its follow-up ticket — final reply + resolve:
 node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision defer --reference <issue-id> --bots "claude,cursor,coderabbitai"
 ```
 
@@ -340,17 +358,28 @@ including declined or not-yet-handled ones (see
 - **Convergence.** Loop Phase B ↔ Phase A until CI is green **and** every bot
   thread is *handled* — resolved-by-us (accept, post-CI-green), declined+resolved,
   a human thread (never auto-actioned), or **flagged as a follow-up candidate**
-  (a recognised transient state — left unresolved on purpose, settled at Step 10) —
-  with **no accepted fix still awaiting CI-green**. Because each push re-triggers
-  review, the idempotency marker is what makes this terminate: already-handled
-  threads are skipped on the next pass, so only genuinely new findings are
-  actioned. The whole loop stays bounded by `maxCiRounds`.
+  (marked non-resolving with the `defer-pending` marker, still open on purpose,
+  settled at Step 10) — with **no accepted fix still awaiting CI-green**. Because
+  each push re-triggers review, hidden markers are what make this terminate:
+  accept/decline threads carry the resolving thread-ack marker and a deferred
+  thread carries the non-resolving `defer-pending` marker from the moment it is
+  recorded, so the fetcher skips both (accept/decline resolve out; deferred ones
+  bucket into `deferredThreads`). Only genuinely new findings are actioned. This
+  closes the old gap where a deferred thread sat unresolved **and** unmarked
+  between Step 8 and Step 10 and was re-triaged every pass. The whole loop stays
+  bounded by `maxCiRounds`.
 
 ### Step 10 — Phase B: capture out-of-scope findings as follow-up issues
 
-Once the thread loop has converged, gather every follow-up **candidate** flagged
-during Step 8 — both per-thread defers **and** issue-level findings judged
-valid-but-out-of-scope. If there are none, skip to Step 11.
+Once the thread loop has converged, gather every follow-up **candidate** — both
+per-thread defers **and** issue-level findings judged valid-but-out-of-scope. Take
+the **union** of two sources, deduplicated by `threadId`: the candidates flagged in
+memory during Step 8, **and** the fetcher's `deferredThreads` bucket (threads
+already bearing the `defer-pending` marker). The second source is what lets a fresh
+invocation — one that started mid-loop with no in-memory list — still finish the
+defers a previous run only got as far as marking. Reconstruct a marked thread's
+`{title, rationale, path, line}` from its bucketed content. If there are none, skip
+to Step 11.
 
 **Capture is opt-in and gated on explicit human approval — nothing is created
 otherwise.** It is disabled when `config.linearTeamName` is empty or the Linear MCP
@@ -387,8 +416,10 @@ literal silently targets the wrong team or fails; name/type always resolve:
 
 Then write each created issue's id/URL back:
 
-- **Per-thread** candidate → post the defer reply and resolve via the `defer`
-  decision:
+- **Per-thread** candidate → post the final defer reply and resolve via the
+  `defer` decision. This reply carries the resolving thread-ack marker and resolves
+  the thread, superseding the earlier non-resolving `defer-pending` marker (the
+  fallback `decline` path above does the same):
 
   ```bash
   node scripts/respond-threads.mjs thread --thread <PRRT_id> --decision defer --reference <issue-id> --bots "claude,cursor,coderabbitai"
