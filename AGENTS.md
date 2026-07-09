@@ -1,7 +1,7 @@
 <!--
-  Managed upstream in acme-skunkworks/shared-agents-md and fanned out by agent_sync.
-  Do NOT edit this copy — edit the canonical AGENTS.md in shared-agents-md; changes
-  here will be overwritten on the next sync.
+  Managed upstream in acme-skunkworks/shared-agents-md and vendored into estate repos by the
+  release-orchestrator fan-out (fanout-agents-md.yml). Do NOT edit this copy — edit the canonical
+  AGENTS.md in shared-agents-md; changes here are overwritten on the next fan-out.
 -->
 
 # Shared agent instructions
