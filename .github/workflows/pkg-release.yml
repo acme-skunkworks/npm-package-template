@@ -46,25 +46,9 @@ jobs:
   # package that changes npmScope / nodeVersionFile / the registry URLs in
   # repo-config.yaml has them flow through here without editing this workflow.
   config:
-    name: ⚙️ Load repo config
-    runs-on: ubuntu-latest
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-load-repo-config.yml@v1
     permissions:
       contents: read
-    outputs:
-      node_version_file: ${{ steps.repo.outputs.node_version_file }}
-      npm_scope: ${{ steps.repo.outputs.npm_scope }}
-      npm_registry_url: ${{ steps.repo.outputs.npm_registry_url }}
-      github_packages_registry_url: ${{ steps.repo.outputs.github_packages_registry_url }}
-    steps:
-      - name: ⬇️ Checkout repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 1
-          persist-credentials: false
-
-      - name: ⚙️ Load repo config
-        id: repo
-        uses: ./.github/actions/load-repo-config
 
   release:
     needs: config

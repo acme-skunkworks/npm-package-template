@@ -36,22 +36,9 @@ jobs:
   # generated package that changes `nodeVersionFile` has it flow through here to
   # every downstream job without editing the workflow.
   config:
-    name: ⚙️ Load repo config
-    runs-on: ubuntu-latest
-    outputs:
-      node_version_file: ${{ steps.repo.outputs.node_version_file }}
-    steps:
-      - name: ⬇️ Checkout repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          fetch-depth: 1
-          # Read-only job; don't persist the token into .git/config (zizmor
-          # artipacked). Matches the reusable callers' checkouts.
-          persist-credentials: false
-
-      - name: ⚙️ Load repo config
-        id: repo
-        uses: ./.github/actions/load-repo-config
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-load-repo-config.yml@v1
+    permissions:
+      contents: read
 
   # ESLint + Markdown + YAML/actionlint + dated-changelog validation, via the
   # shared Layer-2 lint bundle. Renders the status context `lint / Lint`.

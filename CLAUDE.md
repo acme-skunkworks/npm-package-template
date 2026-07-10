@@ -116,7 +116,7 @@ This package dogfoods the org's own shared configs:
 
 ## GitHub Actions repo config
 
-Non-secret knobs shared by `ci.yml` and `pkg-release.yml` live in **`infrastructure/repo-config.yaml`**, loaded at runtime by the composite `.github/actions/load-repo-config` (`uses: ./.github/actions/load-repo-config`), which allowlist-validates every value before writing it to `GITHUB_OUTPUT` (guards newline/`=` injection; A-330).
+Non-secret knobs shared by `ci.yml` and `pkg-release.yml` live in **`infrastructure/repo-config.yaml`**, loaded at runtime via `reusable-load-repo-config.yml@v1` (A-779), which allowlist-validates every value before writing it to `GITHUB_OUTPUT` (guards newline/`=` injection; A-330).
 
 | Key                         | Purpose                                                                                                                     |
 | --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
