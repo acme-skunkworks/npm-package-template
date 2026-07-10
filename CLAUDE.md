@@ -57,7 +57,7 @@ pnpm, pinned via `packageManager` in `package.json`. Node 22 required (`.nvmrc`,
 pnpm install        # install deps (runs prepare → husky hook install)
 pnpm run build      # tsc → dist/ (the published artifact; consumers import from dist)
 pnpm tsc            # type-check only — src/ (no emit) + infrastructure/ via tsconfig.tools.json
-pnpm lint           # eslint over src/** + infrastructure/scripts/**
+pnpm lint           # eslint over src/**
 pnpm lint:fix       # auto-fix
 pnpm lint:md        # markdownlint (CI: lint reusable caller)
 pnpm lint:yaml      # yamllint . (semantic YAML check; warnings non-blocking)
@@ -66,7 +66,7 @@ pnpm lint:sh        # shellcheck on infrastructure/scripts/*.sh + .husky/*
 pnpm test           # vitest run (infrastructure/tests/**/*.test.ts)
 pnpm test:watch     # vitest in watch mode
 pnpm test:sh        # bats on infrastructure/tests/*.bats
-pnpm validate:changelog # schema-check changelog/*.md (CI: lint reusable caller)
+pnpm validate:changelog # schema-check changelog/*.md via changelog-core (CI: lint reusable caller)
 pnpm format         # prettier write
 pnpm clean          # remove node_modules + dist
 ```
@@ -153,7 +153,7 @@ To bypass any hook in an emergency: `git commit --no-verify` or `git push --no-v
 
 The `lint` and `build-test` jobs in `ci.yml` are thin callers of the estate's shared reusable workflows — the template is the **reference consumer** that proves the pattern before the fleet rollout (A-420). Both are SHA-pinned to one commit (`9febdb1`, **v1.0.2**) so Dependabot bumps them together (A-446).
 
-- **`lint`** → `reusable-lint.yml` runs ESLint + markdownlint + yamllint/actionlint + dated-changelog validation in one job (`lint / Lint`). Inputs: `eslint-args` passes **directory paths** (`src infrastructure/scripts`), not globs — the Layer-1 action runs `eslint $ESLINT_ARGS` word-split with bash `globstar` off, so a `**` glob would mis-expand; directories let ESLint's flat config resolve the file set recursively. `markdown-globs` mirrors the `lint:md` script; `changelog-script: validate:changelog` (the repo's script name; the reusable default is `changelog:validate`). The yaml lane uses **actionlint 1.7.12** (the reusable default, owned upstream in lockstep per A-422 — _not_ the `1.7.5` the local `ensure-actionlint.sh` pins) and shared-workflows' **centralised `.yamllint.yml`** (A-438), so the repo's local `.yamllint.yml` now only feeds the pre-commit hook.
+- **`lint`** → `reusable-lint.yml` runs ESLint + markdownlint + yamllint/actionlint + dated-changelog validation in one job (`lint / Lint`). Inputs: `eslint-args` passes **directory paths** (`src`), not globs — the Layer-1 action runs `eslint $ESLINT_ARGS` word-split with bash `globstar` off, so a `**` glob would mis-expand; directories let ESLint's flat config resolve the file set recursively. `infrastructure/scripts` is shell-only after A-808 (do not pass it — ESLint errors when every file under a directory is ignored). `markdown-globs` mirrors the `lint:md` script; `changelog-script: validate:changelog` (the repo's script name; the reusable default is `changelog:validate`). The yaml lane uses **actionlint 1.7.12** (the reusable default, owned upstream in lockstep per A-422 — _not_ the `1.7.5` the local `ensure-actionlint.sh` pins) and shared-workflows' **centralised `.yamllint.yml`** (A-438), so the repo's local `.yamllint.yml` now only feeds the pre-commit hook.
 - **`build-test`** → `reusable-build-test.yml` runs build (verification) + Vitest + ShellCheck + bats (`build-test / Build & Test`). `typecheck: false` (CI runs no standalone `pnpm tsc` today). `shellcheck-paths` passes the scripts dir + the three extensionless husky hooks explicitly (the action `find`s `*.sh/*.bash` under directories but takes files literally). `bats: true` runs `pnpm exec bats` — which is why **`bats` is a devDependency** (`bats@1.13.0`, matching `ensure-bats.sh`'s pin); the tests are self-contained (no `bats-support`/`bats-assert`).
 - **`config`** loads `repo-config.yaml` once and feeds `node-version-file` to the callers (and to `changelog-completeness`) via `needs` — caller jobs can't run a `load-repo-config` step inline. This is the caller-stub pattern: a generated package that changes `nodeVersionFile` has it flow through without editing the workflow.
 
