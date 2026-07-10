@@ -1,5 +1,5 @@
 # Non-secret repo policy consumed by CI and Release workflows via
-# .github/actions/load-repo-config — see CLAUDE.md (A-176).
+# Loaded by reusable-load-repo-config.yml@v1 — see CLAUDE.md (A-779).
 #
 # NOTE: Workflow triggers (on.push.branches) cannot reference this file at runtime;
 # keep defaultBranch in sync with branches listed in pkg-release.yml.
