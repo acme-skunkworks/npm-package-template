@@ -108,21 +108,25 @@ Without this environment the OIDC release jobs have nowhere to deploy from and t
 ### Release-orchestrator onboarding
 
 Hands-off releases are driven by the **private** `acme-skunkworks/release-orchestrator` repo, which
-holds the bot key, runs `release-please release-pr` + `finalise-changelog.ts`, and merges the
-release PR. Without onboarding, the repo never gets its automatic release PRs.
+holds the bot key, runs `release-please release-pr`, and merges the release PR. Post-merge changelog
+enrichment runs in-repo via `pkg-release.yml`'s `changelog-enrich` job (`@acme-skunkworks/changelog-core`,
+A-808). Without onboarding, the repo never gets its automatic release PRs.
 
 The template already ships everything the orchestrator needs on the repo side — release-please
-config + manifest, `changelog:finalise` (`pnpm changelog:finalise`), `.nvmrc`, a publish-only
-`pkg-release.yml`, and `GO/NO GO` running on the `release-please--*` branch. So onboarding reduces
-to two steps:
+config + manifest, `@acme-skunkworks/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
+(with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. So onboarding
+reduces to two steps:
 
 - [ ] **Install road-runner-bot** on the repo (org-installed App's repository selection; perms in
       the [org-level bootstrap](#org-level-one-time-bootstrap)).
 - [ ] **Add the repo to the orchestrator's `matrix.repo`** (A-648).
+- [ ] **Grant `ROADRUNNER_*` selected access** — org secret `ROADRUNNER_PRIVATE_KEY` and org var
+      `ROADRUNNER_CLIENT_ID` must include the repo so `changelog-enrich` can mint an App token
+      (A-821 / ADR 0004). The scaffolder reports this; it does not automate org secret visibility.
 
 The required check the orchestrator waits on is **`GO/NO GO`** (the `🔬 Build & Lint` → `GO/NO GO`
 cutover completed via A-419 / A-596 / A-437), and the CI callers already run on `release-please--*`
-(no skip), so the changelog lane validates the finalised entries before the release PR merges.
+(no skip), so the changelog lane validates entries before the release PR merges.
 
 > The old A-309 "exclude `CHANGELOG.md` from markdown lint" step no longer applies: release-please
 > runs with `skip-changelog`, so there is no root `CHANGELOG.md` — the dated `changelog/` directory
