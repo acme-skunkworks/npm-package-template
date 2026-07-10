@@ -71,16 +71,17 @@ export function pullSharedSkills({
   }
 
   const [command, ...args] = argv;
-  const result = run(command, args, {
-    cwd: repoRoot,
-    encoding: "utf8",
-  });
+  const result = run(command, args, { cwd: repoRoot });
 
   if (result?.status !== 0) {
     const stderr = (result?.stderr || "").trim();
     return {
       argv,
-      detail: stderr || `npx skills add exited ${result?.status ?? "unknown"}`,
+      detail:
+        stderr ||
+        (result?.signal
+          ? `npx skills add killed by ${result.signal}`
+          : `npx skills add exited ${result?.status ?? "unknown"}`),
       skills: list,
       status: "error",
     };

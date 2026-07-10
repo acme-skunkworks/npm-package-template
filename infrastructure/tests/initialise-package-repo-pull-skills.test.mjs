@@ -106,4 +106,49 @@ describe("pullSharedSkills", () => {
     expect(result.status).toBe("error");
     expect(result.detail).toBe("network down");
   });
+
+  it("write path surfaces a signal kill distinctly from a null exit status", () => {
+    const result = pullSharedSkills({
+      run: () => ({ signal: "SIGTERM", status: null }),
+      write: true,
+    });
+
+    expect(result.status).toBe("error");
+    expect(result.detail).toBe("npx skills add killed by SIGTERM");
+  });
+
+  it("honours a skills override on the write path", () => {
+    const calls = [];
+    const result = pullSharedSkills({
+      run: (cmd, args) => {
+        calls.push({ args, cmd });
+        return { status: 0 };
+      },
+      skills: ["send-it"],
+      write: true,
+    });
+
+    expect(result.status).toBe("pulled");
+    expect(result.skills).toEqual(["send-it"]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].args).toEqual([
+      "skills",
+      "add",
+      AGENT_SKILLS_SOURCE,
+      "--skill",
+      "send-it",
+      "--agent",
+      "claude-code",
+      "--agent",
+      "cursor",
+      "--copy",
+    ]);
+    for (const skill of SHARED_SKILLS) {
+      if (skill === "send-it") {
+        continue;
+      }
+
+      expect(calls[0].args).not.toContain(skill);
+    }
+  });
 });
