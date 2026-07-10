@@ -8,19 +8,21 @@ silently miss a step. Dry-run first, safe to re-run.
 This is a **repo-local** skill: it lives in the template's own tree (not the shared
 `agent-skills` bundle) because the settings it applies are specific to this
 template's release shell. It travels into every spawned repo via "Use this
-template", where it is run once.
+template", where it is run once. Committed shared skill bundles in the template are
+**bootstrap only** — this skill **pulls** the locked set from `agent-skills` at
+scaffold time (`npx skills add … --copy`, A-776) and never overwrites itself.
 
 ## Use
 
 Run it through your agent (it drives the dry-run → confirm → write flow across the
-file edits, the wrapped `initialise-skills` run, and the GitHub settings), or invoke
-the bundled script directly:
+file edits + skills pull, the wrapped `initialise-skills` run, and the GitHub
+settings), or invoke the bundled script directly:
 
 ```bash
-# Preview everything (writes nothing)
+# Preview everything (writes nothing; skills pull reports pending)
 node .claude/skills/initialise-package-repo/scripts/initialise-package-repo.mjs --dry-run
 
-# Apply just the in-repo file edits, supplying the human-authored facts
+# Apply the in-repo file edits + shared-skills pull, supplying human-authored facts
 echo '{"facts":{"description":"My package","keywords":["a","b"]}}' \
   | node .claude/skills/initialise-package-repo/scripts/initialise-package-repo.mjs --write --files-only
 
@@ -33,14 +35,16 @@ node .claude/skills/initialise-package-repo/scripts/initialise-package-repo.mjs 
 **In-repo file edits:** resets `changelog/` to just its `README.md` (the
 changelog-poisoning fix), re-seeds `.release-please-manifest.json` to the starting
 `package.json` version, rewrites the `package.json` identity and
-`infrastructure/repo-config.yaml` from the repo's own facts (`gh repo view`).
+`infrastructure/repo-config.yaml` from the repo's own facts (`gh repo view`), and
+**pulls the shared skills** from `acme-skunkworks/agent-skills` into both agent
+trees (`--copy`).
 
 **GitHub settings (via `gh api`):** creates the `npm-release` environment (main-only
 policy), creates the `GO/NO GO` required-check ruleset (pinned to the GitHub Actions
 integration), and enables the Release workflow.
 
-**Wrapped:** runs the `initialise-skills` skill to generate each skill's
-`config.json`.
+**Wrapped:** runs the `initialise-skills` skill **after** the skills pull to
+generate each skill's `config.json`.
 
 **Reported, not automated:** authoring `src/`, release-orchestrator onboarding,
 Claude review prerequisites, and the npm OIDC + first-publish bootstrap — the
@@ -51,7 +55,8 @@ mirrors.
 ## Requirements
 
 - `git` and `gh` CLIs; `gh` authenticated with **repo-admin** on the target repo.
+- Network access for `npx skills add` (shared-skills pull).
 - Node.js ≥22 for the bundled scripts — no npm dependencies, no build step.
-- The `initialise-skills` skill installed alongside this one.
+- Bootstrap skill copies from the template tree (refreshed by the pull).
 
 See [`SKILL.md`](SKILL.md) for the full step-by-step process and flags.

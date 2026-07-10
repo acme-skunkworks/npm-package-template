@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// initialise-package-repo CLI (A-663).
+// initialise-package-repo CLI (A-663 / A-776).
 //
 // Drives a repo freshly created from npm-package-template to a releasable state in
-// one idempotent pass. Deterministic file edits + the non-copied GitHub settings
-// live here and in lib/; the human-facing confirmation gates, the Linear-facts
-// step, and the wrap of the initialise-skills skill are owned by SKILL.md.
+// one idempotent pass. Deterministic file edits (including the shared-skills pull),
+// plus the non-copied GitHub settings, live here and in lib/; the human-facing
+// confirmation gates, the Linear-facts step, and the wrap of the initialise-skills
+// skill are owned by SKILL.md.
 //
 //   node scripts/initialise-package-repo.mjs [--dry-run|--write] [--json]
 //        [--repo-root <path>] [--files-only|--github-only]
@@ -19,6 +20,7 @@ import { resetChangelog } from "./lib/changelog-reset.mjs";
 import { applyGithubSettings } from "./lib/github-settings.mjs";
 import { reconcileManifest } from "./lib/manifest.mjs";
 import { reconcilePackageIdentity } from "./lib/package-identity.mjs";
+import { pullSharedSkills } from "./lib/pull-skills.mjs";
 import { reconcileRepoConfig } from "./lib/repo-config.mjs";
 import { deriveIdentity, fetchRepoView } from "./lib/repo-facts.mjs";
 import { formatHuman, MANUAL_REMINDERS } from "./lib/report.mjs";
@@ -107,7 +109,7 @@ function readStdinFacts() {
 }
 
 /**
- * Phase 1 — the in-repo file edits.
+ * Phase 1 — the in-repo file edits, including the shared-skills pull (A-776).
  */
 function runFileEdits(root, identity, write) {
   return {
@@ -130,6 +132,10 @@ function runFileEdits(root, identity, write) {
       path: join(root, "infrastructure", "repo-config.yaml"),
       write,
     }),
+    // Refresh shared bundles from agent-skills before initialise-skills runs
+    // (SKILL.md owns that wrap). Repo-local initialise-package-repo is not in
+    // the pull set.
+    skillsPull: pullSharedSkills({ repoRoot: root, write }),
   };
 }
 
@@ -182,9 +188,11 @@ function main() {
     console.log(formatHuman(report));
   }
 
-  // A GitHub setting whose `gh api` write failed reports status "error"; exit
-  // non-zero so the operator gets a real signal instead of a clean-looking run.
-  if ((ops.github ?? []).some((op) => op.status === "error")) {
+  // A GitHub setting or skills pull whose write failed reports status "error";
+  // exit non-zero so the operator gets a real signal instead of a clean-looking run.
+  const githubFailed = (ops.github ?? []).some((op) => op.status === "error");
+  const skillsFailed = ops.files?.skillsPull?.status === "error";
+  if (githubFailed || skillsFailed) {
     process.exit(1);
   }
 }
