@@ -40,14 +40,13 @@
     "act:list": "act --list",
     "act:release:dry": "act push -W .github/workflows/pkg-release.yml",
     "build": "tsc",
-    "changelog:finalise": "tsx infrastructure/scripts/finalise-changelog.ts",
     "ci:list": "gh run list --limit 10",
     "ci:view": "gh run view",
     "ci:watch": "gh run watch $(gh run list -L 1 --json databaseId -q '.[0].databaseId // empty')",
     "clean": "rimraf node_modules dist",
     "format": "prettier --write .",
-    "lint": "eslint 'src/**/*.ts' 'infrastructure/scripts/**/*.ts' --cache --cache-location ./.eslintcache",
-    "lint:fix": "eslint 'src/**/*.ts' 'infrastructure/scripts/**/*.ts' --fix --cache --cache-location ./.eslintcache",
+    "lint": "eslint 'src/**/*.ts' --cache --cache-location ./.eslintcache",
+    "lint:fix": "eslint 'src/**/*.ts' --fix --cache --cache-location ./.eslintcache",
     "lint:md": "markdownlint-cli2 '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/.turbo/**' '!**/.astro/**'",
     "lint:md:fix": "markdownlint-cli2 --fix '**/*.{md,mdx}' '!**/node_modules/**' '!**/dist/**' '!**/.turbo/**' '!**/.astro/**'",
     "lint:sh": "bash -c 'if command -v shellcheck >/dev/null 2>&1; then shellcheck infrastructure/scripts/*.sh .husky/pre-commit .husky/pre-push .husky/commit-msg; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  shellcheck not installed — skipping. Install: brew install shellcheck\"; else echo \"⚠️  shellcheck not installed — skipping. Install: apt-get install shellcheck\"; fi'",
@@ -62,7 +61,7 @@
     "test:sh": "bash -c 'if command -v bats >/dev/null 2>&1; then bats infrastructure/tests/*.bats; elif [ \"$(uname -s)\" = \"Darwin\" ]; then echo \"⚠️  bats not installed — skipping. Install: brew install bats-core\"; else echo \"⚠️  bats not installed — skipping. Install: apt-get install bats\"; fi'",
     "test:watch": "vitest",
     "tsc": "tsc --noEmit && tsc -p tsconfig.tools.json",
-    "validate:changelog": "tsx infrastructure/scripts/validate-changelog.ts"
+    "validate:changelog": "pnpm exec changelog-core validate"
   },
   "lint-staged": {
     "**/*": [
@@ -86,12 +85,12 @@
     ]
   },
   "devDependencies": {
+    "@acme-skunkworks/changelog-core": "^1.1.0",
     "@acme-skunkworks/eslint-config": "^1.0.4",
     "@acme-skunkworks/markdownlint-config": "^2.0.0",
     "@types/node": "^25.6.0",
     "bats": "1.13.0",
     "eslint": "^9.0.0",
-    "gray-matter": "^4.0.3",
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "lint-staged": "^16.3.2",

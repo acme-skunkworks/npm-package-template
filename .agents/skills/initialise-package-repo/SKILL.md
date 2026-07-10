@@ -9,11 +9,12 @@ description: >-
   repo's own facts, pulls the shared agent-skills set via npx skills add --copy
   (A-776), wraps and runs the initialise-skills skill to generate every skill's
   config.json, and applies the GitHub settings "Use this template" does not copy
-  (the npm-release environment, the GO/NO GO required-check ruleset, and enabling
-  the Release workflow) — then verifies-and-reports the org/browser steps it
-  deliberately cannot automate. Use right after "Use this template" on a spawned
-  repo, or when asked to initialise / bootstrap / set up a newly-generated package
-  repo. Dry-run first, safe to re-run (a second run is a no-op).
+  (the npm-release environment, the GO/NO GO required-check ruleset, the Trunk
+  road-runner-bot changelog bypass, and enabling the Release workflow) — then
+  verifies-and-reports the org/browser steps it deliberately cannot automate. Use
+  right after "Use this template" on a spawned repo, or when asked to initialise /
+  bootstrap / set up a newly-generated package repo. Dry-run first, safe to re-run
+  (a second run is a no-op).
 license: MIT
 compatibility: >-
   Requires the `git` and `gh` CLIs (`gh` authenticated with repo-admin on the
@@ -26,7 +27,7 @@ compatibility: >-
   (integration_id 15368, the npm-release environment, pkg-release.yml) are specific
   to that template's release shell.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   author: Rob Easthope
 allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
 ---
@@ -48,12 +49,13 @@ re-run with nothing left to do is a clean no-op.
 
 > **Why this exists (A-663).** The template dogfoods its own `changelog/`, so it
 > ships dated entries documenting the _template's own_ development. Left in a
-> spawned repo, `finalise-changelog` would stamp the new package's first version
-> onto every version-less entry and sweep them into its first release notes as
-> noise — the 2026-07-02 poisoning incident that hit two live repos. Resetting
-> `changelog/` is the flagship fix; the missed non-copied GitHub settings
-> (npm-release env, GO/NO GO ruleset) are the other half. The authoritative
-> checklist this mirrors is [`README.md#setup`](../../../README.md#setup) (A-649).
+> spawned repo, the post-merge enricher would stamp the new package's first
+> version onto every version-less entry and sweep them into its first release
+> notes as noise — the 2026-07-02 poisoning incident that hit two live repos.
+> Resetting `changelog/` is the flagship fix; the missed non-copied GitHub
+> settings (npm-release env, GO/NO GO ruleset, Trunk changelog bypass) are the
+> other half. The authoritative checklist this mirrors is
+> [`README.md#setup`](../../../README.md#setup) (A-649).
 >
 > **Why it pulls skills (A-776).** Committed skill bundles in the template are
 > bootstrap only — enough for this scaffolder to run after "Use this template".
@@ -86,6 +88,12 @@ re-run with nothing left to do is a clean no-op.
 - **Create the `npm-release` environment** (main-only deployment-branch policy).
 - **Create the `GO/NO GO` required-check ruleset** (pinned to the GitHub Actions
   integration, `integration_id: 15368`).
+- **Ensure the Trunk changelog bypass** (ADR 0004 / A-808) — repo-level `Trunk`
+  ruleset with `road-runner-bot` (`2195582`) as a bypass actor so
+  `pkg-release.yml`'s `changelog-enrich` job can push `changelog/**`. Creates
+  `Trunk` when absent; merges the bypass into an existing repo-sourced Trunk
+  without wiping other actors. Does **not** mutate the org-level
+  `Protect main trunk` ruleset.
 - **Enable the Release workflow** (`pkg-release.yml`, disabled on the template).
 
 **Wrapped:** the **`initialise-skills`** skill, to generate each skill's
@@ -98,6 +106,9 @@ and prints exact next steps):
 - Author the package's real `src/` API.
 - Onboard the release-orchestrator (install road-runner-bot + add the `matrix.repo`
   entry — A-648).
+- Confirm org secret `ROADRUNNER_PRIVATE_KEY` and org var `ROADRUNNER_CLIENT_ID`
+  grant **selected** access to the new repo (required by `changelog-enrich`'s
+  `secrets: inherit` App-token mint — A-821).
 - Verify Claude review prerequisites (`CLAUDE_CODE_OAUTH_TOKEN` + the Claude App).
 - npm OIDC Trusted Publisher + the manual first publish.
 
@@ -151,12 +162,14 @@ and prints exact next steps):
    ```
 
    Each op is idempotent — it probes current state first and skips anything already
-   present (env + main policy, a same-named ruleset, an already-active workflow).
+   present (env + main policy, a same-named ruleset, Trunk bypass present, an
+   already-active workflow).
 
 7. **Report the manual next steps.** Surface the `reminders` from the report — the
-   `src/` API, orchestrator onboarding, Claude review prerequisites, and the npm
-   OIDC bootstrap + first publish — each cross-linking its `README.md#setup`
-   subsection. The repo is not "done" until these are handled.
+   `src/` API, orchestrator onboarding, `ROADRUNNER_*` selected access, Claude
+   review prerequisites, and the npm OIDC bootstrap + first publish — each
+   cross-linking its `README.md#setup` subsection. The repo is not "done" until
+   these are handled.
 
 8. **Confirm idempotency.** Re-run the dry run; every file/GitHub op should now
    report `unchanged` / `present` / `already-customised` (apart from the manual

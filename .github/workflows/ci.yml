@@ -56,8 +56,8 @@ jobs:
   # ESLint + Markdown + YAML/actionlint + dated-changelog validation, via the
   # shared Layer-2 lint bundle. Renders the status context `lint / Lint`.
   # Deliberately NOT skipped on the release-please branch — the changelog lane
-  # must validate the entries finalise-changelog.ts rewrites there before merge
-  # (was the old build-and-lint's `validate:changelog` step, ASW-311).
+  # must validate entries (including any post-merge enricher write-backs that
+  # land on main) via `pnpm exec changelog-core validate` (A-808).
   lint:
     needs: config
     uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-lint.yml@v1
@@ -66,10 +66,10 @@ jobs:
       # Directory args, NOT globs: the action runs `eslint $ESLINT_ARGS`
       # word-split with bash globstar OFF, so a `src/**/*.ts` glob would
       # mis-expand. Passing directories lets ESLint's flat config resolve the
-      # file set recursively — reproducing the `lint` script's scope (src +
-      # infra scripts; tsconfig.eslint.json also covers tests, which we
-      # intentionally omit, matching today's behaviour).
-      eslint-args: src infrastructure/scripts
+      # file set recursively. infrastructure/scripts is shell-only after
+      # A-808 (changelog TS moved to changelog-core), so lint src only —
+      # ESLint errors if every file under a passed directory is ignored.
+      eslint-args: src
       # Match the `lint:md` script: include .mdx and the dist/turbo/astro
       # excludes the estate default omits.
       markdown-globs: |
@@ -79,7 +79,7 @@ jobs:
         !**/.turbo/**
         !**/.astro/**
       # The template's validator script is `validate:changelog` (the reusable
-      # default is `changelog:validate`).
+      # default is `changelog:validate`) — implemented by changelog-core.
       changelog-script: validate:changelog
       # yaml lane defaults are correct: yaml-paths `.`, yamllint 1.37.1
       # (matches), actionlint 1.7.12 (owned upstream in lockstep, SK-422 — do
@@ -151,7 +151,7 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           BASE_REF: ${{ github.base_ref }}
-        run: pnpm tsx infrastructure/scripts/check-changelog-completeness.ts
+        run: pnpm exec changelog-core check-completeness
 
   # Single estate release gate (SK-412/SK-424). An always()-run aggregator whose
   # intrinsic check-run, named `GO/NO GO`, succeeds iff every required job above

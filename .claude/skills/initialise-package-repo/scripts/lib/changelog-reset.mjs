@@ -3,7 +3,7 @@
 // The changelog-poisoning incident (2026-07-02): the template dogfoods its own
 // changelog process, so `changelog/` accumulates dated entries documenting the
 // TEMPLATE's development. "Use this template" copies them into the new repo, where
-// finalise-changelog would stamp the new package's first version onto every
+// the post-merge enricher would stamp the new package's first version onto every
 // version-less entry and sweep them into its first release notes as noise. So the
 // one correct state for a fresh repo is: changelog/ holding only README.md.
 //

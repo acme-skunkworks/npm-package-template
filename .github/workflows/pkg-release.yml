@@ -85,3 +85,19 @@ jobs:
       issues: write # Open a tracking issue if the release fails.
       packages: write # Publish the secondary GitHub Packages mirror.
       attestations: write # Upload the GitHub-native build-provenance attestation.
+
+  # Post-merge changelog enrich / finalise via changelog-core (A-808 / A-821).
+  # Pin at A-821 merge SHA (shared-workflows#65) until @v1 moves.
+  # secrets: inherit passes ROADRUNNER_PRIVATE_KEY for the App-token write-back.
+  # Runs independently of `release` — both read the bumped version from the
+  # committed package.json; no publish artifact is needed.
+  # Dormant on this template while Release is disabled; generated packages
+  # inherit the job when they enable Release.
+  changelog-enrich:
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-changelog-enrich.yml@a87a5ba1eaa9dea0b9fb87afebe47f1c92ea7455
+    with:
+      mode: finalise
+    permissions:
+      contents: read
+      pull-requests: read
+    secrets: inherit

@@ -95,12 +95,13 @@ Only include `Added` / `Changed` / `Fixed` headings that have entries.
 
 ## Lifecycle
 
-Two stages — and finalisation rides inside the release-please release PR, so there's no separate workflow and nothing pushes to `main`:
+Two stages — post-merge enrichment runs in-repo via `reusable-changelog-enrich.yml`
+on every push to `main` (A-808 / A-821):
 
 1. **Create or update an entry (PR-time):** run `/send-it` from a feature branch. It writes the entry with the PR-time fields (`title`, `release_note`, `created_at`, `branch`, `author`, `co_authors`, `category`, `breaking`, `issues`) and empty placeholders for the rest. The entry merges to `main` with the feature PR and waits.
-2. **Finalise (at release, inside the release PR):** the orchestrator runs `release-please release-pr` (which bumps `package.json` + `.release-please-manifest.json`) then `finalise-changelog.ts`. For every entry without a `version`, finalise resolves the merged PR from the `branch` field via `gh` — filling `merged_at`, `commit`, `merge_strategy`, `pr`, and `stats` (`files_changed`, `loc_added`, `loc_removed`) — stamps the just-bumped `version`, and rewrites Linear IDs to links. The orchestrator commits these edits into the release PR, which publishes through the normal flow.
+2. **Post-merge / release:** `pkg-release.yml`'s `changelog-enrich` job (`mode: finalise`) resolves the just-merged PR, fills `merged_at`/`commit`/`pr`/`stats` via `changelog-core enrich`, and stamps `version` via `changelog-core finalise` only when `package.json`'s version has no matching git tag (release-please cut). Write-back pushes only `changelog/**` as `road-runner-bot[bot]` (ADR 0004).
 
-**CI validation:** the `build-and-lint` job in `ci.yml` runs `pnpm validate:changelog` on every PR. Malformed entries fail the check. Run it locally with:
+**CI validation:** the `lint` reusable caller runs `pnpm validate:changelog` (`pnpm exec changelog-core validate`) on every PR. Malformed entries fail the check. Run it locally with:
 
 ```bash
 pnpm validate:changelog
