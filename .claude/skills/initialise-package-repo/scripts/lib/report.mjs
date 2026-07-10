@@ -50,12 +50,14 @@ const GLYPH = {
   present: "•",
   pulled: "✔",
   reset: "✔",
+  stripped: "✔",
   unchanged: "•",
   updated: "✔",
   "would-change": "→",
   "would-create": "→",
   "would-enable": "→",
   "would-reset": "→",
+  "would-strip": "→",
   "would-update": "→",
 };
 
@@ -119,6 +121,18 @@ export function formatHuman(report) {
           ops.files.skillsPull.status,
           ops.files.skillsPull.detail ??
             `${ops.files.skillsPull.skills.length} skills`,
+        ),
+      );
+    }
+
+    if (ops.files.skillConfigIgnore) {
+      out.push(
+        line(
+          "skill-config gitignore",
+          ops.files.skillConfigIgnore.status,
+          ops.files.skillConfigIgnore.removed?.length
+            ? ops.files.skillConfigIgnore.removed.join(", ")
+            : "",
         ),
       );
     }

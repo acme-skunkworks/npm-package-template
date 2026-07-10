@@ -27,7 +27,7 @@ compatibility: >-
   (integration_id 15368, the npm-release environment, pkg-release.yml) are specific
   to that template's release shell.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
   author: Rob Easthope
 allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
 ---
@@ -82,6 +82,11 @@ re-run with nothing left to do is a clean no-op.
   `send-it`, `triage-pr`) into both Claude Code and Cursor trees
   (`--agent claude-code --agent cursor --copy`). Does **not** overwrite this
   scaffolder.
+- **Clear the template-seed skill-config gitignore** (A-812) — strip
+  `.claude/skills/*/config.json` and `.agents/skills/*/config.json` (and the
+  accompanying comment) from `.gitignore` so the resolved configs written next
+  are trackable and can be committed. The ignore remains on the template seed
+  only so "Use this template" never copies a local resolved config.
 
 **Automated — GitHub settings via `gh api` (repo-admin required):**
 
@@ -97,8 +102,9 @@ re-run with nothing left to do is a clean no-op.
 - **Enable the Release workflow** (`pkg-release.yml`, disabled on the template).
 
 **Wrapped:** the **`initialise-skills`** skill, to generate each skill's
-`config.json` from the corrected repo facts — run **after** the skills pull so
-configs match the pulled bundle versions.
+`config.json` from the corrected repo facts — run **after** the skills pull and
+the skill-config gitignore strip so configs match the pulled bundle versions and
+are left trackable for the consumer to commit (A-812).
 
 **Reported, not automated** (org/browser/cross-repo privilege — the skill verifies
 and prints exact next steps):
@@ -152,7 +158,11 @@ and prints exact next steps):
 5. **Generate the skill configs.** Run the **`initialise-skills`** skill
    end-to-end (its own dry-run → confirm → write → idempotency flow, including the
    Linear-facts step via the Linear MCP). Do not reimplement it — invoke it. Must
-   run **after** step 4 so configs match the just-pulled bundles.
+   run **after** step 4 so configs match the just-pulled bundles and the
+   skill-config gitignore has already been cleared. Remind the operator that the
+   generated `.claude/skills/*/config.json` and `.agents/skills/*/config.json`
+   files are **committed** in the consumer (agent-skills contract) — they are no
+   longer gitignored after step 4.
 
 6. **Confirm and apply the GitHub settings.** These need repo-admin and change
    server-side state, so confirm separately, then:
