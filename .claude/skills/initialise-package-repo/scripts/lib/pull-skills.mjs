@@ -16,14 +16,17 @@ export const AGENT_SKILLS_SOURCE =
 
 /**
  * Shared skills that match `skills-lock.json` on the template. Order is stable for
- * deterministic argv / dry-run reports. Does **not** include initialise-package-repo.
+ * deterministic argv / dry-run reports. Does **not** include initialise-package-repo
+ * (repo-local scaffolder — never overwritten by `skills add`).
  */
 export const SHARED_SKILLS = Object.freeze([
   "changelog",
   "cleanup-repo",
+  "commit",
   "initialise-skills",
   "linear-sync",
   "preflight",
+  "release-status",
   "send-it",
   "triage-pr",
 ]);

@@ -8,6 +8,8 @@ import {
   pullSharedSkills,
   SHARED_SKILLS,
 } from "../../.claude/skills/initialise-package-repo/scripts/lib/pull-skills.mjs";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("buildSkillsAddArgv", () => {
@@ -150,5 +152,17 @@ describe("pullSharedSkills", () => {
 
       expect(calls[0].args).not.toContain(skill);
     }
+  });
+
+  it("matches every skill in skills-lock.json (minus the repo-local scaffolder)", () => {
+    const lock = JSON.parse(
+      readFileSync(
+        join(import.meta.dirname, "..", "..", "skills-lock.json"),
+        "utf8",
+      ),
+    );
+    const locked = Object.keys(lock.skills).toSorted();
+    expect(locked).not.toContain("initialise-package-repo");
+    expect([...SHARED_SKILLS].toSorted()).toEqual(locked);
   });
 });

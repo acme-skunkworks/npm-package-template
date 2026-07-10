@@ -76,9 +76,10 @@ re-run with nothing left to do is a clean no-op.
   preserving comments and quoting.
 - **Pull the shared skills** — `npx skills add` from
   `acme-skunkworks/agent-skills` for the locked set (`changelog`, `cleanup-repo`,
-  `initialise-skills`, `linear-sync`, `preflight`, `send-it`, `triage-pr`) into
-  both Claude Code and Cursor trees (`--agent claude-code --agent cursor --copy`).
-  Does **not** overwrite this scaffolder.
+  `commit`, `initialise-skills`, `linear-sync`, `preflight`, `release-status`,
+  `send-it`, `triage-pr`) into both Claude Code and Cursor trees
+  (`--agent claude-code --agent cursor --copy`). Does **not** overwrite this
+  scaffolder.
 
 **Automated — GitHub settings via `gh api` (repo-admin required):**
 
