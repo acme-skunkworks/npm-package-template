@@ -24,6 +24,11 @@ export const MANUAL_REMINDERS = [
   },
   {
     detail:
+      "Grant the new repo selected access to the org secret ROADRUNNER_PRIVATE_KEY and org var ROADRUNNER_CLIENT_ID so pkg-release.yml's changelog-enrich job can mint an App token (A-821 / ADR 0004).",
+    title: "Grant ROADRUNNER_* selected access",
+  },
+  {
+    detail:
       "Verify org-wide CLAUDE_CODE_OAUTH_TOKEN + the Claude GitHub App are inherited; add the per-repo secret + App grant if not — README.md#claude-review-prerequisites.",
     title: "Verify Claude review prerequisites",
   },
@@ -46,10 +51,12 @@ const GLYPH = {
   pulled: "✔",
   reset: "✔",
   unchanged: "•",
+  updated: "✔",
   "would-change": "→",
   "would-create": "→",
   "would-enable": "→",
   "would-reset": "→",
+  "would-update": "→",
 };
 
 function line(label, status, extra = "") {
