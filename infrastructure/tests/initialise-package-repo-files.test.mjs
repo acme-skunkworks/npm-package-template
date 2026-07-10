@@ -239,4 +239,26 @@ describe("planSkillConfigIgnoreStrip", () => {
     expect(plan.changed).toBe(true);
     expect(plan.text.trim()).toBe("");
   });
+
+  it("strips bare patterns with no preceding comment", () => {
+    const raw =
+      "node_modules/\n.claude/skills/*/config.json\n.agents/skills/*/config.json\n";
+    const plan = planSkillConfigIgnoreStrip(raw);
+    expect(plan.changed).toBe(true);
+    expect(plan.text).toBe("node_modules/\n");
+    expect(plan.removed).toEqual(
+      expect.arrayContaining([
+        ".claude/skills/*/config.json",
+        ".agents/skills/*/config.json",
+      ]),
+    );
+  });
+
+  it("does not rewrite a file that only has consecutive blank lines", () => {
+    const raw = "node_modules/\n\n\ndist/\n";
+    const plan = planSkillConfigIgnoreStrip(raw);
+    expect(plan.changed).toBe(false);
+    expect(plan.text).toBe(raw);
+    expect(plan.removed).toEqual([]);
+  });
 });

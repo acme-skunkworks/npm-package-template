@@ -97,18 +97,15 @@ export function planSkillConfigIgnoreStrip(raw) {
         isSkillConfigIgnorePattern(lines[look].trim())
       ) {
         removed.push(trimmed);
-        // Also drop intervening blank/comment lines up to (not including) the
-        // pattern — the pattern itself is removed on its own iteration.
+        // Record intervening comment wrap lines for the audit trail; blanks are
+        // dropped silently. The pattern itself is removed on its own iteration.
         for (let skip = index + 1; skip < look; skip++) {
           const skipped = lines[skip].trim();
-          if (skipped === "" || skipped.startsWith("#")) {
-            // Mark by advancing the main loop via a side channel: push nothing
-            // to kept and jump index forward after this iteration.
-            continue;
+          if (skipped.startsWith("#")) {
+            removed.push(skipped);
           }
         }
 
-        // Advance past the intervening comments/blanks so they aren't kept.
         index = look - 1;
         continue;
       }
@@ -117,43 +114,50 @@ export function planSkillConfigIgnoreStrip(raw) {
     kept.push(line);
   }
 
-  // Collapse runs of 3+ blank lines left by the strip down to a single blank.
-  const collapsed = [];
-  let blankRun = 0;
-  for (const line of kept) {
-    if (line.trim() === "") {
-      blankRun++;
-      if (blankRun <= 1) {
-        collapsed.push(line);
+  // Only tidy blank runs when we actually stripped something — otherwise a
+  // file with consecutive blanks but no skill-config patterns would spuriously
+  // report changed/would-strip.
+  let text;
+  if (removed.length === 0) {
+    text = raw;
+  } else {
+    // Collapse consecutive blank lines left by the strip down to one.
+    const collapsed = [];
+    let blankRun = 0;
+    for (const line of kept) {
+      if (line.trim() === "") {
+        blankRun++;
+        if (blankRun <= 1) {
+          collapsed.push(line);
+        }
+
+        continue;
       }
 
-      continue;
+      blankRun = 0;
+      collapsed.push(line);
     }
 
-    blankRun = 0;
-    collapsed.push(line);
-  }
+    while (
+      collapsed.length >= 2 &&
+      collapsed.at(-1)?.trim() === "" &&
+      collapsed.at(-2)?.trim() === ""
+    ) {
+      collapsed.pop();
+    }
 
-  while (
-    collapsed.length >= 2 &&
-    collapsed.at(-1)?.trim() === "" &&
-    collapsed.at(-2)?.trim() === "" &&
-    removed.length > 0
-  ) {
-    collapsed.pop();
-  }
+    text = collapsed.join(nl);
+    if (raw.endsWith(nl) && text.length > 0 && !text.endsWith(nl)) {
+      text += nl;
+    }
 
-  let text = collapsed.join(nl);
-  if (raw.endsWith(nl) && text.length > 0 && !text.endsWith(nl)) {
-    text += nl;
-  }
-
-  if (text.trim() === "" && raw.trim() !== "" && removed.length > 0) {
-    text = "";
+    if (text.trim() === "") {
+      text = "";
+    }
   }
 
   return {
-    changed: text !== raw,
+    changed: removed.length > 0,
     removed: [...new Set(removed)],
     text,
   };
