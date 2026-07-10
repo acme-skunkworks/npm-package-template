@@ -23,10 +23,10 @@ export default defineConfig([
   ...base,
   typescript,
   // infrastructure/ holds the workflow/release shell's CLI tooling (not
-  // published code): it legitimately imports devDependencies (e.g.
-  // gray-matter), and the changelog validator is an inherently branchy flat
-  // list of schema checks, so the default complexity ceiling doesn't apply.
-  // Scoped narrowly to this directory.
+  // published code): it legitimately imports devDependencies, so
+  // import/no-extraneous-dependencies allows them. Complexity is off for the
+  // branchy ensure-*/publish reference scripts. Scoped narrowly to this
+  // directory.
   {
     files: ["infrastructure/**/*.{ts,mjs}"],
     rules: {
