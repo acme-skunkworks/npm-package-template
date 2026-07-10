@@ -28,16 +28,19 @@ This repo is both the template and its own reference package. There are two audi
 After "Use this template", in the new repo:
 
 > **Run the `initialise-package-repo` skill first.** It performs steps 1–3 and 6's Release-enable
-> automatically (in-repo file edits, `initialise-skills`, the ruleset + `npm-release` environment,
-> and `gh workflow enable Release`), all idempotent and dry-run-first, and verifies-and-reports
-> steps 4–5 and the npm-OIDC bootstrap. The numbered steps below are the reference for what it does
-> — walk them by hand only if you're not using the skill. See
-> [`CLAUDE.md` → Agent skills](CLAUDE.md#agent-skills).
+> automatically (in-repo file edits, **shared-skills pull** via `npx skills add … --copy`,
+> `initialise-skills`, the ruleset + `npm-release` environment, and `gh workflow enable Release`),
+> all idempotent and dry-run-first, and verifies-and-reports steps 4–5 and the npm-OIDC bootstrap.
+> The numbered steps below are the reference for what it does — walk them by hand only if you're
+> not using the skill. See [`CLAUDE.md` → Agent skills](CLAUDE.md#agent-skills). Committed skill
+> bundles from the template are bootstrap only; the scaffolder refreshes them at pull-on-instantiation
+> (A-776). This template is not a skills push-fan-out consumer (A-774).
 
 1. **Per-package code edits** — rename `package.json`, replace `src/`, point
    `infrastructure/repo-config.yaml` at the new package, **re-seed `.release-please-manifest.json`**
    so `"."` matches the starting version (the #1 release-please failure mode), reset `changelog/`,
-   and generate the skill configs. Full steps in [`CLAUDE.md`](CLAUDE.md#repo).
+   **pull the shared skills** (`npx skills add … --copy`), and generate the skill configs. Full
+   steps in [`CLAUDE.md`](CLAUDE.md#repo).
 2. Apply the [repo-level settings](#repo-level-settings) (rulesets are not copied).
 3. Create the [`npm-release` environment](#the-npm-release-environment) — called out as its own
    step because it needs the `gh api` commands in that subsection, not just a settings toggle.
