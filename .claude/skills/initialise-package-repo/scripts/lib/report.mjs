@@ -41,7 +41,9 @@ const GLYPH = {
   created: "✔",
   enabled: "✔",
   error: "✖",
+  pending: "→",
   present: "•",
+  pulled: "✔",
   reset: "✔",
   unchanged: "•",
   "would-change": "→",
@@ -103,6 +105,17 @@ export function formatHuman(report) {
         Object.keys(ops.files.repoConfig.changes).join(", "),
       ),
     );
+    if (ops.files.skillsPull) {
+      out.push(
+        line(
+          "shared skills pull",
+          ops.files.skillsPull.status,
+          ops.files.skillsPull.detail ??
+            `${ops.files.skillsPull.skills.length} skills`,
+        ),
+      );
+    }
+
     out.push("");
   }
 

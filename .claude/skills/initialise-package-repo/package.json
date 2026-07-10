@@ -1,8 +1,8 @@
 {
   "name": "@acme-skunkworks/skill-initialise-package-repo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Agent skill: one-shot, idempotent post-generation setup for a repo freshly created from npm-package-template — reset changelog/, re-seed the release-please manifest, rewrite package identity + repo-config, wrap initialise-skills, and apply the non-copied GitHub settings (npm-release env, GO/NO GO ruleset, enable Release).",
+  "description": "Agent skill: one-shot, idempotent post-generation setup for a repo freshly created from npm-package-template — reset changelog/, re-seed the release-please manifest, rewrite package identity + repo-config, pull shared skills via npx skills add --copy (A-776), wrap initialise-skills, and apply the non-copied GitHub settings (npm-release env, GO/NO GO ruleset, enable Release).",
   "keywords": [
     "agent-skill",
     "claude-code",
