@@ -24,6 +24,7 @@ import { pullSharedSkills } from "./lib/pull-skills.mjs";
 import { reconcileRepoConfig } from "./lib/repo-config.mjs";
 import { deriveIdentity, fetchRepoView } from "./lib/repo-facts.mjs";
 import { formatHuman, MANUAL_REMINDERS } from "./lib/report.mjs";
+import { reconcileSkillConfigIgnore } from "./lib/skill-config-gitignore.mjs";
 import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
@@ -136,6 +137,12 @@ function runFileEdits(root, identity, write) {
     // (SKILL.md owns that wrap). Repo-local initialise-package-repo is not in
     // the pull set.
     skillsPull: pullSharedSkills({ repoRoot: root, write }),
+    // Clear the template-seed skill-config gitignore so initialise-skills can
+    // write trackable config.json files the consumer commits (A-812).
+    skillConfigIgnore: reconcileSkillConfigIgnore({
+      path: join(root, ".gitignore"),
+      write,
+    }),
   };
 }
 

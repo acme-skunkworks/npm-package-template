@@ -35,17 +35,19 @@ node .claude/skills/initialise-package-repo/scripts/initialise-package-repo.mjs 
 **In-repo file edits:** resets `changelog/` to just its `README.md` (the
 changelog-poisoning fix), re-seeds `.release-please-manifest.json` to the starting
 `package.json` version, rewrites the `package.json` identity and
-`infrastructure/repo-config.yaml` from the repo's own facts (`gh repo view`), and
+`infrastructure/repo-config.yaml` from the repo's own facts (`gh repo view`),
 **pulls the shared skills** from `acme-skunkworks/agent-skills` into both agent
-trees (`--copy`).
+trees (`--copy`), and **clears the template-seed skill-config gitignore** (A-812)
+so resolved per-skill `config.json` files are trackable and committed in the
+consumer.
 
 **GitHub settings (via `gh api`):** creates the `npm-release` environment (main-only
 policy), creates the `GO/NO GO` required-check ruleset (pinned to the GitHub Actions
 integration), ensures the Trunk road-runner-bot changelog bypass (ADR 0004 / A-808),
 and enables the Release workflow.
 
-**Wrapped:** runs the `initialise-skills` skill **after** the skills pull to
-generate each skill's `config.json`.
+**Wrapped:** runs the `initialise-skills` skill **after** the skills pull and
+gitignore strip to generate each skill's `config.json` (then commit those files).
 
 **Reported, not automated:** authoring `src/`, release-orchestrator onboarding,
 `ROADRUNNER_*` selected access, Claude review prerequisites, and the npm OIDC +
