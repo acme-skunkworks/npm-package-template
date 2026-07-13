@@ -25,7 +25,6 @@ merged_at: # filled at release (finalisation)
 branch: "asw-123-feature-slug" # stable lookup key for finalisation
 pr: # filled at release
 commit: # 7-char merge SHA; filled at release
-merge_strategy: # squash | merge | rebase; filled at release
 author: "you@example.com"
 co_authors: []
 category: feature # feature | fix | chore | docs | refactor | perf
