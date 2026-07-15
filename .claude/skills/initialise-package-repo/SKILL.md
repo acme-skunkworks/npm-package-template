@@ -1,20 +1,19 @@
 ---
 name: initialise-package-repo
 description: >-
-  One-shot, idempotent post-generation setup for a repo freshly created from
-  npm-package-template. Drives it to a lint/build/release-ready state in a single
-  pass: resets changelog/ to just its README (the changelog-poisoning fix),
-  re-seeds .release-please-manifest.json to the starting package.json version,
-  rewrites the package.json identity + infrastructure/repo-config.yaml from the
-  repo's own facts, pulls the shared agent-skills set via npx skills add --copy
-  (A-776), wraps and runs the initialise-skills skill to generate every skill's
-  config.json, and applies the GitHub settings "Use this template" does not copy
-  (the npm-release environment, the GO/NO GO required-check ruleset, the Trunk
-  road-runner-bot changelog bypass, and enabling the Release workflow) — then
-  verifies-and-reports the org/browser steps it deliberately cannot automate. Use
-  right after "Use this template" on a spawned repo, or when asked to initialise /
-  bootstrap / set up a newly-generated package repo. Dry-run first, safe to re-run
-  (a second run is a no-op).
+  One-shot, idempotent post-generation setup for a repo created from
+  npm-package-template. Drives it to a lint/build/release-ready state in one pass:
+  resets changelog/ to just its README (the changelog-poisoning fix), re-seeds
+  .release-please-manifest.json to the starting package.json version, rewrites the
+  package.json identity and infrastructure/repo-config.yaml from the repo's own
+  facts, pulls the shared agent-skills set via npx skills add --copy (A-776), runs
+  the initialise-skills skill to generate every skill's config.json, and applies the
+  GitHub settings "Use this template" does not copy (the npm-release environment,
+  GO/NO GO required-check, Trunk changelog bypass, enabling the Release workflow) —
+  then verifies-and-reports the org/browser steps it cannot automate. Use right after
+  "Use this template" on a spawned repo, or when asked to initialise / bootstrap /
+  set up a newly-generated package repo. Dry-run first, safe to re-run (a second run
+  is a no-op).
 license: MIT
 compatibility: >-
   Requires the `git` and `gh` CLIs (`gh` authenticated with repo-admin on the
@@ -27,7 +26,7 @@ compatibility: >-
   (integration_id 15368, the npm-release environment, pkg-release.yml) are specific
   to that template's release shell.
 metadata:
-  version: 0.4.0
+  version: 0.4.1
   author: Rob Easthope
 allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(npx:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
 ---
