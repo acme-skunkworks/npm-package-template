@@ -114,15 +114,15 @@ A-808). Without onboarding, the repo never gets its automatic release PRs.
 
 The template already ships everything the orchestrator needs on the repo side — release-please
 config + manifest, `@acme-skunkworks/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
-(with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. So onboarding
-reduces to two steps:
+(with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. And since
+2026-07-13 road-runner-bot is installed **org-wide** on every ACME Skunkworks repo, with
+`ROADRUNNER_*` provisioned as org-level credentials every repo can read (A-945) — so the old
+per-repo "install the bot" and "grant `ROADRUNNER_*` selected access" (A-821) steps no longer
+apply. Onboarding now reduces to a single step:
 
-- [ ] **Install road-runner-bot** on the repo (org-installed App's repository selection; perms in
-      the [org-level bootstrap](#org-level-one-time-bootstrap)).
-- [ ] **Add the repo to the orchestrator's `matrix.repo`** (A-648).
-- [ ] **Grant `ROADRUNNER_*` selected access** — org secret `ROADRUNNER_PRIVATE_KEY` and org var
-      `ROADRUNNER_CLIENT_ID` must include the repo so `changelog-enrich` can mint an App token
-      (A-821 / ADR 0004). The scaffolder reports this; it does not automate org secret visibility.
+- [ ] **Add the repo to the orchestrator's `matrix.repo`** (A-648). Matrix registration is
+      orchestrator config, not a bot install or permission grant, so it is the one step that
+      remains per-repo.
 
 The required check the orchestrator waits on is **`GO/NO GO`** (the `🔬 Build & Lint` → `GO/NO GO`
 cutover completed via A-419 / A-596 / A-437), and the CI callers already run on `release-please--*`
@@ -164,13 +164,15 @@ spawned repo:
       `contents: read`, `pull-requests: write`, `issues: read` — are already correct in the
       template; the App grant is the missing piece, not the workflow wiring.)
 
-> **Security note on the org secret.** Unlike `ROADRUNNER_PRIVATE_KEY` (org-compromise-grade →
-> deliberately scoped to `release-orchestrator` only), `CLAUDE_CODE_OAUTH_TOKEN` is an Anthropic API
-> token — blast radius is API usage / billing abuse, and it is rotatable. Still, an "All
-> repositories" org secret is readable by any workflow in any org repo, so **scope it to the
-> config-estate repos** (or all-private) rather than truly all, and rotate on exposure. Fork-PR
-> secret withholding + "require approval for external contributors" (already on) mitigate the
-> `pull_request`-trigger exposure.
+> **Security note on the org secret.** `CLAUDE_CODE_OAUTH_TOKEN` is an Anthropic API token — blast
+> radius is API usage / billing abuse, and it is rotatable. `ROADRUNNER_PRIVATE_KEY` is
+> org-compromise-grade and is now granted to the config-estate repos (each repo's in-repo
+> `changelog-enrich` job mints an App token from it via `secrets: inherit`, A-821) — so it is no
+> longer scoped to `release-orchestrator` alone. For **both** secrets the discipline is the same: an
+> "All repositories" org secret is readable by any workflow in any org repo, so **scope them to the
+> config-estate repos** (or all-private) rather than truly all — never "public repositories" — and
+> rotate on exposure. Fork-PR secret withholding + "require approval for external contributors"
+> (already on) mitigate the `pull_request`-trigger exposure.
 
 ### npm OIDC Trusted Publishing
 
@@ -202,12 +204,16 @@ gh workflow enable Release
 _Template maintainer only — set once for the `acme-skunkworks` organisation. These protect the
 release identity across every repo; a spawned-package owner can skip this section._
 
-- [ ] `ROADRUNNER_PRIVATE_KEY` (org **secret**) → **Selected repositories = `release-orchestrator`
-      only**. Never "all" / "public repositories". The App private key never expires and is
-      org-compromise-grade, so it must never be readable from public CI.
+- [ ] `ROADRUNNER_PRIVATE_KEY` (org **secret**) → **Selected repositories = the config-estate
+      repos** (both `release-orchestrator` and every served package repo, since each repo's in-repo
+      `changelog-enrich` mints an App token from it via `secrets: inherit`, A-821). Never "all" /
+      "public repositories". The App private key never expires and is org-compromise-grade, so keep
+      the selection to the private/config-estate set — it must never be readable from an arbitrary
+      public repo's CI.
 - [ ] `ROADRUNNER_APP_ID` (org **variable**) → non-sensitive (App IDs are public); share as needed.
-- [ ] road-runner-bot App granted access to the repo (the org-installed App's repository selection)
-      with `contents: write` **+** `pull-requests: write`.
+- [ ] road-runner-bot App installed **org-wide** across the config-estate repos (the org-installed
+      App's repository selection) with `contents: write` **+** `pull-requests: write` — so a
+      newly-generated repo inherits the install with no per-repo grant (A-945).
 - [ ] `CLAUDE_CODE_OAUTH_TOKEN` provisioned org-wide and the Claude GitHub App installed across the
       config-estate repos (see [Claude review prerequisites](#claude-review-prerequisites)).
 - [ ] Actions → "Allow GitHub Actions to create and approve pull requests" → **off**.

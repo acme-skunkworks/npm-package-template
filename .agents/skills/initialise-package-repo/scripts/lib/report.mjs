@@ -19,13 +19,8 @@ export const MANUAL_REMINDERS = [
   },
   {
     detail:
-      "Install road-runner-bot on the repo and add it to the orchestrator's matrix.repo (A-648) — README.md#release-orchestrator-onboarding.",
+      "Add the repo to the orchestrator's matrix.repo (A-648) — README.md#release-orchestrator-onboarding. road-runner-bot + ROADRUNNER_* are provisioned org-wide (A-945), so only matrix registration remains.",
     title: "Onboard the release-orchestrator",
-  },
-  {
-    detail:
-      "Grant the new repo selected access to the org secret ROADRUNNER_PRIVATE_KEY and org var ROADRUNNER_CLIENT_ID so pkg-release.yml's changelog-enrich job can mint an App token (A-821 / ADR 0004).",
-    title: "Grant ROADRUNNER_* selected access",
   },
   {
     detail:
