@@ -4,9 +4,9 @@
 // whole thing is one injected-runner surface (unit-tested by asserting the recorded
 // argv). Read-only probes always run — so a dry-run reports the true current state
 // — while the mutating calls fire only under `write`. Anything needing org/browser
-// privilege (orchestrator matrix, road-runner install, Claude App, npm Trusted
-// Publisher, ROADRUNNER_* selected access) is NOT here — that stays check-and-report
-// in the SKILL.md layer.
+// privilege (orchestrator matrix, Claude App, npm Trusted Publisher) is NOT here —
+// that stays check-and-report in the SKILL.md layer. (road-runner install +
+// ROADRUNNER_* access are now org-wide, A-945, so no longer even reported.)
 //
 //   1. npm-release environment  — main-only deployment-branch policy (A-326).
 //   2. GO/NO GO ruleset         — required check-run pinned to the GitHub Actions

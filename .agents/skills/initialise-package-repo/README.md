@@ -49,9 +49,10 @@ and enables the Release workflow.
 **Wrapped:** runs the `initialise-skills` skill **after** the skills pull and
 gitignore strip to generate each skill's `config.json` (then commit those files).
 
-**Reported, not automated:** authoring `src/`, release-orchestrator onboarding,
-`ROADRUNNER_*` selected access, Claude review prerequisites, and the npm OIDC +
-first-publish bootstrap — the steps that need org/browser/cross-repo privilege. See
+**Reported, not automated:** authoring `src/`, release-orchestrator onboarding
+(matrix registration only — road-runner-bot + `ROADRUNNER_*` are org-wide, A-945),
+Claude review prerequisites, and the npm OIDC + first-publish bootstrap — the steps
+that need org/browser/cross-repo privilege. See
 [`README.md#setup`](../../../README.md#setup) for the authoritative checklist this
 mirrors.
 

@@ -109,11 +109,9 @@ are left trackable for the consumer to commit (A-812).
 and prints exact next steps):
 
 - Author the package's real `src/` API.
-- Onboard the release-orchestrator (install road-runner-bot + add the `matrix.repo`
-  entry — A-648).
-- Confirm org secret `ROADRUNNER_PRIVATE_KEY` and org var `ROADRUNNER_CLIENT_ID`
-  grant **selected** access to the new repo (required by `changelog-enrich`'s
-  `secrets: inherit` App-token mint — A-821).
+- Onboard the release-orchestrator: add the `matrix.repo` entry (A-648).
+  road-runner-bot + `ROADRUNNER_*` are provisioned org-wide (A-945), so matrix
+  registration is the only per-repo step that remains.
 - Verify Claude review prerequisites (`CLAUDE_CODE_OAUTH_TOKEN` + the Claude App).
 - npm OIDC Trusted Publisher + the manual first publish.
 
@@ -175,10 +173,10 @@ and prints exact next steps):
    already-active workflow).
 
 7. **Report the manual next steps.** Surface the `reminders` from the report — the
-   `src/` API, orchestrator onboarding, `ROADRUNNER_*` selected access, Claude
-   review prerequisites, and the npm OIDC bootstrap + first publish — each
-   cross-linking its `README.md#setup` subsection. The repo is not "done" until
-   these are handled.
+   `src/` API, orchestrator onboarding (matrix registration only), Claude review
+   prerequisites, and the npm OIDC bootstrap + first publish — each cross-linking
+   its `README.md#setup` subsection. The repo is not "done" until these are
+   handled.
 
 8. **Confirm idempotency.** Re-run the dry run; every file/GitHub op should now
    report `unchanged` / `present` / `already-customised` (apart from the manual
