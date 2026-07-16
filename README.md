@@ -115,10 +115,11 @@ A-808). Without onboarding, the repo never gets its automatic release PRs.
 The template already ships everything the orchestrator needs on the repo side — release-please
 config + manifest, `@acme-skunkworks/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
 (with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. And since
-2026-07-13 road-runner-bot is installed **org-wide** on every ACME Skunkworks repo, with
-`ROADRUNNER_*` provisioned as org-level credentials every repo can read (A-945) — so the old
-per-repo "install the bot" and "grant `ROADRUNNER_*` selected access" (A-821) steps no longer
-apply. Onboarding now reduces to a single step:
+2026-07-13 road-runner-bot is installed **org-wide** on every ACME Skunkworks repo, with its
+`ROADRUNNER_*` credentials provisioned at org level — the `ROADRUNNER_PRIVATE_KEY` secret granted
+to the config-estate repos, the `ROADRUNNER_CLIENT_ID` a non-sensitive org variable (A-945) — so
+the old per-repo "install the bot" and "grant `ROADRUNNER_*` selected access" (A-821) steps no
+longer apply. Onboarding now reduces to a single step:
 
 - [ ] **Add the repo to the orchestrator's `matrix.repo`** (A-648). Matrix registration is
       orchestrator config, not a bot install or permission grant, so it is the one step that
@@ -210,7 +211,9 @@ release identity across every repo; a spawned-package owner can skip this sectio
       "public repositories". The App private key never expires and is org-compromise-grade, so keep
       the selection to the private/config-estate set — it must never be readable from an arbitrary
       public repo's CI.
-- [ ] `ROADRUNNER_APP_ID` (org **variable**) → non-sensitive (App IDs are public); share as needed.
+- [ ] `ROADRUNNER_CLIENT_ID` (org **variable**) → non-sensitive (the App's client id is public);
+      share as needed. (This is the token-mint org variable — distinct from the numeric App id
+      `2195582` hard-coded as the Trunk-bypass actor in `initialise-package-repo`.)
 - [ ] road-runner-bot App installed **org-wide** across the config-estate repos (the org-installed
       App's repository selection) with `contents: write` **+** `pull-requests: write` — so a
       newly-generated repo inherits the install with no per-repo grant (A-945).
