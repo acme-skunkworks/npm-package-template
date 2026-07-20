@@ -11,7 +11,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded runs on ordinary branches, but never on the release-please
+  # branch: cancelling its in-flight CI cancels the required GO/NO GO check the
+  # release orchestrator waits on, which it reads as a NO GO (A-961 root cause).
+  cancel-in-progress: ${{ github.head_ref != 'release-please--branches--main' }}
 
 # Defence-in-depth (ASW-313): the repo default is already read-only, but
 # pin it here so a future org-policy change can't silently widen CI's token.
