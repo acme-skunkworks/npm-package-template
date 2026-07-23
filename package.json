@@ -86,8 +86,10 @@
   },
   "devDependencies": {
     "@acme-skunkworks/changelog-core": "^1.1.0",
+    "@acme-skunkworks/commitlint-config": "^1.0.0",
     "@acme-skunkworks/eslint-config": "^1.0.4",
     "@acme-skunkworks/markdownlint-config": "^2.0.0",
+    "@commitlint/cli": "^21.2.1",
     "@types/node": "^25.6.0",
     "bats": "1.13.0",
     "eslint": "^9.0.0",

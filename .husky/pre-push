@@ -73,5 +73,15 @@ else
   printf '⚠️  actionlint not installed — skipping pre-push workflow check. Install: bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.5/scripts/download-actionlint.bash)\n'
 fi
 
+# Conventional Commits range check (A-1021 / A-982). Best-effort local feedback
+# — complements CI's reusable-validate-commits gate; bypass with --no-verify.
+# pre-push (not commit-msg) so WIP commits stay free until push time.
+if pnpm exec commitlint --version >/dev/null 2>&1 &&
+  git rev-parse --verify -q origin/main >/dev/null; then
+  pnpm exec commitlint --from origin/main --to HEAD || exit 1
+else
+  printf '⚠️  commitlint range check not ready — skipping. Need @commitlint/cli and a fetched origin/main. Bypass: git push --no-verify\n'
+fi
+
 printf '\033[0;32m✅ Pre-push checks passed\033[0m\n'
 exit 0
