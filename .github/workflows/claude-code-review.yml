@@ -15,6 +15,7 @@ permissions:
   contents: read
   pull-requests: write
   issues: read
+  actions: read # Install claude-code-action's github_ci MCP server (A-1105)
   id-token: write
 
 jobs:
