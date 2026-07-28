@@ -19,7 +19,8 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    # Group the dev toolchain into a single PR per week, so one lockfile churn
+    # `patterns: ["*"]` groups every npm dependency — production and
+    # development alike — into a single PR per week, so one lockfile churn
     # lands or reverts atomically instead of racing across parallel PRs.
     groups:
       npm:
