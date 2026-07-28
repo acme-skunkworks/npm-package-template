@@ -14,3 +14,22 @@ updates:
     commit-message:
       prefix: "ci"
       include: scope
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    # Group the dev toolchain into a single PR per week, so one lockfile churn
+    # lands or reverts atomically instead of racing across parallel PRs.
+    groups:
+      npm:
+        patterns: ["*"]
+    # `chore` (not `ci`) so subjects read `chore(deps): …` / `chore(deps-dev): …`
+    # — Conventional, and a no-release type under the release-please bump rules,
+    # so a dependency bump never cuts a version on its own. Both prefixes are
+    # set explicitly: `prefix` alone leaves development-dependency bumps on
+    # Dependabot's own default. See A-980 / A-823.
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: scope
