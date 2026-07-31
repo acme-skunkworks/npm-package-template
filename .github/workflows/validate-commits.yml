@@ -1,0 +1,29 @@
+name: Validate commits
+
+on:
+  pull_request:
+    # `synchronize` re-runs when new commits land — this gate lints the
+    # base..head range, so a stale pass on an old tip would be unsafe.
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# REQUIRED CALLER PERMISSIONS (A-621): under the org default
+# `default_workflow_permissions: read`, a caller with no `permissions:` block
+# hands the reusable a read-only token that can't satisfy its `contents: read`
+# grant — the run dies at compile time with a `startup_failure`.
+permissions:
+  contents: read
+
+jobs:
+  # Job id MUST stay `commits`: a reusable-workflow check renders as
+  # `<caller-job-id> / <reusable-job-name>`, giving the estate-canonical context
+  # `commits / Validate commits are Conventional Commits` that one required-check
+  # rule pins across the estate (A-400/A-405 / A-983). Do not rename.
+  # Do NOT pass `secrets: inherit` — the reusable has no secrets block (trust
+  # boundary matching reusable-validate-pr-title's no-secrets model except that
+  # the commits gate forbids inherit explicitly).
+  commits:
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-commits.yml@v1
