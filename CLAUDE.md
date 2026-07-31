@@ -24,7 +24,7 @@ The skill **automates**:
 - **Points `infrastructure/repo-config.yaml`** at the new package (scope, default branch) where values differ, preserving comments.
 - **Pulls the shared skills** via `npx skills add … --copy` from `acme-skunkworks/agent-skills` for the locked set (both Claude Code and Cursor trees) — pull-on-instantiation (A-776). Committed copies in the template are bootstrap only; the repo-local `initialise-package-repo` scaffolder is never overwritten.
 - **Clears the template-seed skill-config gitignore** (A-812) so spawned consumers can commit the resolved per-skill `config.json` files — then **generates those configs** by wrapping the `initialise-skills` skill (only the neutral `config.example.json` ships in the vendored bundles). Runs **after** the skills pull so configs match the pulled versions.
-- **Re-creates the `GO/NO GO` required-check ruleset** (rulesets are **not** copied by "Use this template") — pinned to the GitHub Actions integration (see "CI gate (`GO/NO GO`)" below). See [README → the required-check ruleset](README.md#the-required-check-ruleset).
+- **Re-creates the `GO/NO GO` required-check ruleset** (rulesets are **not** copied by "Use this template") — pinned to the GitHub Actions integration, **with road-runner-bot as a bypass actor** so `pkg-release.yml`'s `changelog-enrich` write-back to `main` succeeds (A-1019; see "CI gate (`GO/NO GO`)" below). See [README → the required-check ruleset](README.md#the-required-check-ruleset).
 - **Ensures the Trunk changelog bypass** (ADR 0004 / A-808) — repo-level `Trunk` ruleset with `road-runner-bot` as a bypass actor so `pkg-release.yml`'s `changelog-enrich` job can push `changelog/**`. Creates `Trunk` when absent.
 - **Creates the `main`-restricted `npm-release` environment** (not copied; without it the OIDC publish has nowhere to deploy from). See [README → the npm-release environment](README.md#the-npm-release-environment).
 - **Enables the Release workflow** (`gh workflow enable Release`, done last — after the environment exists).
@@ -34,7 +34,7 @@ The skill **verifies-and-reports** (needs org/browser/cross-repo privilege it ca
 - **Author the real `src/` API** — replace everything under `src/`; `src/index.ts` is the published entry point. The build/lint/release shell does not change. (Lint configs — `eslint.config.ts` extending `@acme-skunkworks/eslint-config`, `.markdownlint-cli2.jsonc` extending `@acme-skunkworks/markdownlint-config` — are inherited as-is; extend `eslint.config.ts` only for the opt-in presets you need: `testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`, `tableComponents`.)
 - **Onboard the release-orchestrator** — the template ships every repo-side prerequisite, and road-runner-bot + `ROADRUNNER_*` are now provisioned org-wide (A-945), so this reduces to a single step: **add the repo to the orchestrator's `matrix.repo`** (A-648). The old per-repo "install road-runner-bot" and "grant `ROADRUNNER_*` selected access" (A-821) steps no longer apply. See [README → release-orchestrator onboarding](README.md#release-orchestrator-onboarding).
 - **Verify the Claude review prerequisites** — `CLAUDE_CODE_OAUTH_TOKEN` secret **and** the Claude GitHub App on the repo (the App install fixes the `git fetch … could not read Username` failure — A-621 / A-636). Preferably both are org-wide, in which case just confirm inheritance. See [README → Claude review prerequisites](README.md#claude-review-prerequisites).
-- **Bootstrap npm OIDC** — the manual first publish (passkey/WebAuthn) then configuring the Trusted Publisher. See [README → npm OIDC](README.md#npm-oidc-trusted-publishing) and "Bootstrap publish" below.
+- **Bootstrap npm OIDC** — the manual first publish (passkey/WebAuthn), then the `v<initial>` git tag + GitHub release (so release-please has a baseline — A-1019), then configuring the Trusted Publisher. See [README → npm OIDC](README.md#npm-oidc-trusted-publishing) and "Bootstrap publish" below.
 
 ## Decisions live in Linear, not ADRs
 
@@ -83,7 +83,7 @@ This repo adopts the shared `@acme-skunkworks/agent-skills` bundles, installed v
 
 One further skill is **repo-local**, not from the shared bundle (it lives only in this template's `.claude/skills/` + `.agents/skills/`, is not in `skills-lock.json`, and travels into spawned repos via "Use this template"):
 
-- **`/initialise-package-repo`** — the one-shot, idempotent post-generation setup for a repo freshly spawned from this template (A-663 / A-776). Resets `changelog/` to just its README (the changelog-poisoning fix), re-seeds `.release-please-manifest.json`, rewrites the `package.json` identity + `infrastructure/repo-config.yaml` from the repo's own facts, **pulls the shared skills** via `npx skills add … --copy`, **wraps and runs `initialise-skills`** to generate every skill's `config.json`, and applies the non-copied GitHub settings (`npm-release` environment, `GO/NO GO` ruleset, enabling Release) via `gh api` behind a confirmation gate — then verifies-and-reports the org/browser steps it can't automate. It **is** the executable form of the generation checklist at the top of this file. Dry-run first, safe to re-run.
+- **`/initialise-package-repo`** — the one-shot, idempotent post-generation setup for a repo freshly spawned from this template (A-663 / A-776). Resets `changelog/` to just its README (the changelog-poisoning fix), re-seeds `.release-please-manifest.json`, rewrites the `package.json` identity + `infrastructure/repo-config.yaml` from the repo's own facts, **pulls the shared skills** via `npx skills add … --copy`, **wraps and runs `initialise-skills`** to generate every skill's `config.json`, and applies the non-copied GitHub settings (`npm-release` environment, `GO/NO GO` ruleset with the road-runner-bot bypass, Trunk changelog bypass, enabling Release) via `gh api` behind a confirmation gate — then verifies-and-reports the org/browser steps it can't automate. It **is** the executable form of the generation checklist at the top of this file. Dry-run first, safe to re-run.
 
 Each shared-bundle skill ships a neutral `config.example.json`. The real `config.json` is **generated on install, then committed in the consumer** (agent-skills v1.1.0 generated-config model / A-812). The template seed gitignores `.claude/skills/*/config.json` and `.agents/skills/*/config.json` so "Use this template" never copies a local resolved config into a new repo; `/initialise-package-repo` strips those ignore lines, runs `initialise-skills`, and the spawned package **commits** the resulting configs. Run `initialise-skills` again after a fresh install or a repo-fact change (`dist` as the shippable surface, `A` as the Linear issue key); it is idempotent (a second dry-run is a no-op).
 
@@ -144,6 +144,7 @@ To bypass any hook in an emergency: `git commit --no-verify` or `git push --no-v
 `ci.yml` ends with a single **`GO/NO GO`** aggregator job — the one stable, estate-canonical gate the release-orchestrator waits on (A-412/A-424). It `needs:` every real job (`config`, `lint`, `build-test`, `pr-title`, `changelog-completeness`), runs `if: ${{ always() }}`, and a one-line `jq` verdict over `toJSON(needs)` succeeds **iff** every job `result` is `success` or `skipped`. The `lint` and `build-test` jobs are thin callers of the shared reusable workflows (see "Shared reusable CI callers" below); `config` is in `needs` so a config failure — which would skip the callers, and skips are accepted — still fails the gate directly.
 
 - **Why a check-run, not a commit status.** The gate is the job's _intrinsic_ check-run, named `GO/NO GO`. A commit status is writable by any push-scoped token (forgeable); a **check-run can only be minted by a GitHub App** — here, the repo's own Actions run — so a push-scoped token or a fork contributor cannot forge it. Require it on `main` via a **ruleset pinned to the GitHub Actions integration** (`integration_id: 15368`), so nothing but this repo's Actions can satisfy it. Rulesets aren't copied by template generation — see the generation checklist.
+- **road-runner-bot bypass (A-1019).** The `Require GO/NO GO gate` ruleset **must** list road-runner-bot as a bypass actor: `pkg-release.yml`'s `changelog-enrich` job pushes `changelog/**` directly to `main` after each merge and would otherwise be rejected by the required check (`GH013`). Human PRs still have to satisfy `GO/NO GO` — the bypass is scoped to the bot actor. The `Trunk` ruleset carries the same bypass for its pull-request/deletion/non-fast-forward rules. See [README → the required-check ruleset](README.md#the-required-check-ruleset).
 - **Footguns (A-418).** The gate must **never** be path-filtered (a path-filtered required check sits Pending forever and blocks merges); `always()` is mandatory or the aggregator skips and never reports; the literal `/` and space must surface as `check_run.name == "GO/NO GO"` (they do — emoji/spaces already survive in `lint / Lint`). Fall back to explicit-create (`POST /check-runs`, Option A) only if the `/` ever misbehaves.
 - **Gate name (A-419 / A-596 / A-437).** The private release-orchestrator polls the `GO/NO GO` check-run only. A-419 opened a dual-accept window (`🔬 Build & Lint` **or** `GO/NO GO`); A-596 collapsed it to `GO/NO GO`-only once every served repo emitted it, and A-437 retired the old gate role. The caller swap (A-447) had already **removed** the `🔬 Build & Lint` context from this template — replaced by `lint / Lint` + `build-test / Build & Test`. Safe on _this_ repo regardless: Release is disabled, so nothing here waits on the orchestrator. `pr-title`'s name is _also_ the estate-pinned required-check context (A-405); don't tidy it.
 - **Done (A-411 / A-447).** The `lint` and `build-test` jobs are now thin callers of `acme-skunkworks/shared-workflows`'s reusable `reusable-lint.yml` / `reusable-build-test.yml` (A-415/416). `pr-title` stays inline (its own track, A-428/A-403) and `release` stays inline (no reusable workflow yet, A-417). `GO/NO GO` stays put across the swap, which is exactly why it lives here (custom per-repo) and not upstream.
@@ -334,7 +335,7 @@ The very first publish of a brand-new npm package **cannot go through CI**. Two 
 - npm (unlike PyPI) has no pending-Trusted-Publisher flow. The package must exist on the registry before the Trusted Publisher form is reachable at `npmjs.com/package/<name>/access`.
 - npm enforces 2FA at the publish endpoint for the first publish of a new package, irrespective of account/org/token bypass settings — so it needs an interactive second factor. A Granular bypass-2FA token does **not** help here: it only honours the bypass from publish #2 onwards. With a recent npm (default `auth-type=web`), that 2FA is satisfied **in the browser via a passkey/WebAuthn approval** — so the first publish completes interactively from a laptop, not in CI.
 
-So bootstrap is always: manual first publish (approve in the browser) → configure Trusted Publisher → CI takes over from publish #2.
+So bootstrap is always: manual first publish (approve in the browser) → create the `v<initial>` git tag + GitHub release → configure Trusted Publisher → CI takes over from publish #2.
 
 **Pre-flight:**
 
@@ -349,8 +350,19 @@ So bootstrap is always: manual first publish (approve in the browser) → config
 1. Set `package.json` + `.release-please-manifest.json` to the version you want to ship (edit directly for a fresh package). There is no root `CHANGELOG.md` to write — the dated `changelog/` entry carries the release notes.
 2. `pnpm run release:manual:dry` — verify tarball + auth. **Note:** dry-run does NOT exercise the 2FA/browser step, so a successful dry-run does not by itself predict a successful real publish.
 3. `pnpm run release:manual` — i.e. `npm publish --access public --provenance=false` (no `--otp`). npm opens your browser and prompts for a **passkey/WebAuthn approval** (Touch ID / Face ID / security key). Approve it, and the brand-new scoped package publishes cleanly. _(Verified 2026-06-01 first-publishing `@acme-skunkworks/agent-skills@1.0.0` this way.)_
-4. Configure Trusted Publisher: `https://www.npmjs.com/package/<name>/access` → GitHub Actions → org, repo, workflow filename (`pkg-release.yml`), environment blank.
-5. From here on, releases go through CI cleanly.
+4. **Create the `v<initial>` git tag + GitHub release** for the version just published (A-1019). `release:manual` only publishes to npm — it does **not** create a git tag. Without the tag, release-please has no baseline and may open a spurious next bump that re-releases the already-shipped initial feature set. On `main` at the publish commit:
+
+   ```bash
+   VERSION=$(node -p "require('./package.json').version")
+   git tag -a "v${VERSION}" -m "v${VERSION}"
+   git push origin "v${VERSION}"
+   gh release create "v${VERSION}" --title "v${VERSION}" --notes "Initial bootstrap publish."
+   ```
+
+   Prefer release notes from the matching dated `changelog/` entry when one exists (`gh release create … --notes-file <entry.md>`). Do **not** fold this into `release:manual` — that script is also the break-glass path after OIDC exists, where CI owns tagging.
+
+5. Configure Trusted Publisher: `https://www.npmjs.com/package/<name>/access` → GitHub Actions → org, repo, workflow filename (`pkg-release.yml`), environment blank.
+6. From here on, releases go through CI cleanly.
 
 **Fallback (recovery-code `--otp`):** for headless / CI-less / no-browser contexts, an account without a passkey, or an npm too old for web auth. Pass a recovery code as `--otp`:
 
@@ -358,7 +370,7 @@ So bootstrap is always: manual first publish (approve in the browser) → config
 npm publish --access public --provenance=false --otp=<recovery-code>
 ```
 
-Generate codes at npmjs.com → Profile → Two-Factor Authentication → Manage Recovery Codes. Each is single-use. The format is a long hex string (not a 6-digit TOTP) — npm accepts it as `--otp` anyway. **After a publish that consumed a code, immediately regenerate your recovery codes** — the one you used is burnt. Then configure Trusted Publisher as in step 4 above.
+Generate codes at npmjs.com → Profile → Two-Factor Authentication → Manage Recovery Codes. Each is single-use. The format is a long hex string (not a 6-digit TOTP) — npm accepts it as `--otp` anyway. **After a publish that consumed a code, immediately regenerate your recovery codes** — the one you used is burnt. Then create the `v<initial>` tag + GitHub release (step 4) and configure Trusted Publisher (step 5) as above.
 
 ### Things that look like solutions but aren't
 

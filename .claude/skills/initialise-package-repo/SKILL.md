@@ -9,7 +9,8 @@ description: >-
   facts, pulls the shared agent-skills set via npx skills add --copy (A-776), runs
   the initialise-skills skill to generate every skill's config.json, and applies the
   GitHub settings "Use this template" does not copy (the npm-release environment,
-  GO/NO GO required-check, Trunk changelog bypass, enabling the Release workflow) —
+  GO/NO GO required-check with road-runner-bot bypass, Trunk changelog bypass,
+  enabling the Release workflow) —
   then verifies-and-reports the org/browser steps it cannot automate. Use right after
   "Use this template" on a spawned repo, or when asked to initialise / bootstrap /
   set up a newly-generated package repo. Dry-run first, safe to re-run (a second run
@@ -52,8 +53,8 @@ re-run with nothing left to do is a clean no-op.
 > version onto every version-less entry and sweep them into its first release
 > notes as noise — the 2026-07-02 poisoning incident that hit two live repos.
 > Resetting `changelog/` is the flagship fix; the missed non-copied GitHub
-> settings (npm-release env, GO/NO GO ruleset, Trunk changelog bypass) are the
-> other half. The authoritative checklist this mirrors is
+> settings (npm-release env, GO/NO GO ruleset with road-runner-bot bypass, Trunk
+> changelog bypass) are the other half. The authoritative checklist this mirrors is
 > [`README.md#setup`](../../../README.md#setup) (A-649).
 >
 > **Why it pulls skills (A-776).** Committed skill bundles in the template are
@@ -90,8 +91,11 @@ re-run with nothing left to do is a clean no-op.
 **Automated — GitHub settings via `gh api` (repo-admin required):**
 
 - **Create the `npm-release` environment** (main-only deployment-branch policy).
-- **Create the `GO/NO GO` required-check ruleset** (pinned to the GitHub Actions
-  integration, `integration_id: 15368`).
+- **Create (or update) the `GO/NO GO` required-check ruleset** (pinned to the GitHub Actions
+  integration, `integration_id: 15368`) **with road-runner-bot (`2195582`) as a bypass
+  actor** so `pkg-release.yml`'s `changelog-enrich` job can push `changelog/**` to `main`
+  (A-1019). Creates the ruleset when absent; merges the bypass into an existing same-named
+  ruleset without wiping other actors.
 - **Ensure the Trunk changelog bypass** (ADR 0004 / A-808) — repo-level `Trunk`
   ruleset with `road-runner-bot` (`2195582`) as a bypass actor so
   `pkg-release.yml`'s `changelog-enrich` job can push `changelog/**`. Creates
@@ -113,7 +117,8 @@ and prints exact next steps):
   road-runner-bot + `ROADRUNNER_*` are provisioned org-wide (A-945), so matrix
   registration is the only per-repo step that remains.
 - Verify Claude review prerequisites (`CLAUDE_CODE_OAUTH_TOKEN` + the Claude App).
-- npm OIDC Trusted Publisher + the manual first publish.
+- npm OIDC Trusted Publisher + the manual first publish, including the required
+  `v<initial>` git tag + GitHub release baseline (A-1019).
 
 ## Process
 

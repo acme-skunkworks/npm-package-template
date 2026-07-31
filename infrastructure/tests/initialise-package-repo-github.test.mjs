@@ -1,6 +1,6 @@
 // Unit tests for the initialise-package-repo skill's GitHub-settings logic
-// (A-663 / A-808). A fake runner records the `gh` argv and returns canned API
-// responses, so we assert both the idempotent "already present → no mutation"
+// (A-663 / A-808 / A-1019). A fake runner records the `gh` argv and returns canned
+// API responses, so we assert both the idempotent "already present → no mutation"
 // path and the "absent → correct gh api call" path without touching a real repo.
 
 import {
@@ -33,6 +33,28 @@ function fakeRun(responder) {
 }
 
 const SLUG = "acme-skunkworks/portcullis";
+
+/**
+ * A full GO/NO GO ruleset body carrying the road-runner-bot bypass.
+ */
+function goNoGoFull(id, extraActors = []) {
+  return JSON.stringify({
+    bypass_actors: [
+      {
+        actor_id: ROADRUNNER_APP_ID,
+        actor_type: "Integration",
+        bypass_mode: "always",
+      },
+      ...extraActors,
+    ],
+    conditions: { ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] } },
+    enforcement: "active",
+    id,
+    name: RULESET_NAME,
+    rules: goNoGoRulesetPayload().rules,
+    target: "branch",
+  });
+}
 
 describe("ensureNpmReleaseEnvironment", () => {
   it("is present when the env + main policy already exist (no mutation)", () => {
@@ -137,14 +159,141 @@ describe("ensureNpmReleaseEnvironment", () => {
   });
 });
 
+describe("goNoGoRulesetPayload", () => {
+  it("pins the GO/NO GO check to the GitHub Actions integration", () => {
+    const check =
+      goNoGoRulesetPayload().rules[0].parameters.required_status_checks[0];
+    expect(check).toEqual({ context: "GO/NO GO", integration_id: 15368 });
+    expect(goNoGoRulesetPayload().conditions.ref_name.include).toEqual([
+      "~DEFAULT_BRANCH",
+    ]);
+  });
+
+  it("carries the road-runner-bot bypass (A-1019)", () => {
+    // changelog-enrich pushes changelog/** to main as road-runner-bot and must
+    // clear the required check — same bypass parity as Trunk / versioned template.
+    expect(goNoGoRulesetPayload().bypass_actors).toEqual([
+      {
+        actor_id: ROADRUNNER_APP_ID,
+        actor_type: "Integration",
+        bypass_mode: "always",
+      },
+    ]);
+  });
+});
+
 describe("ensureGoNoGoRuleset", () => {
-  it("is present when a ruleset of the same name exists (no mutation)", () => {
-    const { calls, run } = fakeRun(() => ({
-      status: 0,
-      stdout: JSON.stringify([{ name: RULESET_NAME }]),
-    }));
+  it("is present when the ruleset exists with the road-runner-bot bypass", () => {
+    const { calls, run } = fakeRun((cmd) => {
+      if (cmd.endsWith("rulesets")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            { id: 10, name: RULESET_NAME, source_type: "Repository" },
+          ]),
+        };
+      }
+
+      if (cmd.endsWith("rulesets/10")) {
+        return { status: 0, stdout: goNoGoFull(10) };
+      }
+
+      return null;
+    });
     const result = ensureGoNoGoRuleset(SLUG, { run, write: true });
     expect(result.status).toBe("present");
+    expect(calls.some((call) => call.includes("PUT"))).toBe(false);
+    expect(calls.some((call) => call.includes("POST"))).toBe(false);
+  });
+
+  it("would-update on dry-run when the ruleset exists without the bypass", () => {
+    const { calls, run } = fakeRun((cmd) => {
+      if (cmd.endsWith("rulesets")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            { id: 10, name: RULESET_NAME, source_type: "Repository" },
+          ]),
+        };
+      }
+
+      if (cmd.endsWith("rulesets/10")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            bypass_actors: [],
+            conditions: {
+              ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] },
+            },
+            enforcement: "active",
+            id: 10,
+            name: RULESET_NAME,
+            rules: goNoGoRulesetPayload().rules,
+            target: "branch",
+          }),
+        };
+      }
+
+      return null;
+    });
+    const result = ensureGoNoGoRuleset(SLUG, { run, write: false });
+    expect(result.status).toBe("would-update");
+    expect(calls.some((call) => call.includes("PUT"))).toBe(false);
+  });
+
+  it("PUTs the merged bypass when the ruleset exists without it (write)", () => {
+    const { calls, run } = fakeRun((cmd) => {
+      if (cmd.endsWith("rulesets")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify([
+            { id: 10, name: RULESET_NAME, source_type: "Repository" },
+          ]),
+        };
+      }
+
+      if (cmd.endsWith("rulesets/10") && !cmd.includes("PUT")) {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            bypass_actors: [
+              {
+                actor_id: 5,
+                actor_type: "RepositoryRole",
+                bypass_mode: "always",
+              },
+            ],
+            conditions: {
+              ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] },
+            },
+            enforcement: "active",
+            id: 10,
+            name: RULESET_NAME,
+            rules: goNoGoRulesetPayload().rules,
+            target: "branch",
+          }),
+        };
+      }
+
+      return { status: 0, stdout: "" };
+    });
+    const result = ensureGoNoGoRuleset(SLUG, { run, write: true });
+    expect(result.status).toBe("updated");
+    const put = calls.find((call) => call.includes("PUT"));
+    expect(put).toContain("repos/acme-skunkworks/portcullis/rulesets/10");
+    expect(put).toContain("--input");
+  });
+
+  it("would-create on dry-run when absent", () => {
+    const { calls, run } = fakeRun((cmd) => {
+      if (cmd.endsWith("rulesets")) {
+        return { status: 0, stdout: "[]" };
+      }
+
+      return null;
+    });
+    const result = ensureGoNoGoRuleset(SLUG, { run, write: false });
+    expect(result.status).toBe("would-create");
     expect(calls.some((call) => call.includes("POST"))).toBe(false);
   });
 
@@ -161,17 +310,6 @@ describe("ensureGoNoGoRuleset", () => {
     const post = calls.find((call) => call.includes("POST"));
     expect(post).toContain("repos/acme-skunkworks/portcullis/rulesets");
     expect(post).toContain("--input");
-  });
-
-  it("payload pins the GO/NO GO check to the GitHub Actions integration", () => {
-    const check =
-      goNoGoRulesetPayload().rules[0].parameters.required_status_checks[0];
-    expect(check).toEqual({ context: "GO/NO GO", integration_id: 15368 });
-    expect(goNoGoRulesetPayload().conditions.ref_name.include).toEqual([
-      "~DEFAULT_BRANCH",
-    ]);
-    // bypass_actors must be sent explicitly — the API rejects a null/omitted value.
-    expect(goNoGoRulesetPayload().bypass_actors).toEqual([]);
   });
 });
 
@@ -424,7 +562,7 @@ describe("applyGithubSettings", () => {
         return {
           status: 0,
           stdout: JSON.stringify([
-            { name: RULESET_NAME, source_type: "Repository" },
+            { id: 10, name: RULESET_NAME, source_type: "Repository" },
             {
               id: 99,
               name: TRUNK_RULESET_NAME,
@@ -432,6 +570,10 @@ describe("applyGithubSettings", () => {
             },
           ]),
         };
+      }
+
+      if (cmd.endsWith("rulesets/10")) {
+        return { status: 0, stdout: goNoGoFull(10) };
       }
 
       if (cmd.endsWith("rulesets/99")) {
