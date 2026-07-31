@@ -78,7 +78,15 @@ stable required gate. Require it on `main` via a ruleset:
       aggregates them all.
 - [ ] Ruleset **pinned to the GitHub Actions integration** (`integration_id: 15368`), so nothing
       but this repo's Actions can satisfy it.
-- [ ] No bot bypass.
+- [ ] **road-runner-bot listed as a bypass actor** (A-1019). `pkg-release.yml`'s `changelog-enrich`
+      job pushes `changelog/**` **directly to `main`** as `road-runner-bot[bot]` after each merge.
+      Without the bypass, the required-check ruleset rejects that direct push (`GH013`). Human PRs
+      still have to satisfy `GO/NO GO` as normal — the bypass is scoped to the bot actor only.
+
+The `Trunk` ruleset carries the **same** road-runner-bot bypass (integration `2195582`, an `always`
+bypass actor) for the pull-request / deletion / non-fast-forward rules, so the enrich push clears
+both rulesets (ADR 0004 / A-808). Org `Protect main trunk` stays no-bypass (deletion /
+non-fast-forward only).
 
 Footguns (A-418):
 
@@ -178,10 +186,14 @@ spawned repo:
 ### npm OIDC Trusted Publishing
 
 npm has no pending-Trusted-Publisher flow, so bootstrap is always: manual first publish →
-configure Trusted Publisher → CI takes over from publish #2.
+create the `v<initial>` git tag + GitHub release → configure Trusted Publisher → CI takes over
+from publish #2.
 
 - [ ] Manual first publish from a laptop (passkey/WebAuthn approval in the browser). The full
       runbook is in [CLAUDE.md → "Bootstrap publish"](CLAUDE.md#bootstrap-publish--read-this-when-setting-up-a-new-package).
+- [ ] Create the annotated `v<initial>` git tag and matching GitHub release for the version just
+      published (required — without it release-please has no baseline and may re-release the
+      initial feature set as a spurious bump; A-1019). Commands are in the Bootstrap publish runbook.
 - [ ] Configure the Trusted Publisher at `https://www.npmjs.com/package/<name>/access` →
       GitHub Actions → org, repo, workflow filename `pkg-release.yml`, environment **blank**.
       (npm Trusted Publishing binds its OIDC subject to repository + workflow **filename**, so this

@@ -42,17 +42,19 @@ so resolved per-skill `config.json` files are trackable and committed in the
 consumer.
 
 **GitHub settings (via `gh api`):** creates the `npm-release` environment (main-only
-policy), creates the `GO/NO GO` required-check ruleset (pinned to the GitHub Actions
-integration), ensures the Trunk road-runner-bot changelog bypass (ADR 0004 / A-808),
-and enables the Release workflow.
+policy), creates or updates the `GO/NO GO` required-check ruleset (pinned to the
+GitHub Actions integration) **with the road-runner-bot bypass** (A-1019), ensures
+the Trunk road-runner-bot changelog bypass (ADR 0004 / A-808), and enables the
+Release workflow.
 
 **Wrapped:** runs the `initialise-skills` skill **after** the skills pull and
 gitignore strip to generate each skill's `config.json` (then commit those files).
 
 **Reported, not automated:** authoring `src/`, release-orchestrator onboarding
 (matrix registration only — road-runner-bot + `ROADRUNNER_*` are org-wide, A-945),
-Claude review prerequisites, and the npm OIDC + first-publish bootstrap — the steps
-that need org/browser/cross-repo privilege. See
+Claude review prerequisites, and the npm OIDC + first-publish bootstrap (publish,
+`v<initial>` tag + GitHub release, Trusted Publisher) — the steps that need
+org/browser/cross-repo privilege. See
 [`README.md#setup`](../../../README.md#setup) for the authoritative checklist this
 mirrors.
 

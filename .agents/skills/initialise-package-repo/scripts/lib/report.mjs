@@ -29,7 +29,7 @@ export const MANUAL_REMINDERS = [
   },
   {
     detail:
-      "Manual first publish (passkey/WebAuthn), then configure the Trusted Publisher against pkg-release.yml — README.md#npm-oidc-trusted-publishing and CLAUDE.md#bootstrap-publish.",
+      "Manual first publish (passkey/WebAuthn), then create the v<initial> git tag + GitHub release for that version (required baseline for release-please — A-1019), then configure the Trusted Publisher against pkg-release.yml — README.md#npm-oidc-trusted-publishing and CLAUDE.md#bootstrap-publish.",
     title: "Bootstrap npm OIDC + first publish",
   },
 ];

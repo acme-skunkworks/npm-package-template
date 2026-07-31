@@ -10,8 +10,10 @@
 //
 //   1. npm-release environment  — main-only deployment-branch policy (A-326).
 //   2. GO/NO GO ruleset         — required check-run pinned to the GitHub Actions
-//                                 integration (integration_id 15368), replicating
-//                                 this template's own live ruleset.
+//                                 integration (integration_id 15368), WITH
+//                                 road-runner-bot as a bypass actor so the
+//                                 changelog-enrich push to `main` clears the
+//                                 required check (A-1019). Create-or-update.
 //   3. Trunk changelog bypass   — road-runner-bot on the repo-level Trunk ruleset
 //                                 so the post-merge enricher can write changelog/**
 //                                 (ADR 0004 / A-808). Creates Trunk when absent.
@@ -32,21 +34,30 @@ export const RELEASE_WORKFLOW_FILE = "pkg-release.yml";
 export const TRUNK_RULESET_NAME = "Trunk";
 /** Fallback name some repos use for a repo-sourced trunk ruleset. */
 export const TRUNK_RULESET_ALT_NAME = "Protect main trunk";
-/** road-runner-bot GitHub App id — the only Integration that can bypass Trunk here. */
+/** road-runner-bot GitHub App id — the Integration that bypasses Trunk and GO/NO GO. */
 export const ROADRUNNER_APP_ID = 2195582;
 
 /**
  * The GO/NO GO ruleset payload — a single required-status-check rule on the
  * default branch, pinned to the GitHub Actions integration so nothing but this
  * repo's own Actions run can satisfy it. Mirrors the live ruleset on the template
- * repo. `bypass_actors: []` = no bypass. (PR-required / 0-approvals is inherited
- * from the org-level "Protect main trunk" ruleset — not recreated here.)
+ * repo.
+ *
+ * `bypass_actors` lists road-runner-bot (A-1019): `pkg-release.yml`'s
+ * `changelog-enrich` job pushes `changelog/**` directly to `main` as
+ * road-runner-bot after each merge and would otherwise be rejected by this
+ * required check. Human PRs still have to satisfy GO/NO GO — the bypass is
+ * scoped to the bot actor only.
  */
 export function goNoGoRulesetPayload() {
   return {
-    // Must be sent explicitly: the rulesets API does not default bypass_actors and
-    // rejects a null value — `[]` is "no bypass", matching the live ruleset.
-    bypass_actors: [],
+    bypass_actors: [
+      {
+        actor_id: ROADRUNNER_APP_ID,
+        actor_type: "Integration",
+        bypass_mode: "always",
+      },
+    ],
     conditions: { ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] } },
     enforcement: "active",
     name: RULESET_NAME,
@@ -174,6 +185,37 @@ export function findRepoTrunkRuleset(rulesets) {
 }
 
 /**
+ * Merge the road-runner-bot bypass into an existing ruleset via PUT, preserving
+ * every other actor. Shared by GO/NO GO and Trunk, which both need the bot bypass.
+ * @returns {{ op: string, status: "updated" } | { op: string, status: "error", detail: string }}
+ */
+function addRoadrunnerBypass(run, slug, full, op) {
+  const bypassActors = [
+    ...(full.bypass_actors ?? []),
+    {
+      actor_id: ROADRUNNER_APP_ID,
+      actor_type: "Integration",
+      bypass_mode: "always",
+    },
+  ];
+  const putBody = {
+    bypass_actors: bypassActors,
+    conditions: full.conditions,
+    enforcement: full.enforcement,
+    name: full.name,
+    rules: full.rules,
+    target: full.target,
+  };
+  const putFailure = failedRun(
+    run,
+    ["api", "-X", "PUT", `repos/${slug}/rulesets/${full.id}`, "--input", "-"],
+    { input: JSON.stringify(putBody) },
+    op,
+  );
+  return putFailure ?? { op, status: "updated" };
+}
+
+/**
  * Ensure the `npm-release` environment exists with a single `main`-only
  * deployment-branch policy. Idempotent: the environment PUT is safe to repeat, and
  * the `main` policy POST is guarded by a GET so it is never duplicated.
@@ -250,33 +292,62 @@ export function ensureNpmReleaseEnvironment(
 }
 
 /**
- * Ensure the GO/NO GO required-check ruleset exists. Idempotent: skips when a
- * ruleset of the same name is already present.
- * @returns {{ op: "ruleset", status: string }}
+ * Ensure the GO/NO GO required-check ruleset exists AND grants road-runner-bot a
+ * bypass (A-1019 — the changelog-enrich push to `main` needs it). Idempotent
+ * create-or-update: creates the ruleset when absent; when a same-named ruleset
+ * exists but lacks the bot bypass, PUTs it to add the bypass without wiping other
+ * actors.
+ * @returns {{ op: "ruleset", status: string, detail?: string }}
  */
 export function ensureGoNoGoRuleset(
   slug,
   { run = defaultRun, write = false } = {},
 ) {
-  const rulesets = ghJson(run, ["api", `repos/${slug}/rulesets`]) ?? [];
-  if (
-    Array.isArray(rulesets) &&
-    rulesets.some((rs) => rs.name === RULESET_NAME)
-  ) {
+  const list = ghJson(run, ["api", `repos/${slug}/rulesets`]) ?? [];
+  const summary = Array.isArray(list)
+    ? list.find(
+        (rs) =>
+          rs.name === RULESET_NAME &&
+          (!rs.source_type || rs.source_type === "Repository"),
+      )
+    : null;
+
+  if (!summary) {
+    if (!write) {
+      return { op: "ruleset", status: "would-create" };
+    }
+
+    const failure = failedRun(
+      run,
+      ["api", "-X", "POST", `repos/${slug}/rulesets`, "--input", "-"],
+      { input: JSON.stringify(goNoGoRulesetPayload()) },
+      "ruleset",
+    );
+    return failure ?? { op: "ruleset", status: "created" };
+  }
+
+  const full = ghJson(run, ["api", `repos/${slug}/rulesets/${summary.id}`]);
+  if (!full) {
+    return {
+      detail: `could not load ruleset ${summary.id}`,
+      op: "ruleset",
+      status: "error",
+    };
+  }
+
+  if (hasRoadrunnerBypass(full.bypass_actors)) {
     return { op: "ruleset", status: "present" };
   }
 
   if (!write) {
-    return { op: "ruleset", status: "would-create" };
+    return {
+      detail: "add road-runner-bot bypass to GO/NO GO",
+      op: "ruleset",
+      status: "would-update",
+    };
   }
 
-  const failure = failedRun(
-    run,
-    ["api", "-X", "POST", `repos/${slug}/rulesets`, "--input", "-"],
-    { input: JSON.stringify(goNoGoRulesetPayload()) },
-    "ruleset",
-  );
-  return failure ?? { op: "ruleset", status: "created" };
+  return addRoadrunnerBypass(run, slug, full, "ruleset");
 }
 
 /**
@@ -332,36 +403,7 @@ export function ensureTrunkChangelogBypass(
     };
   }
 
-  const bypassActors = [
-    ...(full.bypass_actors ?? []),
-    {
-      actor_id: ROADRUNNER_APP_ID,
-      actor_type: "Integration",
-      bypass_mode: "always",
-    },
-  ];
-  const putBody = {
-    bypass_actors: bypassActors,
-    conditions: full.conditions,
-    enforcement: full.enforcement,
-    name: full.name,
-    rules: full.rules,
-    target: full.target,
-  };
-  const putFailure = failedRun(
-    run,
-    [
-      "api",
-      "-X",
-      "PUT",
-      `repos/${slug}/rulesets/${summary.id}`,
-      "--input",
-      "-",
-    ],
-    { input: JSON.stringify(putBody) },
-    "trunk-bypass",
-  );
-  return putFailure ?? { op: "trunk-bypass", status: "updated" };
+  return addRoadrunnerBypass(run, slug, full, "trunk-bypass");
 }
 
 /**
