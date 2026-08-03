@@ -59,7 +59,9 @@ template"):
 
 - [ ] **Template repository flag enabled** (Settings → General → "Template repository") — for a
       spawned _package_ this is optional; leave it off unless the new repo is itself a template.
-- [ ] "Allow auto-merge" **on**; squash merges allowed.
+- [ ] "Allow auto-merge" **on**; merge commits **and** squash merges allowed
+      (feature PRs → merge commit; release-please + fan-out PRs → squash —
+      A-1176 / A-1177).
 - [ ] Secret scanning + push protection **on**.
 - [ ] npm OIDC Trusted Publishing configured (no `NPM_TOKEN` in CI — see
       [npm OIDC](#npm-oidc-trusted-publishing)).

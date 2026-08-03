@@ -3,10 +3,12 @@ name: CI
 on:
   pull_request:
     # `edited` is included so the changelog-completeness gate re-runs when a
-    # title is corrected — the PR title is the release-please bump signal
-    # (SK-371), so a stale pass on an old title would be unsafe. (The PR-title
-    # lint itself now lives in validate-pr-title.yml, which also re-runs on
-    # `edited`.) The default set is opened/synchronize/reopened.
+    # title is corrected — a release-triggering title must carry a changelog
+    # entry (SK-371), so a stale pass on an old title would be unsafe. Feature
+    # PRs land as merge commits; release-please ranks Conventional Commits on
+    # `main` (A-824 / A-1176), so the PR title is no longer the sole post-merge
+    # bump signal. (The PR-title lint itself now lives in validate-pr-title.yml,
+    # which also re-runs on `edited`.) The default set is opened/synchronize/reopened.
     types: [opened, edited, synchronize, reopened]
 
 concurrency:
@@ -102,9 +104,11 @@ jobs:
 
   # Changelog-completeness gate (SK-371): a release-triggering PR title
   # (feat/fix/breaking) must carry a dated changelog/ entry. Restores the
-  # no-changeset-no-release coupling now that the bump is inferred from the PR
-  # title. Non-release titles (docs/chore/ci/…) — including the release-please
-  # PR's own `chore: release …` — are a clean pass. Stays inline because it reads
+  # no-entry-no-release coupling for titles that still signal shippability at
+  # PR time. Post-merge, release-please ranks Conventional Commits on `main`
+  # (A-824 / A-1176) — the PR title is no longer the sole bump signal.
+  # Non-release titles (docs/chore/ci/…) — including the release-please PR's
+  # own `chore: release …` — are a clean pass. Stays inline because it reads
   # the PR title (github.event.pull_request.title), which a reusable workflow
   # can't see; was a step inside the old build-and-lint job.
   changelog-completeness:
