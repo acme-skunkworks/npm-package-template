@@ -25,4 +25,3 @@ stats:
 
 - `initialise-package-repo` Trunk payload — `allowed_merge_methods: ["merge","squash"]`
 - Re-vendor `send-it` **0.7.0** + refresh `AGENTS.md` (fan-outs paused, A-809)
-
