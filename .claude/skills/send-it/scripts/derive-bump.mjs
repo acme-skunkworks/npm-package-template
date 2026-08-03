@@ -2,10 +2,17 @@
 // commits. Zero dependencies — Node built-ins only, no build step, no tsx.
 // Run: node skills/send-it/scripts/derive-bump.mjs
 //
-// Under release-please (Conventional Commits) there is no changeset file: the
-// release signal is the Conventional Commits PR title. send-it uses these
-// derived bits to name the dated changelog/ entry and to compose that title
-// (the bump signal release-please reads).
+// Under release-please (Conventional Commits) there is no changeset file.
+// Dual merge policy (A-1176 / ADR-0005):
+//   - Feature / ship PRs land as **merge commits** — post-merge, release-please
+//     ranks the landed **commit subjects** (A-824), not the PR title alone.
+//   - Release-please version PRs and fan-out PRs stay **squash** (orchestrator /
+//     fanout-spine) — for those paths the squash subject (often the PR title)
+//     remains the bump declaration.
+// send-it still composes a Conventional Commits PR title from these derived
+// bits (CI + humans; completeness gate). It also names the dated changelog/
+// entry from them. Pre-merge, this helper scans the branch's authored commits
+// with `git log --no-merges` so a local merge subject's body is not mixed in.
 //
 // Fields printed as JSON to stdout:
 //   slug             : branch-name-derived slug (changelog/<ts>-<slug>.md filename)
@@ -13,6 +20,7 @@
 //   body             : a one-line draft summary (the ship flow may rewrite this)
 //   type             : the strongest Conventional-Commit type across all commits
 //                      (feat/fix/perf/docs/refactor/chore/…) — the PR-title prefix
+//                      (dominant type, A-387 — not "lead"/HEAD-only)
 //   breaking         : whether any commit is breaking (`!` or BREAKING CHANGE:)
 //   category         : the dated changelog `category` enum value for this change
 //   releaseTriggering: whether this change cuts a release (A-598 — by the change's
@@ -23,9 +31,10 @@
 // (A-598): feat/fix/perf — or any breaking change — cut a release; docs/refactor/
 // chore/ci/build/test/style do not, wherever the files live.
 //
-// Reads from git via `git branch --show-current` and `git log <base>..HEAD`.
-// The base ref is `origin/main` (falling back to `main`), overridable via the
-// BASE_REF env var. The pure functions are exported for vitest.
+// Reads from git via `git branch --show-current` and
+// `git log --no-merges <base>..HEAD`. The base ref is `origin/main` (falling
+// back to `main`), overridable via the BASE_REF env var. The pure functions
+// are exported for vitest.
 
 import { readGitBranch, readGitCommits } from "./lib/git.mjs";
 import { realpathSync } from "node:fs";
@@ -119,11 +128,11 @@ function significance(type) {
 }
 
 // The strongest Conventional-Commit type across ALL commits (A-387). Starts from
-// the lead commit and only upgrades to a strictly-stronger later commit, so a
+// the newest commit and only upgrades to a strictly-stronger later commit, so a
 // branch whose HEAD is chore/docs but which contains an earlier feat/fix derives
-// from that feat/fix. When no commit is a release type it stays on the lead
+// from that feat/fix. When no commit is a release type it stays on the newest
 // commit's type — preserving the changelog category for non-release branches.
-// `git log` is newest-first, so ties keep the newest (lead) commit.
+// `git log` is newest-first, so ties keep the newest commit.
 export function deriveDominantType(commits) {
   if (commits.length === 0) {
     return "chore";

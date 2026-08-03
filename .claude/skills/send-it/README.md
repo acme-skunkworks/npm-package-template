@@ -3,9 +3,10 @@
 The all-in-one ship finisher. Finish coding, then run send-it: it commits
 uncommitted work into atomic commits, runs the change-gated lint preflight,
 authors or updates the dated `changelog/<ts>-<slug>.md` entry, composes a
-**Conventional Commits PR title** (the squash subject release-please reads to
-decide the version bump), pushes the branch, opens or updates a pull request, and
-transitions the linked Linear issues to **In Review**.
+**Conventional Commits PR title** (CI + humans; feature PRs merge via merge
+commit and release-please ranks landed commit subjects for the bump — A-1176),
+pushes the branch, opens or updates a pull request, and transitions the linked
+Linear issues to **In Review**.
 
 It is a thin orchestrator: the lint gate, the changelog authoring, and the Linear
 transition are delegated to the standalone [`preflight`](../preflight),
@@ -81,8 +82,9 @@ which send-it's delegated steps read.
 - It does **not** run typecheck, tests, or format checks — CI handles those. The
   only gate it runs is the change-gated `preflight` lint.
 - It does **not** bump the repo/npm version or write any root `CHANGELOG.md` —
-  release-please does that from the merged Conventional-Commit PR title. send-it only
-  writes the dated `changelog/<ts>-<slug>.md` entry (the curated per-change record),
-  which the release step finalises. (With `bundleVersioning` configured it *does*
-  offer to bump a changed skill bundle's own `metadata.version` — a per-bundle label,
-  separate from the repo release.)
+  release-please does that from Conventional Commits on trunk (feature PRs: landed
+  commit subjects under merge commits; release/fan-out squash paths: the squash
+  subject). send-it only writes the dated `changelog/<ts>-<slug>.md` entry (the
+  curated per-change record), which the post-merge enricher finalises. (With
+  `bundleVersioning` configured it *does* offer to bump a changed skill bundle's own
+  `metadata.version` — a per-bundle label, separate from the repo release.)

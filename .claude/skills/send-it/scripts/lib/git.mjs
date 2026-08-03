@@ -79,8 +79,26 @@ export function resolveBaseRef() {
 }
 
 /**
+ * `git log` argv for commits on HEAD not yet on `base`, newest first.
+ * `--no-merges` keeps merge-commit subjects (often a PR title) out of the
+ * bump scan so they are not double-counted against the branch's authored
+ * commits under the dual merge policy (A-1176 / A-387 / A-824).
+ * @param {string} base
+ * @returns {string[]}
+ */
+export function gitLogRangeArgs(base) {
+  return [
+    "log",
+    "--no-merges",
+    `${base}..HEAD`,
+    `--format=%H${UNIT_SEP}%s${UNIT_SEP}%b${RECORD_SEP}`,
+  ];
+}
+
+/**
  * Commits on HEAD not yet on the base ref, newest first, as
  * `{ hash, subject, body }`. Empty array when there's no resolvable base.
+ * Merge commits are excluded (see `gitLogRangeArgs`).
  */
 export function readGitCommits() {
   const base = resolveBaseRef();
@@ -88,15 +106,7 @@ export function readGitCommits() {
     return [];
   }
 
-  const out = execFileSync(
-    "git",
-    [
-      "log",
-      `${base}..HEAD`,
-      `--format=%H${UNIT_SEP}%s${UNIT_SEP}%b${RECORD_SEP}`,
-    ],
-    { encoding: "utf8" },
-  );
+  const out = execFileSync("git", gitLogRangeArgs(base), { encoding: "utf8" });
   return out
     .split(RECORD_SEP)
     .map((segment) => segment.trim())

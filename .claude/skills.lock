@@ -9,7 +9,7 @@
     "linear-sync": "0.3.3",
     "preflight": "0.2.1",
     "release-status": "0.1.4",
-    "send-it": "0.6.1",
+    "send-it": "0.7.0",
     "triage-pr": "0.6.0"
   },
   "source": "https://github.com/acme-skunkworks/agent-skills"
