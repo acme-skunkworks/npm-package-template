@@ -43,11 +43,16 @@ only add a rule here if it is true for **every** estate repo.
 ## Commits, PRs & releases
 
 - Commit messages and PR titles follow **Conventional Commits** (`feat:`, `fix:`, `chore:`, …).
-- Repos **squash-merge**, so the **PR title is the bump signal** release-please reads — a mistyped
-  or under-typed prefix silently cuts the wrong version bump, or none. Get the PR title's type right.
+- **Dual merge policy** (ADR 0003 / A-1176): feature / ship PRs use **merge commits**; release-please
+  version PRs and fan-out PRs stay **squash**. Both methods remain allowed (A-1177) — do not disable
+  squash at the repo level.
+- Under merge commits the **bump signal is the Conventional Commits on the branch** (enforced by the
+  commitlint gate), not the PR title. PR titles still follow Conventional Commits for CI and humans;
+  a mistyped commit prefix (not the PR title) is what silently cuts the wrong version bump.
 - Version bump by type: `feat` → minor; `fix` / `perf` / `revert` → patch; `!` or `BREAKING CHANGE:`
   → major; `chore` / `docs` / `ci` / `build` / `refactor` / `test` / `style` → no release. When a
-  branch spans several levels, title the PR with the highest-bumping type.
+  branch spans several levels, the highest-bumping commit type on the branch drives the bump; title
+  the PR to match for readability.
 - Scopes are optional and for readability only — they do **not** drive the bump. Group commits by
   **intent** (a feature, a fix, a refactor), not by package boundary; never stage unrelated changes
   into one commit (e.g. via `git add -A`).

@@ -103,7 +103,7 @@ export function trunkRulesetPayload() {
       { type: "non_fast_forward" },
       {
         parameters: {
-          allowed_merge_methods: ["squash"],
+          allowed_merge_methods: ["merge", "squash"],
           dismiss_stale_reviews_on_push: false,
           require_code_owner_review: false,
           require_last_push_approval: false,

@@ -3,15 +3,15 @@ name: send-it
 description: >-
   The all-in-one ship finisher — bundle uncommitted work into atomic commits, run
   the change-gated lint preflight, author or update the dated changelog entry,
-  compose a Conventional Commits PR title (the release-please bump signal), push,
-  open or update a PR, and transition linked Linear issues to In Review. Use when
-  asked to ship, send it, finish a branch, open or update a PR for the current
-  work, or wrap up and push. A thin orchestrator that delegates the commit step to
-  the `commit` skill, the lint gate to the `preflight` skill, the changelog to the
-  `changelog` skill, and the Linear writeback to the `linear-sync` skill; it owns
-  the branch guard, the release-type decision (by the change's semantic category),
-  PR-title composition, push, and PR. One skill serves monorepos and single-package
-  repos alike.
+  compose a Conventional Commits PR title (CI + humans; post-merge bump for
+  feature PRs comes from landed commit subjects), push, open or update a PR, and
+  transition linked Linear issues to In Review. Use when asked to ship, send it,
+  finish a branch, open or update a PR for the current work, or wrap up and push.
+  A thin orchestrator that delegates the commit step to the `commit` skill, the
+  lint gate to the `preflight` skill, the changelog to the `changelog` skill, and
+  the Linear writeback to the `linear-sync` skill; it owns the branch guard, the
+  release-type decision (by the change's semantic category), PR-title composition,
+  push, and PR. One skill serves monorepos and single-package repos alike.
 license: MIT
 compatibility: >-
   Requires the `git` and `gh` CLIs (`gh` authenticated). Node.js ≥22 for the
@@ -21,7 +21,7 @@ compatibility: >-
   `linear-sync` skills — install them alongside this one. The In Review writeback
   needs the Linear MCP server (via `linear-sync`); it is skipped if unavailable.
 metadata:
-  version: 0.6.1
+  version: 0.7.0
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
 ---
@@ -32,10 +32,11 @@ Bundle uncommitted work into atomic commits (via the
 [`commit`](../commit/SKILL.md) skill), run the change-gated lint
 [`preflight`](../preflight/SKILL.md), author or update the dated
 `changelog/<ts>-<slug>.md` entry (via the [`changelog`](../changelog/SKILL.md)
-skill), compose a **Conventional Commits PR title** (the squash subject
-release-please reads to decide the version bump), push the branch, open or update
-a pull request against the base branch, and transition any linked Linear issues to
-**In Review** (via the [`linear-sync`](../linear-sync/SKILL.md) skill).
+skill), compose a **Conventional Commits PR title** (CI + humans; under the dual
+merge policy, feature PRs land as merge commits and release-please ranks the
+landed **commit subjects** for the bump — A-1176 / A-824), push the branch, open
+or update a pull request against the base branch, and transition any linked Linear
+issues to **In Review** (via the [`linear-sync`](../linear-sync/SKILL.md) skill).
 
 This skill is the single source of truth for the **ship flow**. It is a thin
 orchestrator: it owns only the glue no sibling skill does — the branch guard,
@@ -250,11 +251,21 @@ it no-ops when nothing lint-relevant changed. Skip this step entirely only if
 ### Step 6: Decide release-type by category and compose the Conventional Commits PR title
 
 Versioning is driven by [release-please](https://github.com/googleapis/release-please)
-reading **Conventional Commits**. The repo squash-merges, so the **squash subject is
-the PR title** — and that single conventional title is what release-please parses to
-decide the bump. send-it composes a correct conventional title and writes the dated
-changelog entry (for every PR — see Step 7). It does **not** bump versions, write any
-`CHANGELOG.md`, or tag.
+reading **Conventional Commits**. The estate uses a **dual merge policy** (A-1176 /
+[ADR-0005](../../../architecture/0005-dual-merge-policy.md)):
+
+- **Feature / ship PRs** land as **merge commits**. After merge, release-please ranks
+  the landed **commit subjects** on trunk to decide the bump (A-824) — not the PR
+  title alone.
+- **Release-please version PRs** and **fan-out PRs** stay **squash** (orchestrator /
+  fanout-spine). For those paths the squash subject remains the bump declaration.
+- Both `allow_merge_commit` and `allow_squash_merge` stay enabled (A-1177) — squash
+  is not disabled.
+
+send-it still composes a correct Conventional Commits **PR title** (CI's PR-title
+lint + humans; the changelog-completeness gate still keys off a release-triggering
+title) and writes the dated changelog entry (for every PR — see Step 7). It does
+**not** bump versions, write any `CHANGELOG.md`, or tag.
 
 Release-type is decided by the change's **semantic category — the Conventional-Commit
 type of the work send-it itself committed — not by which paths the diff touches**
@@ -272,8 +283,9 @@ as `feat:`/`fix:` and cut a spurious release.)
 
    It prints JSON:
    `{ "slug", "bump", "body", "type", "breaking", "category", "releaseTriggering" }`:
-   - `type` — the Conventional-Commit type of the **lead commit** (`feat`/`fix`/`perf`/
-     `docs`/`refactor`/`chore`/`ci`/…); this is the PR-title prefix.
+   - `type` — the **dominant** Conventional-Commit type across **all** branch commits
+     (`feat`/`fix`/`perf`/`docs`/`refactor`/`chore`/`ci`/… — A-387); this is the
+     PR-title prefix. Merge commits are excluded from the scan (`git log --no-merges`).
    - `breaking` — `true` if any commit carries a `!` or a `BREAKING CHANGE:` trailer.
    - `category` — the dated changelog `category` enum value (`feat`→`feature`,
      `fix`→`fix`, `perf`→`perf`, `docs`→`docs`, `refactor`→`refactor`, everything else
@@ -281,8 +293,8 @@ as `feat:`/`fix:` and cut a spurious release.)
    - `releaseTriggering` — `true` iff `breaking` or `type ∈ {feat, fix, perf}`. This is
      the release decision: `true` cuts a release, `false` does not.
    - `bump` — `major`/`minor`/`patch`, the release **magnitude** when `releaseTriggering`
-     (a `BREAKING CHANGE:`/`!` → major; lead `feat:` → minor; else patch). Ignored when
-     `releaseTriggering` is `false`.
+     (a `BREAKING CHANGE:`/`!` → major; dominant `feat:` → minor; else patch). Ignored
+     when `releaseTriggering` is `false`.
 
 2. **(Advisory) publish-surface cross-check.** `shippablePaths` /
    `shippableManifestKeys` in [`config.json`](config.json) are a documentation hint of
@@ -320,27 +332,29 @@ as `feat:`/`fix:` and cut a spurious release.)
    files: `git commit -m "chore(<name>): release <name>@<version>"`. On `no`, leave
    it and continue. Under `--dry-run`, print the proposal and edit nothing.
 
-4. **Compose the PR title** as a single Conventional Commits subject — this is the
-   release-please bump signal and is enforced by CI's PR-title lint. If `--title` was
-   passed, use it verbatim (still run `derive-bump` above for the changelog
-   `category`, and **warn** — don't block — if the supplied type contradicts the
-   derived `type`/`releaseTriggering`). Otherwise build it straight from the derived
-   fields:
+4. **Compose the PR title** as a single Conventional Commits subject — CI's
+   PR-title lint and the changelog-completeness gate still require it. For **feature
+   PRs** (merge commits), the post-merge bump comes from the landed **commit
+   subjects** (A-824); the title remains the human/CI declaration and should match
+   the dominant type. For **squash** paths (release + fan-out), the squash subject
+   is still the bump declaration. If `--title` was passed, use it verbatim (still
+   run `derive-bump` above for the changelog `category`, and **warn** — don't block
+   — if the supplied type contradicts the derived `type`/`releaseTriggering`).
+   Otherwise build it straight from the derived fields:
    - **Prefix** = `type` (add a scope when one is obvious, e.g. `feat(<scope>):`), plus
      `!` when `breaking` — so `feat: <body>`, `fix: <body>`, `perf: <body>`,
      `docs: <body>`, `refactor: <body>`, `chore: <body>`, `feat!: <body>`, etc.
    - **Release-triggering** (`releaseTriggering: true`) → the prefix is already a
-     release type (`feat`/`fix`/`perf`, or any `!`); release-please cuts the bump from
-     it. Add the scope; that's it.
+     release type (`feat`/`fix`/`perf`, or any `!`). Add the scope; that's it.
    - **Non-release** (`releaseTriggering: false`) → the prefix is a non-release type
-     (`docs`/`refactor`/`chore`/`ci`/`build`/`test`/`style`); release-please cuts
-     nothing.
+     (`docs`/`refactor`/`chore`/`ci`/`build`/`test`/`style`).
 
-   > ⚠️ **The PR title is the version.** A mistyped prefix silently ships the wrong
-   > semver — a `feat:` on a docs PR cuts a needless release; a `chore:` on a real
-   > fix ships nothing. There is no changeset file to cross-check against: the title
-   > **is** the declaration. It comes straight from the change's semantic category
-   > (the commit types) — keep the commit types honest and the title follows.
+   > ⚠️ **Keep the title honest with the commits.** A mistyped prefix misleads
+   > reviewers and the completeness gate — a `feat:` on a docs-only branch, or a
+   > `chore:` on a real fix. For feature PRs the post-merge bump follows the landed
+   > commit subjects; for squash paths the title *is* the declaration. Derive the
+   > title from the change's semantic category (the commit types) so they stay
+   > aligned.
 
    When `releaseTriggering` is `false`, note `no release (<type>-only)` in the PR body
    so reviewers can confirm the non-release type was intentional.
@@ -374,11 +388,11 @@ Follow the [`changelog`](../changelog/SKILL.md) skill to author or update the en
    (`releaseTriggering: false`), `release_note` may be blank when there's no
    user-facing impact.
 
-   Leave the post-merge fields (`merged_at`, `commit`, `pr`, `merge_strategy`, `stats`)
-   and `version` as blank placeholders — the release step finalises them (a non-release
+   Leave the post-merge fields (`merged_at`, `commit`, `pr`, `stats`)
+   and `version` as blank placeholders — the post-merge enricher fills them (a non-release
    entry keeps `version` blank, as no release is cut for it). This includes `pr`: no
-   step here writes it back after the PR opens; the release/enrich step resolves it
-   post-merge from the entry's `branch:`.
+   step here writes it back after the PR opens; the post-merge enricher resolves it
+   from the entry's `branch:`.
 3. Run the enrichment scripts: `node skills/changelog/scripts/set-affected-packages.mjs`
    then `node skills/changelog/scripts/add-links.mjs`.
 4. **Validate:** `node skills/changelog/scripts/validate-changelog.mjs`. It must pass
@@ -402,9 +416,10 @@ git push -u origin <branch>
 
 ### Step 9: Create or update the PR
 
-`<title>` is the Conventional Commits PR title from Step 6 — release-please reads it
-as the squash subject, so set it on **both** create and update (re-derive it every
-run so it stays in sync with the branch's commits).
+`<title>` is the Conventional Commits PR title from Step 6 — set it on **both**
+create and update (re-derive it every run so it stays in sync with the branch's
+commits). Feature PRs are intended to merge via **merge commit**; release and
+fan-out automation keep using squash outside this skill.
 
 1. Check for an existing PR: `gh pr view --json number,url 2>/dev/null`.
 2. **If creating:** `gh pr create --base <base> --draft --title "<title>" --body
@@ -412,7 +427,8 @@ run so it stays in sync with the branch's commits).
    `--ready`.
 3. **If updating:** `gh pr edit <number> --title "<title>" --body "<body>"`.
 4. **If `--merge-when-ready` was passed:** after create/update, run `gh pr merge
-   --auto --squash <number>` to enable auto-merge once requirements are met.
+   --auto --merge <number>` to enable auto-merge (merge commit) once requirements
+   are met — the feature-PR path under the dual merge policy (A-1176).
 5. Return the PR URL via `gh pr view --json url -q '.url'`.
 
 **PR body template:**
@@ -464,7 +480,8 @@ Skip silently if `linear-sync` or the Linear MCP server is unavailable.
   derived `type`/`releaseTriggering`.
 - `--skip-preflight` — skip the Step 5 lint gate entirely, printing a bypass warning.
 - `--ready` — open the PR ready-for-review instead of draft (default is draft).
-- `--merge-when-ready` — after create/update, enable `gh pr merge --auto --squash`.
+- `--merge-when-ready` — after create/update, enable `gh pr merge --auto --merge`
+  (merge commit for feature PRs — A-1176).
 - `--worktree=<branch-or-path>` — `cd` into a worktree before running (Step 0).
 
 ## Notes
@@ -478,13 +495,15 @@ Skip silently if `linear-sync` or the Linear MCP server is unavailable.
   `--base` for this run).
 - **send-it bumps only per-bundle versions, never the repo version.** The optional
   Step 6 bundle-version check moves a changed skill's own `metadata.version`; the
-  repo-level npm release stays owned by release-please via the PR title.
+  repo-level npm release stays owned by release-please (feature PRs: landed commit
+  subjects; squash paths: squash subject / PR title).
 - **Idempotent:** re-running send-it updates the existing PR title and changelog
   entry; the Linear writeback skips issues already In Review or beyond.
 - **send-it does not bump versions or write any `CHANGELOG.md`.** release-please
-  reads the merged Conventional-Commit PR title, bumps the manifest in the release
-  PR, and the release workflow publishes + tags. send-it only writes the dated
-  `changelog/<ts>-<slug>.md` entry (Step 7), finalised at release.
+  ranks Conventional Commits on trunk after merge (merge-commit history for feature
+  PRs; squash subject for release/fan-out), bumps the manifest in the release PR, and
+  the release workflow publishes + tags. send-it only writes the dated
+  `changelog/<ts>-<slug>.md` entry (Step 7), finalised post-merge by the in-repo enricher.
 
 ## Error Handling
 
