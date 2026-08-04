@@ -1,6 +1,6 @@
-# Acme Skunkworks NPM package template
+# Rheged Studio NPM package template
 
-A GitHub Template repository for Acme Skunkworks npm packages — a minimal, buildable
+A GitHub Template repository for Rheged Studio npm packages — a minimal, buildable
 pnpm + TypeScript ESM skeleton plus the shared workflow/release shell, so a new package can be
 generated and released without rebuilding the infrastructure each time. Click **Use this
 template** to spawn a new package, then work through [Setup](#setup) below (the per-package code
@@ -125,7 +125,7 @@ A-808). Without onboarding, the repo never gets its automatic release PRs.
 The template already ships everything the orchestrator needs on the repo side — release-please
 config + manifest, `@acme-skunkworks/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
 (with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. And since
-2026-07-13 road-runner-bot is installed **org-wide** on every ACME Skunkworks repo, with its
+2026-07-13 road-runner-bot is installed **org-wide** on every Rheged Studio repo, with its
 `ROADRUNNER_*` credentials provisioned at org level — the `ROADRUNNER_PRIVATE_KEY` secret granted
 to the config-estate repos, the `ROADRUNNER_CLIENT_ID` a non-sensitive org variable (A-945) — so
 the old per-repo "install the bot" and "grant `ROADRUNNER_*` selected access" (A-821) steps no
