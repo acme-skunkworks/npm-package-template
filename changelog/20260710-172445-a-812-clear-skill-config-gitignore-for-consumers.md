@@ -23,7 +23,7 @@ stats:
 - `/initialise-package-repo` strips `.claude/skills/*/config.json` and
   `.agents/skills/*/config.json` (and the accompanying comment) from `.gitignore`
   during post-generation setup, so `initialise-skills` can write **trackable**
-  configs the consumer commits ([A-812](https://linear.app/acme-skunkworks/issue/A-812)).
+  configs the consumer commits ([A-812](https://linear.app/rheged-studio/issue/A-812)).
 - Corrected `CLAUDE.md` and the template `.gitignore` comment: resolved skill
   `config.json` is generated on install then **committed** in consumers; the
   ignore remains only as a template-seed guard so "Use this template" does not

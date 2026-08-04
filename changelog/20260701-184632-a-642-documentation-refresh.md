@@ -21,7 +21,7 @@ stats:
 ## Changed
 
 - Refreshed `CLAUDE.md`, `changelog/README.md`, `docs/TEMPLATE-BOOTSTRAP.md`, and
-  `infrastructure/README.md` to the end state of the [A-637](https://linear.app/acme-skunkworks/issue/A-637) second parity pass:
+  `infrastructure/README.md` to the end state of the [A-637](https://linear.app/rheged-studio/issue/A-637) second parity pass:
   - CI callers documented at **v1.0.2** (`9febdb1`, was `9b7e7dc`).
   - The release workflow described as the thin **`pkg-release.yml`** caller of the
     shared `reusable-pkg-release.yml`, replacing the long inline `release.yml` prose
@@ -36,8 +36,8 @@ stats:
     checklist and skills section updated, plus the v1.1.0 behavioural changes (`send-it`
     release-type by semantic category, `preflight` `blockOnWarnings`, `changelog`
     branch-scoped add-links).
-- Verified no lowercase `go/no-go` regressed (only the historical [A-437](https://linear.app/acme-skunkworks/issue/A-437) changelog entry
+- Verified no lowercase `go/no-go` regressed (only the historical [A-437](https://linear.app/rheged-studio/issue/A-437) changelog entry
   retains it, intentionally) and that stale `release.yml` references remain only in the
   immutable dated changelog history.
-- Folded in **[A-238](https://linear.app/acme-skunkworks/issue/A-238)**: added a "Decisions live in Linear, not ADRs" convention for the
+- Folded in **[A-238](https://linear.app/rheged-studio/issue/A-238)**: added a "Decisions live in Linear, not ADRs" convention for the
   template and spawned repos, and the Open Source initiative catalogue note.

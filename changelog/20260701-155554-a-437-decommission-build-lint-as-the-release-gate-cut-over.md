@@ -23,12 +23,12 @@ stats:
 
 - The estate-canonical release gate check-run is now emitted as `GO/NO GO`
   (uppercase, space-separated) instead of the stale lowercase `go/no-go`, aligning
-  the reference template with the rest of the fleet after the [A-542](https://linear.app/acme-skunkworks/issue/A-542) rename. The
+  the reference template with the rest of the fleet after the [A-542](https://linear.app/rheged-studio/issue/A-542) rename. The
   aggregator's `name:` and the describing prose in `CLAUDE.md` /
   `docs/TEMPLATE-BOOTSTRAP.md` were updated in step, and the template's own `main`
   ruleset (`Require GO/NO GO gate`) now requires `GO/NO GO`, pinned to the GitHub
   Actions integration.
-- Retired the transitional [A-419](https://linear.app/acme-skunkworks/issue/A-419) dual-accept scaffolding (the notes about the
+- Retired the transitional [A-419](https://linear.app/rheged-studio/issue/A-419) dual-accept scaffolding (the notes about the
   orchestrator waiting on `🔬 Build & Lint`) now that the orchestrator polls
-  `GO/NO GO` only ([A-596](https://linear.app/acme-skunkworks/issue/A-596) / [A-437](https://linear.app/acme-skunkworks/issue/A-437)). The `🔬 Build & Lint` job role was already gone
-  from this template via the [A-447](https://linear.app/acme-skunkworks/issue/A-447) caller swap; this only removes the stale prose.
+  `GO/NO GO` only ([A-596](https://linear.app/rheged-studio/issue/A-596) / [A-437](https://linear.app/rheged-studio/issue/A-437)). The `🔬 Build & Lint` job role was already gone
+  from this template via the [A-447](https://linear.app/rheged-studio/issue/A-447) caller swap; this only removes the stale prose.

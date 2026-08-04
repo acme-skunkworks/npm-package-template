@@ -21,7 +21,7 @@ stats:
 
 ## Changed
 
-**Estate merge-commit cutover ([A-1177](https://linear.app/acme-skunkworks/issue/A-1177))**
+**Estate merge-commit cutover ([A-1177](https://linear.app/rheged-studio/issue/A-1177))**
 
 - `initialise-package-repo` Trunk payload — `allowed_merge_methods: ["merge","squash"]`
 - Re-vendor `send-it` **0.7.0** + refresh `AGENTS.md` (fan-outs paused, A-809)

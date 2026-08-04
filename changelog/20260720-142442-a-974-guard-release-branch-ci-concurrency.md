@@ -25,9 +25,9 @@ stats:
   fresh push to the `release-please--branches--main` branch cancelled the in-flight
   run — including the required GO/NO GO check the release orchestrator waits on, which
   reads a cancelled check as a NO GO
-  ([A-961](https://linear.app/acme-skunkworks/issue/A-961) root cause). The guard now
+  ([A-961](https://linear.app/rheged-studio/issue/A-961) root cause). The guard now
   keeps cancelling superseded runs on ordinary branches but never cancels the
-  release-please branch's run ([A-974](https://linear.app/acme-skunkworks/issue/A-974)).
+  release-please branch's run ([A-974](https://linear.app/rheged-studio/issue/A-974)).
 - This is the npm-publishing template every future npm repo is seeded from, so the fix
   propagates to each new repo at scaffold time (existing npm repos are handled by their
-  own [A-961](https://linear.app/acme-skunkworks/issue/A-961) sub-issues; templates seed at creation and never re-sync).
+  own [A-961](https://linear.app/rheged-studio/issue/A-961) sub-issues; templates seed at creation and never re-sync).

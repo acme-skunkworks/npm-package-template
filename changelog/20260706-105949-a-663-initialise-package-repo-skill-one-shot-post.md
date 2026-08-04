@@ -22,7 +22,7 @@ stats:
 
 - A new **repo-local** `initialise-package-repo` agent skill that drives a repo freshly created
   from this template to a lint/build/release-ready state in one idempotent, dry-run-first pass
-  ([A-663](https://linear.app/acme-skunkworks/issue/A-663)) — the executable form of the manual
+  ([A-663](https://linear.app/rheged-studio/issue/A-663)) — the executable form of the manual
   generation checklist in `CLAUDE.md` / `README.md`. It lives only in this template's tree
   (`.claude/skills/` + the `.agents/skills/` Cursor mirror), is not in `skills-lock.json`, and
   travels into every spawned repo via "Use this template", where it is run once.
@@ -37,7 +37,7 @@ stats:
   `GO/NO GO` required-check ruleset (pinned to the GitHub Actions integration, `integration_id:
 15368`, replicating this template's own live ruleset), and enabling the `Release` workflow.
 - The org/browser/cross-repo steps it deliberately cannot take on itself — authoring `src/`,
-  release-orchestrator onboarding ([A-648](https://linear.app/acme-skunkworks/issue/A-648)), the
+  release-orchestrator onboarding ([A-648](https://linear.app/rheged-studio/issue/A-648)), the
   Claude review prerequisites, and the npm OIDC + first-publish bootstrap — are **verified and
   reported** with cross-links to `README.md#setup`, never silently assumed done.
 

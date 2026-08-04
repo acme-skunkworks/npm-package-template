@@ -24,11 +24,11 @@ stats:
 - road-runner-bot is now installed org-wide across every ACME Skunkworks repo with
   the correct permissions (`contents: write` + `pull-requests: write`), with the
   `ROADRUNNER_PRIVATE_KEY` secret granted to the config-estate repos and the
-  `ROADRUNNER_CLIENT_ID` org variable provisioned org-wide ([A-945](https://linear.app/acme-skunkworks/issue/A-945)). The template's generation runbooks still told operators to
+  `ROADRUNNER_CLIENT_ID` org variable provisioned org-wide ([A-945](https://linear.app/rheged-studio/issue/A-945)). The template's generation runbooks still told operators to
   **install road-runner-bot** and **grant `ROADRUNNER_*` selected access** (the old
-  [A-821](https://linear.app/acme-skunkworks/issue/A-821) per-repo grant) on every spawned repo — both now obsolete.
+  [A-821](https://linear.app/rheged-studio/issue/A-821) per-repo grant) on every spawned repo — both now obsolete.
 - Reduced release-orchestrator onboarding to its one remaining per-repo step:
-  registering the repo in the orchestrator's `matrix.repo` ([A-648](https://linear.app/acme-skunkworks/issue/A-648)), which is
+  registering the repo in the orchestrator's `matrix.repo` ([A-648](https://linear.app/rheged-studio/issue/A-648)), which is
   orchestrator config rather than a bot install or permission grant. Updated
   `README.md`, `CLAUDE.md`, and the `initialise-package-repo` skill — its
   `MANUAL_REMINDERS`, `SKILL.md`, skill `README.md`, and `github-settings.mjs` header

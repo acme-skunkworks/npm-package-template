@@ -1,6 +1,8 @@
 {
-  "issueKeys": ["A"],
-  "linearWorkspaceSlug": "acme-skunkworks",
+  "issueKeys": [
+    "A"
+  ],
+  "linearWorkspaceSlug": "rheged-studio",
   "baseBranch": "main",
   "changelogDir": "changelog",
   "fallbackPackage": "infrastructure",
