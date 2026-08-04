@@ -22,7 +22,7 @@ stats:
 ## Changed
 
 - Ran `eslint --fix` over `tsconfig.eslint.json` and `tsconfig.tools.json` to clear
-  the `jsonc/sort-keys` debt that [A-663](https://linear.app/acme-skunkworks/issue/A-663) surfaced — top-level keys and
+  the `jsonc/sort-keys` debt that [A-663](https://linear.app/rheged-studio/issue/A-663) surfaced — top-level keys and
   `compilerOptions` are now in natural-ascending order. No semantic change: `extends`
   only inherits `compilerOptions`, so its new position is inert; `pnpm tsc` and the
   published `dist/` are unaffected. These root config files sit outside CI's ESLint
@@ -36,5 +36,5 @@ stats:
   stylistic rules require the arrays multiline, but the pre-commit Prettier hook
   collapses them straight back, so `eslint --fix` never converges. That is a
   Prettier-owns-formatting conflict in the shared `@acme-skunkworks/eslint-config`
-  preset, tracked in [A-709](https://linear.app/acme-skunkworks/issue/A-709). Bringing root config files into an enforced lint lane is
-  tracked separately in [A-708](https://linear.app/acme-skunkworks/issue/A-708).
+  preset, tracked in [A-709](https://linear.app/rheged-studio/issue/A-709). Bringing root config files into an enforced lint lane is
+  tracked separately in [A-708](https://linear.app/rheged-studio/issue/A-708).

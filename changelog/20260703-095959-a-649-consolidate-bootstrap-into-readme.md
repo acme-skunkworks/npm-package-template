@@ -22,17 +22,17 @@ stats:
 
 - Folded `docs/TEMPLATE-BOOTSTRAP.md` into `README.md` and deleted the `docs/` directory, so a
   spawned-repo owner reads a single self-contained file instead of discovering (and having to
-  delete) a separate docs tree ([A-649](https://linear.app/acme-skunkworks/issue/A-649)). The
+  delete) a separate docs tree ([A-649](https://linear.app/rheged-studio/issue/A-649)). The
   README's new "Setup" section is now the **single source of truth** for the non-copied setup;
   `CLAUDE.md` links to it rather than duplicating it.
 - Completed the `CLAUDE.md` generation checklist so it no longer reads as complete whilst silently
   omitting non-copied steps. Added the three missing bullets — create the branch-restricted
   `npm-release` environment, onboard the release-orchestrator (install road-runner-bot + add the
-  `matrix.repo` entry, [A-648](https://linear.app/acme-skunkworks/issue/A-648)), and the Claude
+  `matrix.repo` entry, [A-648](https://linear.app/rheged-studio/issue/A-648)), and the Claude
   review prerequisites (`CLAUDE_CODE_OAUTH_TOKEN` **plus** the Claude GitHub App install, whose
   absence causes the `git fetch … could not read Username` failure —
-  [A-621](https://linear.app/acme-skunkworks/issue/A-621) /
-  [A-636](https://linear.app/acme-skunkworks/issue/A-636)) — each cross-linking its README subsection.
+  [A-621](https://linear.app/rheged-studio/issue/A-621) /
+  [A-636](https://linear.app/rheged-studio/issue/A-636)) — each cross-linking its README subsection.
 - Documented the Claude review setup for the first time: org-wide provisioning as the preferred
   target (org secret + Claude App across the config-estate repos), with the per-repo fallback and the
   org-secret scoping/security note.

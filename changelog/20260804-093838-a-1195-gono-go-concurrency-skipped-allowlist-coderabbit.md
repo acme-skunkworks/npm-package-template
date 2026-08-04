@@ -21,8 +21,8 @@ stats:
 
 ## Changed
 
-**GO/NO GO gate hardening and CodeRabbit walkthrough summary ([A-1195](https://linear.app/acme-skunkworks/issue/A-1195))**
+**GO/NO GO gate hardening and CodeRabbit walkthrough summary ([A-1195](https://linear.app/rheged-studio/issue/A-1195))**
 
-- `ci.yml` / `validate-pr-title.yml` — upgrade the [A-961](https://linear.app/acme-skunkworks/issue/A-961) carve-out to `cancel-in-progress: false` ([A-1100](https://linear.app/acme-skunkworks/issue/A-1100))
-- `ci.yml` GO/NO GO verdict — branch-conditional `skipped` allowlist (release-please only) ([A-1103](https://linear.app/acme-skunkworks/issue/A-1103))
-- `.coderabbit.yaml` — `high_level_summary_in_walkthrough: true` ([A-1102](https://linear.app/acme-skunkworks/issue/A-1102))
+- `ci.yml` / `validate-pr-title.yml` — upgrade the [A-961](https://linear.app/rheged-studio/issue/A-961) carve-out to `cancel-in-progress: false` ([A-1100](https://linear.app/rheged-studio/issue/A-1100))
+- `ci.yml` GO/NO GO verdict — branch-conditional `skipped` allowlist (release-please only) ([A-1103](https://linear.app/rheged-studio/issue/A-1103))
+- `.coderabbit.yaml` — `high_level_summary_in_walkthrough: true` ([A-1102](https://linear.app/rheged-studio/issue/A-1102))

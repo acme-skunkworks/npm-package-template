@@ -21,7 +21,7 @@ stats:
 ## Changed
 
 - Removed the "work in progress — not ready for use" warning from `README.md` now that
-  the GitHub Template flag is enabled on the repo ([A-324](https://linear.app/acme-skunkworks/issue/A-324)). The README now describes the
+  the GitHub Template flag is enabled on the repo ([A-324](https://linear.app/rheged-studio/issue/A-324)). The README now describes the
   repo as a live template and points at the generation checklist in `CLAUDE.md`. This is
-  the finisher for the [A-637](https://linear.app/acme-skunkworks/issue/A-637) second parity pass — the template is functionally ready and
+  the finisher for the [A-637](https://linear.app/rheged-studio/issue/A-637) second parity pass — the template is functionally ready and
   flipped on.

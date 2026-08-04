@@ -21,7 +21,7 @@ stats:
 ## Added
 
 - Best-effort `commitlint --from origin/main --to HEAD` check in `.husky/pre-push`
-  ([A-1021](https://linear.app/acme-skunkworks/issue/A-1021)), alongside the existing
+  ([A-1021](https://linear.app/rheged-studio/issue/A-1021)), alongside the existing
   yamllint/actionlint steps. Skips with an installation hint when `@commitlint/cli` is
   missing or when `origin/main` is not a resolvable ref; bypassable with
   `git push --no-verify`. Complements CI's `reusable-validate-commits` gate rather than

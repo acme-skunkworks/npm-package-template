@@ -34,9 +34,9 @@ stats:
   Publisher against `pkg-release.yml`. Updated the `act:release:dry` script and the
   `dependabot.yml` / `repo-config.yaml` filename references to match.
 - The security model is unchanged, now enforced upstream in the reusable workflow:
-  build-once/publish-exact-artifact ([A-328](https://linear.app/acme-skunkworks/issue/A-328)), npm-OIDC Trusted Publishing with
+  build-once/publish-exact-artifact ([A-328](https://linear.app/rheged-studio/issue/A-328)), npm-OIDC Trusted Publishing with
   provenance, the branch-restricted `npm-release` environment + main-only ref guards
-  ([A-326](https://linear.app/acme-skunkworks/issue/A-326)), the version-vs-tag publish gate, git tag + GitHub release, and the
+  ([A-326](https://linear.app/rheged-studio/issue/A-326)), the version-vs-tag publish gate, git tag + GitHub release, and the
   secondary GitHub Packages mirror with a build-provenance attestation.
 - Release stays **disabled on this template repo** (its `src/` is a placeholder that
   never publishes). The now-CI-unused `publish-via-raw-npm.sh` and

@@ -23,6 +23,6 @@ stats:
 
 - Document the dual merge policy in `CLAUDE.md`, `README.md`, and `ci.yml`
   comments: feature PRs land as merge commits (release-please ranks Conventional
-  Commits on `main`, [A-824](https://linear.app/acme-skunkworks/issue/A-824)); release and fan-out PRs stay squash; Conventional
+  Commits on `main`, [A-824](https://linear.app/rheged-studio/issue/A-824)); release and fan-out PRs stay squash; Conventional
   PR titles remain required but are no longer the sole post-merge bump signal;
   commitlint / validate-commits remain the per-commit gate.
