@@ -13,10 +13,12 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Cancel superseded runs on ordinary branches, but never on the release-please
-  # branch: cancelling its in-flight CI cancels the required GO/NO GO check the
-  # release orchestrator waits on, which it reads as a NO GO (A-961 root cause).
-  cancel-in-progress: ${{ github.head_ref != 'release-please--branches--main' }}
+  # A-1100 / A-1195: never cancel a RUNNING run. A superseded run's `needs` all
+  # report `cancelled`, the always() aggregator still executes, and its verdict
+  # mints a FALSE RED `GO/NO GO`. With `false`, concurrency can only cancel a
+  # *pending* run (no check-runs minted). Subsumes the A-961 release-please
+  # carve-out — covers every branch, not just the release one.
+  cancel-in-progress: false
 
 # Defence-in-depth (ASW-313): the repo default is already read-only, but
 # pin it here so a future org-policy change can't silently widen CI's token.
@@ -168,12 +170,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: ⚖️ Verdict
-        # `skipped` is accepted to match the canonical reference impl (SK-418)
-        # verbatim so the template stays the reference emitter. `config` is in
-        # `needs` so a config failure (which would skip the callers, and skips
-        # are accepted) still fails the gate directly; tightening the allowlist
-        # is a documented follow-up, deferred to the shared-workflows reference.
+        # Pass/fail by inspecting the `needs` results (A-1103 / A-1195). `skipped`
+        # is allowlisted only on `release-please--*` branches (path-skipped jobs);
+        # everywhere else every needed job must report `success`. `failure`,
+        # `cancelled` and a null/empty result fail the gate.
+        #
+        # `cancelled` is deliberately NOT allowlisted (A-1100). NEVER reach for
+        # `if: !cancelled()` on this job — a skipped check-run counts as SUCCESS
+        # for required status checks and would forge the gate.
+        env:
+          # Read through `env:`, never interpolate into the shell body: job
+          # names reach this context from the workflow and would otherwise be a
+          # template-injection surface.
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          echo '${{ toJSON(needs) }}' \
-            | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' >/dev/null \
-            || { echo "::error::a required check failed"; exit 1; }
+          set -euo pipefail
+          # Allow `skipped` only on release-please path-skips; otherwise every
+          # needed job must have succeeded (A-1103).
+          if [[ "$HEAD_REF" == release-please--* ]]; then
+            ALLOWED='["success","skipped"]'
+          else
+            ALLOWED='["success"]'
+          fi
+          echo "$NEEDS_JSON" \
+            | jq -e --argjson ok "$ALLOWED" \
+              'to_entries | all(.value.result as $r | $ok | index($r))' >/dev/null \
+            || { echo "::error::a required check failed — refusing to go"; exit 1; }
+          echo "All required checks passed — GO."

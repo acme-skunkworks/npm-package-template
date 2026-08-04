@@ -13,6 +13,11 @@ reviews:
   # Balanced signal-to-noise: fewer nitpicks than `assertive`, more than `quiet`.
   profile: "chill"
 
+  # Keep the high-level summary, but put it in the walkthrough comment instead of
+  # the PR description (A-1102). Description edits re-fire pull_request.edited and
+  # waste a full CI run for an unchanged SHA. Comments do not.
+  high_level_summary_in_walkthrough: true
+
   auto_review:
     # Denylist: review every PR *except* those carrying the `skip-review` label
     # (A-667). A `!`-prefixed entry is a negative match. It fails safe — a forgotten
