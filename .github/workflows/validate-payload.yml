@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   validate-payload:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-payload.yml@eab5ceeef79f0b6cad10e6cb1a871ae4bcc37aa8
+    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-payload.yml@280b3d543d8748d20b31fd76e9ee7c60e83f027e
     with:
       skills: false
       coderabbit: true
