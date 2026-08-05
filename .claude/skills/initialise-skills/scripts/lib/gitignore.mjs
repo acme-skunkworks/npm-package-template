@@ -1,13 +1,11 @@
-// Ensure the consumer repo's root .gitignore excludes preflight's scratch output (A-569).
+// Ensure the consumer repo's root .gitignore is correct for installed skills:
 //
-// The `preflight` skill writes `.preflight-summary.json` to the repo root on every
-// real run. Consumer repos don't ignore it, so after a `/send-it` run (which invokes
-// preflight) the file surfaces as an untracked change and `gh pr create` warns.
-//
-// This is the ONE mutation initialise-skills makes outside a skill's config.json:
-// an append-only, idempotent edit to the root .gitignore — it never reorders or
-// removes existing lines, and is a no-op once the entry is present. It runs only
-// when `preflight` (the producer of the file) is installed.
+// 1. Preflight scratch (A-569): append .preflight-summary.json when preflight is
+//    installed (append-only, idempotent).
+// 2. Skill-config ignore strip (A-812): remove erroneous consumer rules that
+//    gitignore vendored skill config.json under .claude/.agents (those patterns
+//    belong only in the agent-skills source repo and the npm-package-template
+//    seed). In a consumer the resolved config.json must be committed.
 //
 // Zero-deps: plain string work, no formatter dependency.
 
@@ -116,4 +114,175 @@ export function reconcilePreflightIgnore(repoRoot, { write = false } = {}) {
   // LF is correct for new files on every non-Windows target.
   writeFileSync(gitignorePath, `${IGNORE_COMMENT}\n${IGNORE_ENTRY}\n`);
   return { path: gitignorePath, status: "created" };
+}
+
+/**
+ * Consumer patterns that must not ignore resolved skill config.json (A-812).
+ */
+export const SKILL_CONFIG_IGNORE_PATTERNS = [
+  ".claude/skills/*/config.json",
+  ".agents/skills/*/config.json",
+  "/.claude/skills/*/config.json",
+  "/.agents/skills/*/config.json",
+];
+
+/**
+ * Comment lines that document the (consumer-incorrect) skill-config ignore.
+ * Matches the start of the block; wrap lines are consumed by look-ahead.
+ * @param {string} trimmed
+ * @returns {boolean}
+ */
+function isSkillConfigIgnoreComment(trimmed) {
+  if (!trimmed.startsWith("#")) {
+    return false;
+  }
+
+  const lower = trimmed.toLowerCase();
+  return (
+    lower.includes("a-640") ||
+    lower.includes("a-812") ||
+    lower.includes("generated-config") ||
+    lower.includes("template-seed") ||
+    (lower.includes("config.json") &&
+      (lower.includes("initialise-skills") ||
+        lower.includes("per-skill agent-skills") ||
+        lower.includes("not committed") ||
+        lower.includes("resolved skill")))
+  );
+}
+
+/**
+ * @param {string} trimmed
+ * @returns {boolean}
+ */
+function isSkillConfigIgnorePattern(trimmed) {
+  return SKILL_CONFIG_IGNORE_PATTERNS.includes(trimmed);
+}
+
+/**
+ * Plan stripping erroneous skill-config ignore rules from a .gitignore body.
+ * Pure — no I/O.
+ * @param {string} raw
+ * @returns {{ changed: boolean, removed: string[], text: string }}
+ */
+export function planSkillConfigIgnoreStrip(raw) {
+  const nl = detectNewline(raw);
+  const lines = raw.split(/\r?\n/);
+  const removed = [];
+  const kept = [];
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    const trimmed = line.trim();
+
+    if (isSkillConfigIgnorePattern(trimmed)) {
+      removed.push(trimmed);
+      continue;
+    }
+
+    if (isSkillConfigIgnoreComment(trimmed)) {
+      let look = index + 1;
+      while (look < lines.length) {
+        const ahead = lines[look].trim();
+        if (ahead === "" || ahead.startsWith("#")) {
+          look++;
+          continue;
+        }
+
+        break;
+      }
+
+      if (
+        look < lines.length &&
+        isSkillConfigIgnorePattern(lines[look].trim())
+      ) {
+        removed.push(trimmed);
+        // Record intervening comment wrap lines for the audit trail; blanks are
+        // dropped silently. The pattern itself is removed on its own iteration.
+        for (let skip = index + 1; skip < look; skip++) {
+          const skipped = lines[skip].trim();
+          if (skipped.startsWith("#")) {
+            removed.push(skipped);
+          }
+        }
+
+        index = look - 1;
+        continue;
+      }
+    }
+
+    kept.push(line);
+  }
+
+  // Only tidy blank runs when we actually stripped something — otherwise a
+  // file with consecutive blanks but no skill-config patterns would spuriously
+  // report changed/would-strip.
+  let text;
+  if (removed.length === 0) {
+    text = raw;
+  } else {
+    // Collapse consecutive blank lines left by the strip down to one.
+    const collapsed = [];
+    let blankRun = 0;
+    for (const line of kept) {
+      if (line.trim() === "") {
+        blankRun++;
+        if (blankRun <= 1) {
+          collapsed.push(line);
+        }
+
+        continue;
+      }
+
+      blankRun = 0;
+      collapsed.push(line);
+    }
+
+    while (
+      collapsed.length >= 2 &&
+      collapsed.at(-1)?.trim() === "" &&
+      collapsed.at(-2)?.trim() === ""
+    ) {
+      collapsed.pop();
+    }
+
+    text = collapsed.join(nl);
+    if (raw.endsWith(nl) && text.length > 0 && !text.endsWith(nl)) {
+      text += nl;
+    }
+
+    if (text.trim() === "") {
+      text = "";
+    }
+  }
+
+  return {
+    changed: removed.length > 0,
+    removed: [...new Set(removed)],
+    text,
+  };
+}
+
+export function stripSkillConfigIgnores(repoRoot, { write = false } = {}) {
+  const gitignorePath = join(repoRoot, ".gitignore");
+  if (!existsSync(gitignorePath)) {
+    return { path: gitignorePath, removed: [], status: "clean" };
+  }
+
+  const raw = readFileSync(gitignorePath, "utf8");
+  const plan = planSkillConfigIgnoreStrip(raw);
+  if (!plan.changed) {
+    return { path: gitignorePath, removed: [], status: "clean" };
+  }
+
+  if (!write) {
+    return {
+      path: gitignorePath,
+      removed: plan.removed,
+      status: "would-strip",
+    };
+  }
+
+  writeFileSync(gitignorePath, plan.text);
+  return { path: gitignorePath, removed: plan.removed, status: "stripped" };
 }

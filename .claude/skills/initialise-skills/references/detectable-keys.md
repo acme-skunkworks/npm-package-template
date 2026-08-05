@@ -12,7 +12,7 @@ detector serves every skill that uses a key. A key found in a skill's
 | `linearWorkspaceSlug` | changelog | Supplied via stdin `facts` (Linear MCP) | `needs-manual-input` |
 | `changelog` | send-it | `true` when a `changelog/` directory exists at the repo root; `false` otherwise (no changelog flow). Skill-presence alone does **not** enable it — a repo that vendors the `changelog` skill but keeps no `changelog/` dir stays `false` (A-570) | `true` |
 | `changelogDir` | changelog | Structural default | `changelog` |
-| `packageRoots` | changelog | `pnpm-workspace.yaml` `packages:` globs → top dirs; else root `package.json` `workspaces` field | `["apps", "packages", "services"]` |
+| `packageRoots` | changelog | `pnpm-workspace.yaml` `packages:` globs → top dirs; else root `package.json` `workspaces` field; else existing `apps` / `packages` / `services` directories on disk | Example placeholder `["apps", "packages", "services"]` kept when undetectable; **not** flagged `needs-manual-input` when `affectedPackages` is `false` (A-813) |
 | `fallbackPackage` | changelog | Structural default | `infrastructure` |
 | `affectedPackages` | changelog | `true` when a workspace config is detected (same signal as `packageRoots`); `false` otherwise — so single-package repos omit the redundant `affected_packages` field | `false` |
 | `mainBranch` | cleanup-repo | Same as `baseBranch` (the detected default branch) | `main` |
@@ -20,10 +20,15 @@ detector serves every skill that uses a key. A key found in a skill's
 | `shippablePaths` | send-it | Root `package.json` `files` field (paths npm ships), else detected package roots | `[]` |
 | `shippableManifestKeys` | send-it | Fixed | `["name", "version", "files", "publishConfig"]` |
 | `bundleVersioning` | send-it | Present only when the repo ships multiple skill bundles (a `skills/`-style dir with ≥1 `SKILL.md` subdir) | omitted otherwise |
+| `triage` | send-it | Fixed (chain into `triage-pr` once the PR is open — send-it Step 11). Not keyed off `triage-pr` being vendored: Step 11 soft-skips with a warning when the sibling is absent (A-1151) | `true` |
 | `reviewBots` | triage-pr | Fixed | `["claude", "cursor", "coderabbitai"]` |
 | `maxCiRounds` | triage-pr | Fixed | `5` |
+| `deferNonBlocking` | triage-pr | Fixed (impact gate: defer valid in-scope but non-blocking findings) | `true` |
+| `humanEnvelope` | triage-pr | Fixed (halt Phase B for a disposition approval before applying) | `true` |
+| `reviewIdleMinutes` | triage-pr | Fixed (hybrid review-settle idle window) | `5` |
+| `reviewWaitMaxMinutes` | triage-pr | Fixed (hybrid review-settle hard cap) | `20` |
 | `followUpLabel` | triage-pr | Fixed (opt-in follow-up capture; empty = no label) | `""` |
-| `followUpProject` | triage-pr | Fixed (opt-in follow-up capture; empty = no project) | `""` |
+| `followUpProject` | triage-pr | Supplied via stdin `facts.followUpProject`; required when capture is on (`linearTeamName` set) | `needs-manual-input` when team is set and no fact; `""` when capture is off |
 | `followUpState` | triage-pr | Fixed (opt-in follow-up capture; initial state for created issues) | `"Backlog"` |
 | `workspaces` | preflight | n/a — preflight self-detects | never written |
 
@@ -49,3 +54,10 @@ detector serves every skill that uses a key. A key found in a skill's
 - **Structural defaults can read as a placeholder.** When an existing value equals
   both the example placeholder and the structural default, the key is `unchanged`
   (not flagged), because the detector emits that same default confidently.
+- **`packageRoots` is gated by `affectedPackages` (A-813).** On a single-package
+  host the roots detector returns null, but with `affectedPackages: false` the
+  merge reclassifies `packageRoots` from `needs-manual-input` to `unchanged` and
+  leaves the example placeholder in place. That placeholder is unused at runtime
+  (changelog's `set-affected-packages` no-ops when the gate is off) and keeps the
+  "ours equals base → infer" path open if the repo later gains a workspace. See
+  [`monorepo-config.md`](monorepo-config.md) for the single↔monorepo flip.

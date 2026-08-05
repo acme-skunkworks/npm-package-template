@@ -20,9 +20,9 @@ compatibility: >-
   Linear debt-issue step needs the Linear MCP server; skip it silently if
   unavailable.
 metadata:
-  version: 0.2.1
+  version: 0.3.0
   author: Rob Easthope
-allowed-tools: Read, Bash(git:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
+allowed-tools: Read, Bash(git:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses, mcp__linear-server__list_projects
 ---
 
 # preflight
@@ -74,8 +74,8 @@ The script's exit code drives the loop:
 - **Exit 2 — pre-existing violations only.** Show the list and ask the user to
   choose:
   - **Fix now** — apply the fixes, (commit if shipping), re-run preflight.
-  - **Defer** — open a debt issue in the project's tracker (assign the maintainer;
-    link the branch/PR context), then decide whether to continue or abort.
+  - **Defer** — open a debt issue in Linear (see **Debt-issue create** below).
+    After creating (or refusing), decide whether to continue or abort.
 
 Exit 1 can also signal a linter that failed to run (non-zero exit with no
 parseable violations) — inspect its stderr; this is blocking too.
@@ -129,7 +129,9 @@ template):
   "blockOnWarnings": false,
   "workspaces": {
     "web": { "filter": "@acme/web", "prefix": "apps/web/" }
-  }
+  },
+  "linearTeamName": "",
+  "debtProject": ""
 }
 ```
 
@@ -144,6 +146,28 @@ globs the detector does not expand.
   repos that want warn-level findings the branch adds to gate as well.
   markdownlint/actionlint findings always block — the warn/error split is
   ESLint-only.
+- **`linearTeamName`** / **`debtProject`** — agent-facing keys for the Exit 2
+  **Defer** path (the lint scripts ignore them). Both must be non-empty to mint a
+  debt issue; see **Debt-issue create**. Empty disables debt-create (tell the
+  user to set them, or choose Fix now) — never file with no project.
+
+### Debt-issue create
+
+When the user chooses **Defer** on Exit 2, mint a Linear debt issue only when
+both `linearTeamName` and `debtProject` are set in the repo-root
+`preflight.config.json` (read that file; empty / missing keys mean debt-create
+is disabled). Fail closed:
+
+1. If either key is empty, or the Linear MCP server is unavailable → **do not**
+   call `save_issue`. Tell the user to set `linearTeamName` + `debtProject` (or
+   choose Fix now). Skip silently only when MCP is unavailable and they still
+   want to continue without tracking.
+2. Resolve the team by **name** (`linearTeamName`) and the project via
+   `list_projects` (`debtProject` as name, id, or slug). On a miss → **do not**
+   call `save_issue`; fail loudly with the unresolved value.
+3. On a hit → call `save_issue` with `team`, `project` (always), a title/description
+   covering the pre-existing violations, assignee = the maintainer, and a link to
+   the branch/PR context. Never omit `project`.
 
 ## Implementation
 

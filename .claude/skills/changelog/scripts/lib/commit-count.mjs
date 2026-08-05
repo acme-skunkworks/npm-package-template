@@ -2,11 +2,19 @@
 // REST commits endpoint. Shared by finalise-changelog (release-time enrichment)
 // and backfill-commits (the one-off backlog backfill) — A-560.
 //
-// Squash-merging collapses a PR to a single commit on `main`, so the per-commit
-// count is lost from local Git history — but the PR commits endpoint still
-// returns the original branch commits post-merge, so the count stays
-// recoverable. Excluding merge commits drops `main`-merge resolution commits
-// (those with more than one parent) so the count reflects authored work rather
+// Trunk merge strategy does not change the API or count semantics — only where
+// the landing commit lives:
+//
+// - **Squash:** the PR collapses to one commit on trunk, so the per-commit
+//   count is lost from local Git history — but the PR commits endpoint still
+//   returns the original branch commits post-merge, so the count stays
+//   recoverable.
+// - **Merge commit:** trunk gets a two-parent merge commit (`mergeCommit.oid`);
+//   the PR commits endpoint still lists every commit that was on the branch,
+//   including any branch-side merge-resolution commits (those with >1 parent).
+//
+// In both cases, excluding merge commits (more than one parent) drops
+// `main`-merge resolution commits so the count reflects authored work rather
 // than branch upkeep; the REST commit object's `parents` array is the reliable
 // signal (`gh pr view --json commits` omits parent data).
 //

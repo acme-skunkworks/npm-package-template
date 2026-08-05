@@ -16,7 +16,7 @@ compatibility: >-
   `preflight-changelog-ci.mjs` step assumes the consumer repo uses pnpm with a
   committed lockfile; skip it if yours does not.
 metadata:
-  version: 0.9.3
+  version: 0.9.5
   author: Rob Easthope
 allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(node:*), Bash(pnpm:*)
 ---
@@ -31,8 +31,10 @@ enrichment scripts, then validate the result.
 This skill is the single source of truth for **what a valid changelog entry is**
 — the frontmatter schema, the field-ownership boundaries, idempotent
 update-vs-create, and the validation gate. The same contract is enforced
-downstream by a consumer repo's CI and relied on by a release-orchestrator that
-finalises the post-merge fields, so the authoring rules live here once.
+downstream by a consumer repo's CI and by the post-merge enricher that fills the
+post-merge fields (`@acme-skunkworks/changelog-core`, run in-repo by
+`reusable-changelog-enrich.yml` — no longer a central release-orchestrator step),
+so the authoring rules live here once.
 
 It is invoked two ways:
 
@@ -85,6 +87,28 @@ filename, rewrite the rest. Otherwise you are in **create mode**.
 (`git fetch origin <base>`) so the diff is accurate — skip the fetch if the
 caller already did it (e.g. a ship flow fetches in its preflight step).
 
+### Multi-commit and merge-commit safety (A-825)
+
+Authoring and post-merge enrichment are safe across **multi-commit feature
+branches** and **merge merges** (as well as squash/rebase merges):
+
+- **One entry per branch, not per commit.** Step 1 looks up by `branch:` in
+  frontmatter; re-running `/changelog` after intermediate commits **updates** the
+  same dated file — it never spawns a second entry for the same branch.
+- **Branch analysis spans the whole PR.** Step 2 uses
+  `git log origin/<base>..HEAD` (and the symmetric diff), so every commit on the
+  feature branch contributes to metadata and body derivation regardless of how
+  many commits land before merge.
+- **Post-merge `commit` is the trunk merge SHA.** Finalise/enrich sets `commit` to
+  the first seven characters of the merged PR's `mergeCommit.oid` — the commit
+  that actually landed on trunk. For a **merge merge** that is the two-parent
+  merge commit; for **squash** it is the single squash commit (which differs
+  from the feature-branch tip).
+- **`stats.commits` counts authored PR work, not merge noise.** The PR commits
+  REST endpoint is scanned and commits with more than one parent (branch
+  `main`-merge resolution commits) are excluded, so a multi-commit branch with
+  occasional merge commits reports the correct authored count.
+
 ### Step 3 — Derive metadata
 
 | Field          | How to derive                                                                                                                                          |
@@ -108,10 +132,13 @@ for the full rules. In short:
 - **`created_at` is sacred** — set once on create (UTC time of first run); on
   update, preserve it verbatim.
 - **Never authored here:** `stats` (`files_changed`, `loc_added`, `loc_removed`,
-  `commits`) and the post-merge fields `merged_at` / `commit` / `pr` / `merge_strategy`. A release
-  step finalises them from canonical GitHub PR data after merge — `pr` included, resolved
-  from the merged PR by its `branch:` (never written by the ship flow). Emit them as
-  blank placeholders on create; leave existing values untouched on update.
+  `commits`) and the post-merge fields `merged_at` / `commit` / `pr`. The post-merge
+  enricher finalises them from canonical GitHub PR data after merge — `pr` included, resolved
+  from the merged PR by its `branch:` (never written by the ship flow). `commit` is the
+  short SHA of `mergeCommit.oid` (trunk landing commit); `stats.commits` is the
+  non-merge commit count on the PR branch (see **Multi-commit and merge-commit
+  safety** above). Emit post-merge fields as blank placeholders on create; leave
+  existing values untouched on update.
 
 The skill **emits the derived `issues` array** as a handoff — a ship flow reuses
 it for the PR body and any Linear writeback (e.g. via a `linear-sync` skill).
@@ -142,8 +169,8 @@ enrichment round-trip; quoting keeps them lossless.
 
 **On update:** preserve `created_at` and the filename; rewrite `title`,
 `release_note`, `category`, `breaking`, `co_authors`, `issues`, and the body;
-leave `merged_at` / `commit` / `pr` / `merge_strategy` / `stats` alone (the
-release/enrich step fills them post-merge, `pr` branch-resolved).
+leave `merged_at` / `commit` / `pr` / `stats` alone (the
+post-merge enricher fills them, `pr` branch-resolved).
 
 Use the frontmatter field order shown in
 [`references/changelog-contract.md`](references/changelog-contract.md). **Only when
@@ -186,8 +213,8 @@ unavailable the default falls back to the full sweep.)
 This is the gate:
 
 ```bash
-node scripts/preflight-changelog-ci.mjs   # optional: checks Node vs engines/.nvmrc, then pnpm install --frozen-lockfile
-node scripts/validate-changelog.mjs       # validates frontmatter schema, filename format, field types, ISO timestamps, Breaking section, issue IDs
+node skills/changelog/scripts/preflight-changelog-ci.mjs   # optional: checks Node vs engines/.nvmrc, then pnpm install --frozen-lockfile
+node skills/changelog/scripts/validate-changelog.mjs       # validates frontmatter schema, filename format, field types, ISO timestamps, Breaking section, issue IDs
 ```
 
 `preflight-changelog-ci.mjs` is optional and pnpm-specific — skip it if the
@@ -201,7 +228,7 @@ continuing — do not hand a malformed entry to the ship flow.
   never pushes or opens a PR.
 - **Inside a ship flow** the same steps run before push; the ship flow then
   commits the entry (`docs(changelog): <title>`), pushes, and opens or updates the
-  PR. It leaves `pr` blank — the release/enrich step fills it post-merge,
+  PR. It leaves `pr` blank — the post-merge enricher fills it,
   branch-resolved from the merged PR.
 
 ## Implementation
@@ -209,9 +236,9 @@ continuing — do not hand a malformed entry to the ship flow.
 All the scripts the changelog lifecycle needs live under [`scripts/`](scripts/)
 in this bundle and run on plain Node (no npm dependencies, no build step). They
 cover the **whole lifecycle the bundle owns** — authoring (run by this skill) and
-finalisation (wired into the consumer's `package.json` / CI / release
-orchestrator). Each takes `--help` (usage, exit 0) and `--self-test` (an offline
-smoke test of its pure logic); the file-writing scripts also take `--check` /
+the post-merge finalisation/CI logic (see the note below on where that logic now
+runs). Each takes `--help` (usage, exit 0) and `--self-test` (an offline smoke
+test of its pure logic); the file-writing scripts also take `--check` /
 `--dry-run` (report, write nothing).
 
 **Authoring — run by this skill (the `/changelog` flow):**
@@ -221,22 +248,33 @@ smoke test of its pure logic); the file-writing scripts also take `--check` /
 - `scripts/preflight-changelog-ci.mjs` — optional Node/lockfile CI-parity check (pnpm).
 - `scripts/validate-changelog.mjs` — validates the entry against the contract.
 
-**Finalisation and the CI gate — run by the consumer, not by this skill.** These
-ship in the bundle too, and an adopter wiring up the orchestrator/CI gate needs
-them. They are referenced from the consumer's `package.json` scripts and
-workflows rather than invoked during authoring:
+**Post-merge finalisation and the CI gate — now run from `@acme-skunkworks/changelog-core`.**
+The finalise/enrich/completeness logic has been extracted into the published
+[`@acme-skunkworks/changelog-core`](https://www.npmjs.com/package/@acme-skunkworks/changelog-core)
+package (CLI: `validate | enrich | finalise | set-affected-packages | add-links |
+backfill-commits | check-completeness`). In-repo post-merge enrichment runs via the
+shared-workflows `reusable-changelog-enrich.yml` (`mode: finalise` for npm targets,
+`mode: enrich` for deploy targets), which invokes `changelog-core` and writes the
+result back as `road-runner-bot[bot]`; CI `validate` and the completeness gate call
+`changelog-core validate` / `changelog-core check-completeness`. This replaced the old
+release-orchestrator inline finalise step and the retired daily `enrich-changelogs.yml`
+cron (A-801) — **no central orchestrator or cron runs these any more.**
 
-- `scripts/finalise-changelog.mjs` — release-time enrichment + version-stamping for **npm targets**, **run by the release orchestrator** right after `release-please release-pr` (the consumer exposes it as the `changelog:finalise` script). For each un-finalised entry it resolves the merged PR via `gh`/`git`, fills the post-merge fields (`merged_at` / `commit` / `pr` / `merge_strategy` / `stats`, the last including the merge-excluded `commits` count from the PR commits API), stamps `version` with the just-bumped `package.json` version, and links bare Linear IDs. It composes `lib/enrich.mjs` (the PR-metadata fill), `lib/commit-count.mjs` (the merge-excluded commit count) and `lib/stamp.mjs` (the version stamp).
-- `scripts/enrich-changelog.mjs` — post-merge enrichment for **deploy targets** (octavo, shared-workflows), which are never checked out during the release flow and so can't finalise inline. **Run by the release orchestrator's daily `enrich-changelogs.yml` cron** on the checked-out target (the consumer exposes it as the `changelog:enrich` script). It reads one merged PR's data from an env-var interface (`BRANCH_NAME` / `MERGED_AT` / `MERGE_SHA` / `MERGE_STRATEGY` / `PR_NUMBER` / `ADDITIONS` / `DELETIONS` / `CHANGED_FILES`), finds the entry by its `branch:`, and fills the same post-merge field group as finalise (minus `version`, which a deploy target's own tag flow owns, and minus `commits`, which the cron doesn't resolve). A thin wrapper over `lib/enrich.mjs`; fill-once and idempotent, so the cron can re-run safely. `--check` exits 1 when an entry still needs enriching; `--dry-run` previews.
-- `scripts/check-changelog-completeness.mjs` — the **CI completeness gate**, run by the consumer's validation workflow: a release-triggering (`feat`/`fix`/breaking) PR title must carry a dated `changelog/` entry, or the build fails.
+The equivalent bundled scripts below are the original zero-dependency implementation.
+They remain **published skill source** (and are still `--help`/`--self-test`ed here),
+so an adopter can wire them up directly, but a consumer on the shared workflow gets
+this logic from `changelog-core`, not from these files:
+
+- `scripts/finalise-changelog.mjs` — release-time enrichment + version-stamping for **npm targets**. For each un-finalised entry it resolves the merged PR via `gh`/`git`, fills the post-merge fields (`merged_at` / `commit` / `pr` / `stats`, the last including the merge-excluded `commits` count from the PR commits API), stamps `version` with the just-bumped `package.json` version, and links bare Linear IDs. It composes `lib/enrich.mjs` (the PR-metadata fill), `lib/commit-count.mjs` (the merge-excluded commit count) and `lib/stamp.mjs` (the version stamp).
+- `scripts/enrich-changelog.mjs` — post-merge enrichment for **deploy targets** (octavo, shared-workflows), which are never checked out during the release flow and so can't finalise inline. It reads one merged PR's data from an env-var interface (`BRANCH_NAME` / `MERGED_AT` / `MERGE_SHA` / `PR_NUMBER` / `ADDITIONS` / `DELETIONS` / `CHANGED_FILES`), finds the entry by its `branch:`, and fills the same post-merge field group as finalise (minus `version`, which a deploy target's own tag flow owns, and minus `commits`, which the enrich path doesn't resolve). A thin wrapper over `lib/enrich.mjs`; fill-once and idempotent, so it can re-run safely. `--check` exits 1 when an entry still needs enriching; `--dry-run` previews.
+- `scripts/check-changelog-completeness.mjs` — the **CI completeness gate**: a release-triggering (`feat`/`fix`/breaking) PR title must carry a dated `changelog/` entry, or the build fails.
 - `scripts/backfill-commits.mjs` — a one-off backfill of `stats.commits` across the existing `changelog/` backlog (for adopting the count after the fact). Resolves each entry's merged PR via `gh`, splices in only the `commits` line (no re-serialise), and is idempotent; `--dry-run` previews. Not part of authoring or the release flow.
 
 They share helpers under `scripts/lib/` (`changelog.mjs`, `derive-packages.mjs`,
-`frontmatter.mjs`, `config.mjs`, `enrich.mjs`, `commit-count.mjs`, `stamp.mjs`). So while this skill
-itself stops at authoring + validation and leaves the post-merge fields blank,
-the **finalisation and completeness scripts that fill them are part of this
-bundle** — the consumer's `package.json` / CI / release orchestrator run them, not
-the `/changelog` flow.
+`frontmatter.mjs`, `config.mjs`, `enrich.mjs`, `commit-count.mjs`, `stamp.mjs`). So this skill
+itself stops at authoring + validation and leaves the post-merge fields blank; the
+post-merge fields are filled after merge by `changelog-core` (via
+`reusable-changelog-enrich.yml`), not by the `/changelog` flow.
 
 > **Note for adopters:** unit tests for these scripts are maintained in the
 > `agent-skills` repo (not bundled into the skill). See the skill's README.

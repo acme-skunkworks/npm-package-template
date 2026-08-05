@@ -27,7 +27,7 @@ issue-IDs won't match.
 
 | Key | Meaning | Default |
 | --- | --- | --- |
-| `linearTeamName` | Linear team **name** used to resolve the live `Done` state. Stable across team-key renames. | `"ACME Skunkworks"` |
+| `linearTeamName` | Linear team **name** used to resolve the live `Done` state. Stable across team-key renames. | `"Rheged Studio"` |
 | `issueKeys` | Team-key prefixes that may appear in branch names; the issue-ID regex is built from these. | `["A"]` |
 | `mainBranch` | Trunk a branch must be merged into to count as merged; both passes diff against `origin/<mainBranch>`. Set it for repos whose trunk isn't `main` (`master`, `develop`, …). | `"main"` |
 | `protectedBranches` | Branches never deleted, locally or remotely. | `["main"]` |

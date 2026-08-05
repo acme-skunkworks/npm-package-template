@@ -53,7 +53,7 @@ Detects the branch's existing entry (idempotent update-vs-create), derives the
 metadata from git and the diff, writes the frontmatter + grouped/categorised body,
 runs the enrichment scripts (`set-affected-packages.mjs`, `add-links.mjs`), and
 validates with `validate-changelog.mjs`. `created_at` is set once and never
-overwritten; `stats` and the post-merge fields are left blank for the release step.
+overwritten; `stats` and the post-merge fields are left blank for the post-merge enricher.
 
 Run standalone via `/changelog` (writes/validates, leaves the entry **uncommitted**)
 or as the changelog step inside a ship flow. See [`SKILL.md`](SKILL.md) for the
@@ -63,14 +63,17 @@ for the full frontmatter schema and field-ownership rules.
 ## Scripts and tests
 
 The bundled scripts are the **zero-dependency `.mjs`** set (Node built-ins only),
-deliberately chosen so the bundle is drop-in with no tooling. They span the whole
-changelog lifecycle: the authoring scripts the skill runs (`set-affected-packages`,
-`add-links`, `preflight-changelog-ci`, `validate-changelog`) and the
-finalisation/CI-gate scripts the consumer wires into its `package.json` / CI /
-release orchestrator (`finalise-changelog` for npm targets, `enrich-changelog` for
-deploy targets, `check-changelog-completeness`) — see the SKILL.md
-"Implementation" section for which actor runs each. Every script takes
-`--help` (usage, exit 0) and `--self-test` (an offline smoke test of its pure
-logic). Their **unit tests are maintained in the
-[`agent-skills`](https://github.com/acme-skunkworks/agent-skills) repo**, not
-bundled into the skill — see that repo's test suite for coverage.
+deliberately chosen so the bundle is drop-in with no tooling. The authoring scripts
+the skill runs (`set-affected-packages`, `add-links`, `preflight-changelog-ci`,
+`validate-changelog`) are the live author-time path. The finalisation/CI-gate
+scripts (`finalise-changelog` for npm targets, `enrich-changelog` for deploy
+targets, `check-changelog-completeness`) remain in the bundle as **published
+source**, but the estate now runs that logic from the published
+[`@acme-skunkworks/changelog-core`](https://www.npmjs.com/package/@acme-skunkworks/changelog-core)
+package — invoked in-repo by the shared `reusable-changelog-enrich.yml`
+(`mode: enrich | finalise`) and by CI (`changelog-core validate` /
+`check-completeness`), not by a central orchestrator or cron. See the SKILL.md
+"Implementation" section for detail. Every script takes `--help` (usage, exit 0)
+and `--self-test` (an offline smoke test of its pure logic). Their **unit tests are
+maintained in the [`agent-skills`](https://github.com/acme-skunkworks/agent-skills)
+repo**, not bundled into the skill — see that repo's test suite for coverage.

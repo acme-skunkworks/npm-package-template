@@ -4,12 +4,16 @@
 // Read-only. Gathers four signals about the release-please pipeline via `gh`
 // and `git` (never writes), then prints a structured human report or `--json`:
 //
-//   1. Version preview  — the bump the merged Conventional-Commit PR titles
-//                         since the last tag imply (feat→minor, fix/perf/revert→
-//                         patch, !/BREAKING→major; docs/chore/ci/refactor/test/
-//                         build/style→none) and the version that would cut.
+//   1. Version preview  — the bump the Conventional-Commit subjects on commits
+//                         since the last tag on origin/<mainBranch> imply
+//                         (feat→minor, fix/perf/revert→patch, !/BREAKING→major;
+//                         docs/chore/ci/refactor/test/build/style→none) and the
+//                         version that would cut. Merge commits are excluded so
+//                         a merge subject's body (often the PR title) is not
+//                         double-counted with the branch commits release-please
+//                         also walks (A-824).
 //   2. Release PR        — the open `release-please--branches--main` PR (if any)
-//                         and its required-check (`🔬 Build & Lint`) status.
+//                         and its required-check (`GO/NO GO`) status.
 //   3. Stale autorelease — the recurring stall: the last MERGED release PR still
 //                         carries an `autorelease: pending` label, so
 //                         release-please aborts and releases stop firing.
@@ -39,7 +43,7 @@ import { join } from "node:path";
 const DEFAULTS = {
   mainBranch: "main",
   releaseBranch: "release-please--branches--main",
-  requiredCheck: "🔬 Build & Lint",
+  requiredCheck: "GO/NO GO",
   stalePendingLabel: "autorelease: pending",
 };
 
@@ -49,9 +53,16 @@ const BREAKING_SUBJECT = /^[a-z]+(\([^)]+\))?!:/;
 const FEAT_SUBJECT = /^feat(\([^)]+\))?:/;
 const PATCH_SUBJECT = /^(fix|perf|revert)(\([^)]+\))?:/;
 
-// release-please ranks bumps: a single breaking title wins, else any feat, else
-// any fix/perf/revert. docs/chore/ci/refactor/test/build/style cut no release.
+// release-please ranks bumps: a single breaking subject wins, else any feat,
+// else any fix/perf/revert. docs/chore/ci/refactor/test/build/style cut no
+// release. Matches release-please 17.9.0 under multi-commit history (A-824):
+// strongest type across commits; reverts do NOT cancel an earlier feat.
 const BUMP_RANK = { major: 3, minor: 2, none: 0, patch: 1 };
+
+// Separators for `git log --format` parsing (unit between fields, record
+// between commits). Match send-it's encoding so both skills agree.
+const UNIT_SEP = "\u001F";
+const RECORD_SEP = "\u001E";
 
 /**
  * Classify one Conventional-Commit subject (+ optional body) into the bump it
@@ -77,19 +88,45 @@ export function classifyTitle(subject, body = "") {
 }
 
 /**
- * Reduce a list of merged PRs (each `{ title, body }`) to the strongest bump
+ * Reduce a list of commits (each `{ subject, body }`) to the strongest bump
  * they imply. Empty / all-none → "none" (no release would cut).
+ *
+ * Policy (A-824): match release-please — strongest Conventional type wins;
+ * a `feat:` later `revert:`ed in the same window still implies **minor**
+ * (no cancel/netting). Merge-commit subjects should already be excluded by
+ * the git fetch (`--no-merges`).
  */
-export function previewBump(prs) {
+export function previewBump(commits) {
   let best = "none";
-  for (const pr of prs ?? []) {
-    const bump = classifyTitle(pr.title, pr.body);
+  for (const commit of commits ?? []) {
+    const subject = commit.subject ?? "";
+    const bump = classifyTitle(subject, commit.body);
     if (BUMP_RANK[bump] > BUMP_RANK[best]) {
       best = bump;
     }
   }
 
   return best;
+}
+
+/**
+ * Parse `git log --format=%H%x1f%s%x1f%b%x1e` stdout into
+ * `{ hash, subject, body }[]`. Pure — no git — so `--self-test` / vitest can
+ * cover multi-commit fixtures without a repo.
+ */
+export function parseGitLog(raw) {
+  return String(raw ?? "")
+    .split(RECORD_SEP)
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [hash, subject, body] = entry.split(UNIT_SEP);
+      return {
+        body: body ?? "",
+        hash: hash ?? "",
+        subject: subject ?? "",
+      };
+    });
 }
 
 /**
@@ -323,93 +360,52 @@ function readTags() {
     .filter(Boolean);
 }
 
-// Upper bound for the merged-PR window. This tool diagnoses a *stalled* pipeline —
-// exactly when a large backlog may have merged since the last tag — so the old
-// `--limit 100` could truncate the window, under-report `mergedPrCount`, and (since
-// `gh pr list --search` isn't guaranteed merge-date sorted) drop the strongest-bump
-// title and mis-classify the release. gh auto-paginates up to `--limit`, so a high
-// bound simply pages until exhausted for any realistic backlog.
-const MERGED_PR_LIMIT = 1000;
-
 /**
- * List merged PRs since the last tag, newest first, as `{ title, body, mergedAt,
- * number }`. The window is anchored on the last tag's commit date so only
- * post-release titles count toward the next bump, and scoped to PRs merged into the
- * trunk (`--base <mainBranch>`) so a non-`main` trunk is honoured.
+ * Commits on the configured trunk (`origin/<mainBranch>`) since the last tag,
+ * newest first, as `{ hash, subject, body }`. Merge commits are excluded
+ * (`--no-merges`) so the preview matches release-please's per-commit bump under
+ * multi-commit history without double-counting a merge subject's body (often the
+ * PR title) against the branch commits that also landed (A-824).
  *
- * `gh`'s `merged:>=<date>` filter only honours **day** precision, so it is used as
- * a coarse lower bound (the tag's UTC calendar day) and the results are re-filtered
- * against the tag's **full** ISO timestamp — otherwise a PR merged earlier on the
- * same calendar day as the tag slips past the day-only bound and is counted twice:
- * once in the release it already shipped in, and again toward the next bump.
+ * Evaluating against `origin/<mainBranch>` (not `HEAD`) keeps the preview aligned
+ * with what release-please would compute on the trunk even when the helper is run
+ * from a feature branch or a stale local checkout.
+ *
+ * When there is no tag yet, every non-merge commit reachable from the trunk counts
+ * (bootstrap / never-released repos).
  */
-function fetchMergedPrsSinceLastTag(repo, mainBranch) {
-  let sinceDate = null; // day-granularity lower bound for gh's `merged:` search
-  let sinceTimestamp = null; // full ISO tag time for the precise post-filter
+function fetchCommitsSinceLastTag(mainBranch) {
+  const trunk = `origin/${mainBranch}`;
   try {
-    const lastTag = run("git", ["describe", "--tags", "--abbrev=0"]).trim();
-    if (lastTag) {
-      // %cI = committer date, strict ISO-8601 (carries the offset).
-      sinceTimestamp = run("git", [
-        "log",
-        "-1",
-        "--format=%cI",
-        lastTag,
-      ]).trim();
-      // gh reads a bare `merged:YYYY-MM-DD` as UTC midnight, so anchor the coarse
-      // lower bound on the tag's UTC calendar day, not its local-offset day. A
-      // positive-offset local day (e.g. 2026-07-06 for an instant that is
-      // 2026-07-05T23:00Z) would start the search after the real tag instant and
-      // miss PRs merged in the gap — and the post-filter below can only trim, not
-      // recover them. The UTC day never excludes a valid same-day-after-tag PR.
-      sinceDate = new Date(sinceTimestamp).toISOString().slice(0, 10);
-    }
+    run("git", ["rev-parse", "--verify", trunk]);
   } catch {
-    sinceDate = null; // no tags yet → all merged PRs count.
-    sinceTimestamp = null;
-  }
-
-  const search = sinceDate ? `merged:>=${sinceDate}` : "";
-  const args = [
-    "pr",
-    "list",
-    "--repo",
-    repo,
-    "--base",
-    mainBranch,
-    "--state",
-    "merged",
-    "--limit",
-    String(MERGED_PR_LIMIT),
-    "--json",
-    "title,body,mergedAt,number",
-  ];
-  if (search) {
-    args.push("--search", search);
-  }
-
-  const prs = parseJson(run("gh", args), "merged-PR list from gh");
-
-  // If the window filled the cap, the diagnosis may be built on a truncated set —
-  // warn (to stderr, so `--json` stdout stays clean) rather than silently under-report.
-  if (prs.length >= MERGED_PR_LIMIT) {
-    console.error(
-      `release-status: merged-PR window hit the ${MERGED_PR_LIMIT}-PR cap — the bump ` +
-        "preview may be based on a truncated set.",
+    throw new Error(
+      `missing local ref ${trunk} — run \`git fetch origin ${mainBranch}\` so the version preview can match the trunk`,
     );
   }
 
-  // gh's day-granularity `merged:>=` includes PRs merged earlier on the tag's own
-  // day; drop everything merged at or before the precise tag timestamp so only
-  // genuinely post-tag merges count toward the next bump.
-  if (!sinceTimestamp) {
-    return prs;
+  let range = trunk;
+  try {
+    const lastTag = run("git", [
+      "describe",
+      "--tags",
+      "--abbrev=0",
+      trunk,
+    ]).trim();
+    if (lastTag) {
+      range = `${lastTag}..${trunk}`;
+    }
+  } catch {
+    // no tags yet → whole trunk history
   }
 
-  const cutoff = new Date(sinceTimestamp).getTime();
-  return prs.filter(
-    (pr) => !pr.mergedAt || new Date(pr.mergedAt).getTime() > cutoff,
-  );
+  const raw = run("git", [
+    "log",
+    range,
+    "--no-merges",
+    `--format=%H${UNIT_SEP}%s${UNIT_SEP}%b${RECORD_SEP}`,
+  ]);
+  return parseGitLog(raw);
 }
 
 /**
@@ -476,8 +472,8 @@ function gather(options, config) {
   const tags = readTags();
   const parity = tagParity(version, tags);
 
-  const mergedPrs = fetchMergedPrsSinceLastTag(repo, config.mainBranch);
-  const bump = previewBump(mergedPrs);
+  const commits = fetchCommitsSinceLastTag(config.mainBranch);
+  const bump = previewBump(commits);
   const nextVersion = applyBump(version, bump);
 
   const openReleasePr = fetchOpenReleasePr(
@@ -513,8 +509,8 @@ function gather(options, config) {
     stalePending,
     versionPreview: {
       bump,
+      commitCount: commits.length,
       current: version,
-      mergedPrCount: mergedPrs.length,
       next: nextVersion,
       willRelease: bump !== "none",
     },
@@ -532,16 +528,16 @@ function renderHuman(report, config) {
   lines.push("");
 
   const vp = report.versionPreview;
-  lines.push("Version preview (merged PR titles since last tag):");
-  lines.push(`  current: ${vp.current}`);
   lines.push(
-    `  bump:    ${vp.bump} (${vp.mergedPrCount} merged PR(s) considered)`,
+    "Version preview (commits since last tag, merge commits excluded):",
   );
+  lines.push(`  current: ${vp.current}`);
+  lines.push(`  bump:    ${vp.bump} (${vp.commitCount} commit(s) considered)`);
   if (vp.willRelease) {
     lines.push(`  next:    ${vp.next} — a release would cut`);
   } else {
     lines.push(
-      "  next:    none — no release-triggering title since the last tag",
+      "  next:    none — no release-triggering commit since the last tag",
     );
   }
 
@@ -599,7 +595,7 @@ function selfTest() {
     cases.push({ name, ok });
   }
 
-  // classifyTitle / previewBump
+  // classifyTitle / previewBump (A-824: per-commit strongest type)
   check("feat → minor", classifyTitle("feat(x): add") === "minor");
   check("fix → patch", classifyTitle("fix: bug") === "patch");
   check("perf → patch", classifyTitle("perf: faster") === "patch");
@@ -613,16 +609,45 @@ function selfTest() {
   check("docs → none", classifyTitle("docs: readme") === "none");
   check(
     "previewBump picks the strongest (feat beats fix)",
-    previewBump([{ title: "fix: a" }, { title: "feat: b" }]) === "minor",
+    previewBump([{ subject: "fix: a" }, { subject: "feat: b" }]) === "minor",
   );
   check(
     "previewBump major wins over feat",
-    previewBump([{ title: "feat: a" }, { title: "refactor!: b" }]) === "major",
+    previewBump([{ subject: "feat: a" }, { subject: "refactor!: b" }]) ===
+      "major",
   );
   check("previewBump empty → none", previewBump([]) === "none");
   check(
     "previewBump all-chore → none",
-    previewBump([{ title: "chore: a" }, { title: "docs: b" }]) === "none",
+    previewBump([{ subject: "chore: a" }, { subject: "docs: b" }]) === "none",
+  );
+  check(
+    "previewBump feat+revert still minor (no cancel/netting, A-824)",
+    previewBump([
+      { subject: "feat: add x" },
+      { subject: "revert: feat: add x" },
+    ]) === "minor",
+  );
+  check(
+    "previewBump ignores merge-commit-like subjects as none",
+    previewBump([
+      { subject: "Merge pull request #12 from acme/feature" },
+      { subject: "fix: real" },
+    ]) === "patch",
+  );
+  check(
+    "parseGitLog splits unit/record separators",
+    (() => {
+      const parsed = parseGitLog(
+        `abc${UNIT_SEP}feat: one${UNIT_SEP}body1${RECORD_SEP}def${UNIT_SEP}fix: two${UNIT_SEP}${RECORD_SEP}`,
+      );
+      return (
+        parsed.length === 2 &&
+        parsed[0].subject === "feat: one" &&
+        parsed[0].body === "body1" &&
+        parsed[1].subject === "fix: two"
+      );
+    })(),
   );
 
   // applyBump
@@ -674,13 +699,13 @@ function selfTest() {
   // requiredCheckState
   check(
     "requiredCheckState reads a matching check (success)",
-    requiredCheckState([{ conclusion: "SUCCESS", name: "🔬 Build & Lint" }])
-      .state === "success",
+    requiredCheckState([{ conclusion: "SUCCESS", name: "GO/NO GO" }]).state ===
+      "success",
   );
   check(
     "requiredCheckState reads a status-check state",
-    requiredCheckState([{ name: "🔬 Build & Lint", state: "PENDING" }])
-      .state === "pending",
+    requiredCheckState([{ name: "GO/NO GO", state: "PENDING" }]).state ===
+      "pending",
   );
   check(
     "requiredCheckState reports not-found when absent",
