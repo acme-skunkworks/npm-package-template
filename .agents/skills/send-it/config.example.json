@@ -2,5 +2,6 @@
   "baseBranch": "main",
   "shippablePaths": ["dist/", "src/"],
   "shippableManifestKeys": ["name", "version", "files", "publishConfig"],
-  "changelog": true
+  "changelog": true,
+  "triage": true
 }

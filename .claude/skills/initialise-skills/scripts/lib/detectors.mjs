@@ -22,6 +22,8 @@ import { join } from "node:path";
 const SHIPPABLE_MANIFEST_KEYS = ["name", "version", "files", "publishConfig"];
 const REVIEW_BOTS = ["claude", "cursor", "coderabbitai"];
 const MAX_CI_ROUNDS = 5;
+const REVIEW_IDLE_MINUTES = 5;
+const REVIEW_WAIT_MAX_MINUTES = 20;
 
 /**
  * Detect the published surface from the root package.json `files` field (the
@@ -88,7 +90,7 @@ function detectBundleRoot(repoRoot) {
  * Build a memoised `detect(key)` for a host repo.
  * @param {object} params
  * @param {string} params.repoRoot host repo root the detectors scan
- * @param {{ linearTeamName?: string, linearWorkspaceSlug?: string, issueKeys?: string[] }} [params.linearFacts]
+ * @param {{ linearTeamName?: string, linearWorkspaceSlug?: string, issueKeys?: string[], followUpProject?: string }} [params.linearFacts]
  *   facts the script cannot derive from git/fs (supplied by Claude via the Linear MCP)
  * @returns {{ detect: (key: string) => ({ value: unknown } | null), has: (key: string) => boolean }}
  */
@@ -133,13 +135,29 @@ export function createDetectors({ linearFacts = {}, repoRoot }) {
     // generic defaults (mirroring the changelog bundle's own DEFAULTS) — emit
     // them confidently rather than flagging for manual input.
     changelogDir: () => ({ value: "changelog" }),
+    // No repo signal; emit triage-pr's default-on impact gate (never null) so it isn't flagged needs-manual-input — a later edit reads as drift and is kept.
+    deferNonBlocking: () => ({ value: true }),
     fallbackPackage: () => ({ value: "infrastructure" }),
-    // triage-pr follow-up capture is opt-in: emit the bundle's own structural
-    // defaults confidently (never null) so they aren't flagged needs-manual-input.
-    // Empty label/project mean "unset"; a consumer edit reads as drift and is kept.
+    // triage-pr follow-up capture: label stays an optional empty default; project
+    // is required when capture is on (linearTeamName set) — prefer facts, else
+    // flag needs-manual-input rather than writing a confident empty "no project".
     followUpLabel: () => ({ value: "" }),
-    followUpProject: () => ({ value: "" }),
+    followUpProject: () => {
+      const fromFacts = linearFacts.followUpProject;
+      if (typeof fromFacts === "string" && fromFacts.trim()) {
+        return { value: fromFacts.trim() };
+      }
+
+      if (linearFacts.linearTeamName) {
+        return null;
+      }
+
+      return { value: "" };
+    },
     followUpState: () => ({ value: "Backlog" }),
+    // No repo signal; emit triage-pr's default-on human envelope (never null) so it
+    // isn't flagged needs-manual-input — a later edit reads as drift and is kept.
+    humanEnvelope: () => ({ value: true }),
     issueKeys: () => {
       const fromFacts = linearFacts.issueKeys;
       if (Array.isArray(fromFacts) && fromFacts.length > 0) {
@@ -174,6 +192,9 @@ export function createDetectors({ linearFacts = {}, repoRoot }) {
     // No repo signal; emit triage-pr's own default (never null) so it isn't flagged needs-manual-input — a later edit reads as drift and is kept.
     replyOnAccept: () => ({ value: true }),
     reviewBots: () => ({ value: [...REVIEW_BOTS] }),
+    // Hybrid review-settle knobs (A-1179) — structural defaults, never null.
+    reviewIdleMinutes: () => ({ value: REVIEW_IDLE_MINUTES }),
+    reviewWaitMaxMinutes: () => ({ value: REVIEW_WAIT_MAX_MINUTES }),
     shippableManifestKeys: () => ({ value: [...SHIPPABLE_MANIFEST_KEYS] }),
     // Reuse the memoised packageRoots detection rather than re-reading
     // pnpm-workspace.yaml a second time.
@@ -183,6 +204,12 @@ export function createDetectors({ linearFacts = {}, repoRoot }) {
         detect("packageRoots")?.value ?? [],
       ),
     }),
+    // No repo signal; emit send-it's default-on triage chain (never null) so it isn't
+    // flagged needs-manual-input. Deliberately not keyed off `triage-pr` being
+    // vendored: send-it's Step 11 already soft-skips with a warning when the sibling
+    // is absent, so a fixed `true` can't misfire the way `changelog` did (A-570). A
+    // later edit to `false` reads as drift and is kept.
+    triage: () => ({ value: true }),
     // preflight self-detects its workspace map at runtime; never write it.
     workspaces: () => null,
   };

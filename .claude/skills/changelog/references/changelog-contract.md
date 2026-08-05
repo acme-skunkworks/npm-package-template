@@ -18,7 +18,6 @@ merged_at:
 branch: "<current-branch>"
 pr:
 commit:
-merge_strategy:
 author: "you@example.com"
 co_authors: []
 category: feature
@@ -50,8 +49,7 @@ omitted or left as a blank placeholder until enrichment.
 | `merged_at` | ISO 8601 UTC with `Z` suffix when set; blank until release. |
 | `branch` | Non-empty string — the stable lookup key for enrichment. |
 | `pr` | Integer when set; blank until post-merge enrichment resolves it from the merged PR. |
-| `commit` | 7-char hex SHA when set; blank until merge. |
-| `merge_strategy` | One of `merge`, `rebase`, `squash`; blank until merge. |
+| `commit` | 7-char hex SHA when set; blank until merge. Post-merge enrichment stores the short form of the merged PR's **`mergeCommit.oid`** — the commit that landed on trunk. For a **merge merge** that is the two-parent merge commit; for **squash** it is the squash commit SHA (not necessarily the feature-branch tip). |
 | `author` | Non-empty string (an email). |
 | `co_authors` | Array of strings (`[]` when none). |
 | `category` | One of `feature`, `fix`, `chore`, `docs`, `refactor`, `perf`. |
@@ -75,19 +73,24 @@ Three owners, never overlapping:
    from the latest branch diff, so it tracks added commits; when `false` (the
    single-package default) the field is never emitted and the script is a no-op.
    `add-links.mjs` rewrites bare issue IDs in the body to Linear links.
-3. **The release-orchestrator (post-merge, privileged).** `merged_at`, `commit`,
-   `pr`, `merge_strategy`, and authoritative `stats`, plus the published `version` where
+3. **The post-merge enricher (privileged).** `merged_at`, `commit`,
+   `pr`, and authoritative `stats`, plus the published `version` where
    a consumer adds one. Emit these as blank placeholders; never hand-edit them —
    so an in-flight PR never shows numbers that drift as commits land. `pr` is
    resolved from the merged PR by the entry's `branch:` (the same branch-resolution
-   finalise/enrich use for the other post-merge fields) — the ship flow never writes
-   it. npm targets fill these at release time (`finalise-changelog.mjs`); deploy
-   targets, never checked out during the release flow, fill them afterwards from the
-   enrichment cron (`enrich-changelog.mjs`, minus `version` and `commits` — the cron
-   passes no commit count, so `stats.commits` is left to the release-time path).
+   used for the other post-merge fields) — the ship flow never writes it. This runs
+   from `@acme-skunkworks/changelog-core`, invoked in-repo by the shared
+   `reusable-changelog-enrich.yml` and written back as `road-runner-bot[bot]` — no
+   central orchestrator or cron (A-801). npm targets use `mode: finalise` (fills the
+   fields **and** stamps `version`); deploy targets, never checked out during the
+   release flow, use `mode: enrich` (same fields minus `version`, which the target's
+   own tag flow owns, and minus `commits`, which the enrich path doesn't resolve).
 
 `branch` is set by the author at create time and is the stable lookup key for
-enrichment.
+enrichment. Authoring is **multi-commit aware**: it analyses
+`git log origin/<base>..HEAD` and looks up an existing entry by `branch:` (update
+vs create), so intermediate commits on the same branch never spawn duplicate
+entries.
 
 `created_at` is **sacred**: set once at create time, preserved verbatim on every
 update. The release step refuses to finalise an entry without it.

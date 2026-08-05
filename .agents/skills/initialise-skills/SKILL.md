@@ -8,7 +8,8 @@ description: >-
   the Linear MCP. Use when first installing these skills into a repo, or to
   refresh the configs after the skill set or repo layout changes. Also emits a
   committed `.claude/skills.lock` inventory of installed skill versions, and ensures
-  the preflight skill's `.preflight-summary.json` scratch output is gitignored.
+  the preflight skill's `.preflight-summary.json` scratch output is gitignored,
+  and strips erroneous consumer rules that gitignore skill `config.json` (A-812).
   Idempotent and safe to re-run: it reconciles drift rather than clobbering
   deliberate manual edits, presents a dry-run diff first, and only writes after
   confirmation — preserving each config's key order and formatting so a no-op run
@@ -23,9 +24,9 @@ compatibility: >-
   App / token check is optional — it uses `gh` when authenticated, else falls
   back to a reminder.
 metadata:
-  version: 0.10.6
+  version: 0.11.0
   author: Rob Easthope
-allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), mcp__linear-server__list_teams, mcp__linear-server__get_team
+allowed-tools: Read, Bash(node:*), Bash(git:*), Bash(gh:*), mcp__linear-server__list_teams, mcp__linear-server__get_team, mcp__linear-server__list_projects
 ---
 
 # initialise-skills
@@ -61,7 +62,10 @@ Detection is keyed by config-**key name**, not by skill, so one detector serves
 every skill that uses a key (one `baseBranch` detector covers `changelog`,
 `send-it`; one `issueKeys` detector covers `changelog`, `cleanup-repo`,
 `linear-sync`). See [`references/detectable-keys.md`](references/detectable-keys.md)
-for the full table of keys, their detection sources, and fallbacks.
+for the full table of keys, their detection sources, and fallbacks. Changelog's
+monorepo gate (`affectedPackages` / `packageRoots`) and how to flip a host
+between single-package and monorepo are in
+[`references/monorepo-config.md`](references/monorepo-config.md).
 
 `preflight` is intentionally skipped: it self-detects its base branch and
 workspaces and reads an *optional* `preflight.config.json` at the repo root, not
@@ -71,14 +75,28 @@ one trace here is the `.gitignore` step below: when preflight is installed, its
 
 ## The `.gitignore` step
 
-The `preflight` skill writes `.preflight-summary.json` to the repo root on every
-real run, so without an ignore rule it surfaces as an untracked change after a
-`/send-it` run. When `preflight` is installed, this skill ensures the host repo's
-root `.gitignore` excludes it — the **one** mutation it makes outside a skill's
-`config.json`. The edit is **append-only and idempotent**: it adds the commented
-entry only when absent (creating `.gitignore` if there is none), and never
-reorders or removes existing lines. The dry-run report shows the pending edit
-(`will add …`); a re-run after writing reports `already ignored`.
+Two reconciles touch the host repo's root `.gitignore`:
+
+1. **Preflight scratch (A-569).** The `preflight` skill writes
+   `.preflight-summary.json` to the repo root on every real run, so without an
+   ignore rule it surfaces as an untracked change after a `/send-it` run. When
+   `preflight` is installed, this skill ensures the host repo's root `.gitignore`
+   excludes it. The edit is **append-only and idempotent**: it adds the commented
+   entry only when absent (creating `.gitignore` if there is none), and never
+   reorders or removes existing lines for this entry.
+
+2. **Skill-config ignore strip (A-812).** Some consumers (notably repos spawned
+   from `npm-package-template` before the A-812 fix) incorrectly gitignore
+   `.claude/skills/*/config.json` and `.agents/skills/*/config.json`. That pattern
+   is correct only in the **agent-skills source** repo (`skills/*/config.json`,
+   A-615 — so `skills add --copy` never vendors ACME identity) and as a
+   **template seed** guard. In a **consumer**, the resolved `config.json` **must
+   be committed**. This skill strips those erroneous consumer patterns (and the
+   accompanying comment block) so CI/fresh clones can load runnable config. It
+   never touches the source-repo `skills/*/config.json` rule.
+
+The dry-run report shows pending edits (`will add …` / `will strip …`); a re-run
+after writing reports `already ignored` / `no erroneous skill-config ignore rules`.
 
 ## The `skills.lock` step
 
@@ -121,9 +139,11 @@ This is the foundation for detecting which repos are behind — see
    `manualKeys`, and `totals`.
 
 2. **Fill the facts.** For each `needs-manual-input` Linear key
-   (`linearTeamName`, `linearWorkspaceSlug`), fetch the value via the Linear MCP
-   when it is available — `mcp__linear-server__list_teams` for the team name, and
-   the workspace slug from the team/organisation — otherwise ask the user. Collect
+   (`linearTeamName`, `linearWorkspaceSlug`, and `followUpProject` when capture is
+   on), fetch the value via the Linear MCP when it is available —
+   `mcp__linear-server__list_teams` for the team name,
+   `mcp__linear-server__list_projects` for the repo's Linear project, and the
+   workspace slug from the team/organisation — otherwise ask the user. Collect
    these into a `facts` object. Also add the **lock provenance** here:
    `lockSource` (the source repo the skills were installed from — the
    agent-skills repo URL) and `lockRef` (the ref installed from; **default `main`**,
@@ -142,7 +162,7 @@ This is the foundation for detecting which repos are behind — see
    as stdin JSON:
 
    ```bash
-   echo '{"facts":{"linearTeamName":"…","linearWorkspaceSlug":"…","lockSource":"https://github.com/acme-skunkworks/agent-skills","lockRef":"main"},"acceptDrift":{"changelog":["issueKeys"]}}' \
+   echo '{"facts":{"linearTeamName":"…","linearWorkspaceSlug":"…","followUpProject":"…","lockSource":"https://github.com/acme-skunkworks/agent-skills","lockRef":"main"},"acceptDrift":{"changelog":["issueKeys"]}}' \
      | node <skills-dir>/initialise-skills/scripts/initialise.mjs --write --json
    ```
 
@@ -336,10 +356,12 @@ so a fleet orchestrator can check any repo without changing directory. See
 - **No deletes, no reordering.** Existing keys keep their order; only changed keys
   are touched; consumer-added keys are left alone. A malformed existing
   `config.json` is skipped (reported, never overwritten).
-- **The `.gitignore` edit is append-only.** One file touched outside a
-  skill's `config.json` is the repo's root `.gitignore`, and only to append the
-  `.preflight-summary.json` entry when it is missing — never reordering or removing
-  existing lines, and a no-op once present.
+- **The `.gitignore` edits are scoped.** Outside a skill's `config.json`, this skill
+  touches the repo's root `.gitignore` to (1) append `.preflight-summary.json`
+  when missing (A-569 — never reordering or removing existing lines for that
+  entry) and (2) strip erroneous `.claude`/`.agents` skill-config ignore patterns
+  that would prevent consumers from committing resolved `config.json` (A-812).
+  It never touches the agent-skills source rule `skills/*/config.json`.
 - **The `skills.lock` write is deterministic and byte-stable.** The other file
   touched outside a `config.json` is `.claude/skills.lock`, fully regenerated with
   sorted keys and no timestamp — so it only rewrites when a version actually changes,

@@ -28,7 +28,8 @@ npx skills add https://github.com/acme-skunkworks/agent-skills --skill preflight
 - **actionlint** is optional: preflight warns and skips workflow linting if the
   binary isn't on `PATH`.
 - The Linear MCP server is **optional**: the deferred-debt-issue step is skipped
-  silently when it is unavailable.
+  when it is unavailable, or when `linearTeamName` / `debtProject` are unset in
+  root `preflight.config.json` (fail closed — never file without a project).
 
 ## Configure
 
@@ -47,7 +48,9 @@ To override either, drop a `preflight.config.json` at your **repo root**. A
   "blockOnWarnings": false,
   "workspaces": {
     "web": { "filter": "@acme/web", "prefix": "apps/web/" }
-  }
+  },
+  "linearTeamName": "",
+  "debtProject": ""
 }
 ```
 
@@ -63,6 +66,10 @@ globs the detector does not expand.
   findings the branch introduces. markdownlint/actionlint findings always block —
   those tools exit non-zero on any finding, so the warn/error split is
   ESLint-only.
+- **`linearTeamName`** / **`debtProject`** — required for the Exit 2 **Defer**
+  debt-issue path. Both must be set; empty disables debt-create (never file a
+  project-less issue). The lint scripts ignore these keys — they are agent-facing
+  only. See [`SKILL.md`](SKILL.md#debt-issue-create).
 
 ## What it does
 

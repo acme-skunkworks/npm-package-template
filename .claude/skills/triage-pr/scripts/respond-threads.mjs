@@ -125,14 +125,14 @@ export function buildReplyBody({ decision, reason, reference, sha }) {
       throw new Error("defer reply requires a follow-up ticket reference");
     }
 
-    return `Out of scope for this PR; tracked as ${trimmed} for follow-up.\n\n${THREAD_MARKER}`;
+    return `Deferred for this PR; tracked as ${trimmed} for follow-up.\n\n${THREAD_MARKER}`;
   }
 
   if (decision === "defer-pending") {
     // Recorded at Step 8, before a ticket exists — so no reference. Carries the
     // NON-resolving DEFER_PENDING_MARKER, never THREAD_MARKER, so Step 10 still
     // posts the final defer reply and resolves.
-    return `Noted as out of scope for this PR; a follow-up issue will be filed and linked here.\n\n${DEFER_PENDING_MARKER}`;
+    return `Noted as deferred for this PR; a follow-up issue may be filed and linked here after human approval.\n\n${DEFER_PENDING_MARKER}`;
   }
 
   throw new Error(`no reply body for decision: ${decision}`);
@@ -252,7 +252,7 @@ function renderReference(status, reference) {
 const STATUS_LABELS = {
   accepted: "Accepted",
   declined: "Declined",
-  "out-of-scope": "Out of scope",
+  "out-of-scope": "Deferred",
 };
 
 /**
@@ -653,7 +653,7 @@ function selfTest() {
       comments: [
         {
           author: "me",
-          body: `Noted as out of scope.\n\n${DEFER_PENDING_MARKER}`,
+          body: `Noted as deferred.\n\n${DEFER_PENDING_MARKER}`,
         },
       ],
       decision: "defer-pending",
@@ -815,7 +815,7 @@ function selfTest() {
           "| Read missing from allowed-tools | Accepted | `abc1234` |",
         ) &&
         summary.includes("Declined") &&
-        summary.includes("Out of scope") &&
+        summary.includes("Deferred") &&
         summary.includes(SUMMARY_MARKER),
     },
     {

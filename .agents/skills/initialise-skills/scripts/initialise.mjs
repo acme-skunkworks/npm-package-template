@@ -27,7 +27,10 @@ import {
   isPreflightInstalled,
 } from "./lib/discover.mjs";
 import { restoreClobberedConfigs } from "./lib/git.mjs";
-import { reconcilePreflightIgnore } from "./lib/gitignore.mjs";
+import {
+  reconcilePreflightIgnore,
+  stripSkillConfigIgnores,
+} from "./lib/gitignore.mjs";
 import { serialiseConfig } from "./lib/jsonio.mjs";
 import { mergeConfig } from "./lib/merge.mjs";
 import { resolveOverrides } from "./lib/overrides.mjs";
@@ -336,9 +339,10 @@ function main() {
     return;
   }
 
-  // One mutation outside config.json: ensure preflight's scratch output is
-  // gitignored. Gated on preflight (the file's producer) being installed — its
-  // bundle is skipped by discoverSkills, so check separately (A-569).
+  // Mutations outside config.json on the root .gitignore (A-569 / A-812):
+  // 1. Ensure preflight's scratch output is ignored when preflight is installed.
+  // 2. Strip erroneous skill-config ignore rules so consumers can commit
+  //    resolved config.json (never touches source-repo `skills/*/config.json`).
   let gitignore = null;
   if (isPreflightInstalled(options.skillsDir)) {
     try {
@@ -359,6 +363,23 @@ function main() {
       );
       process.exit(2);
     }
+  }
+
+  let skillConfigIgnore = null;
+  try {
+    const result = stripSkillConfigIgnores(options.repoRoot, {
+      write: options.write,
+    });
+    skillConfigIgnore = {
+      path: relative(options.repoRoot, result.path),
+      removed: result.removed,
+      status: result.status,
+    };
+  } catch (error) {
+    console.error(
+      `initialise-skills: could not strip skill-config gitignore rules: ${error.message}`,
+    );
+    process.exit(2);
   }
 
   // Emit/refresh the consumer's .claude/skills.lock inventory (A-616). A full walk
@@ -394,7 +415,13 @@ function main() {
     }
   }
 
-  const report = buildReport(skillReports, options.write, gitignore, lock);
+  const report = buildReport(
+    skillReports,
+    options.write,
+    gitignore,
+    lock,
+    skillConfigIgnore,
+  );
   if (options.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {

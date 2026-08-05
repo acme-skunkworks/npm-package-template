@@ -157,6 +157,53 @@ export function classifyKey(key, base, ours, theirs) {
 }
 
 /**
+ * Resolve the effective `affectedPackages` value after classify + `--set`.
+ * `undefined` when the skill has no such key (not changelog).
+ * @param {Record<string, unknown>} data
+ * @param {Record<string, KeyResult>} results
+ * @returns {unknown}
+ */
+function resolveAffectedPackages(data, results) {
+  const result = results.affectedPackages;
+  if (!result) {
+    return undefined;
+  }
+
+  if ("write" in result) {
+    return result.write;
+  }
+
+  if ("keep" in result) {
+    return result.keep;
+  }
+
+  return data.affectedPackages;
+}
+
+/**
+ * When `affectedPackages` is false, `packageRoots` is unused at runtime. Leaving
+ * it as `needs-manual-input` (undetectable on a single-package host) is noise —
+ * keep the example placeholder in place and report `unchanged` so operators are
+ * not trained to fill monorepo knobs they do not need (A-813). Preserving the
+ * placeholder (rather than writing `[]`) keeps the "ours equals base → infer"
+ * path open when the repo later gains a workspace.
+ * @param {Record<string, KeyResult>} results
+ * @param {Record<string, unknown>} data
+ */
+function silenceGatedPackageRoots(results, data) {
+  if (resolveAffectedPackages(data, results) !== false) {
+    return;
+  }
+
+  const roots = results.packageRoots;
+  if (!roots || roots.status !== "needs-manual-input") {
+    return;
+  }
+
+  results.packageRoots = { status: "unchanged" };
+}
+
+/**
  * Reconcile one skill's config against detected facts.
  *
  * `detect(key)` returns `{ value }` when the key is detectable, else null. It is
@@ -245,6 +292,9 @@ export function mergeConfig({
 
     data[key] = value;
   }
+
+  // A-813: monorepo-only keys must not flag needs-manual-input when the gate is off.
+  silenceGatedPackageRoots(results, data);
 
   // Report `changed` from the net result, once, after all inferred + `--set`
   // writes: a change survived only if the final `data` differs from the original

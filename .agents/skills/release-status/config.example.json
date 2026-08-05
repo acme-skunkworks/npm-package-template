@@ -1,6 +1,6 @@
 {
   "mainBranch": "main",
   "releaseBranch": "release-please--branches--main",
-  "requiredCheck": "🔬 Build & Lint",
+  "requiredCheck": "GO/NO GO",
   "stalePendingLabel": "autorelease: pending"
 }

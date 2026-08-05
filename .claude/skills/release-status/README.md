@@ -1,10 +1,10 @@
 # release-status
 
 Diagnose the **release-please** release pipeline, read-only. Preview the next
-version from the merged Conventional-Commit PR titles since the last tag, show the
-open `release-please--branches--main` PR and its required-check status, detect the
-recurring stale `autorelease: pending` stall, and confirm tag-vs-version parity —
-all without changing anything.
+version from Conventional-Commit subjects on commits since the last tag (merge
+commits excluded), show the open `release-please--branches--main` PR and its
+required-check status, detect the recurring stale `autorelease: pending` stall,
+and confirm tag-vs-version parity — all without changing anything.
 
 ## Install
 
@@ -31,15 +31,18 @@ Generate it by running the `initialise-skills` skill, or copy the example to
 | --- | --- | --- |
 | `mainBranch` | The trunk release-please releases from. | `main` |
 | `releaseBranch` | The branch release-please opens its release PR on. | `release-please--branches--main` |
-| `requiredCheck` | The exact name (incl. emoji) of the required status check the orchestrator polls before merging the release PR. | `🔬 Build & Lint` |
+| `requiredCheck` | The exact name (incl. emoji) of the required status check the orchestrator polls before merging the release PR. | `GO/NO GO` |
 | `stalePendingLabel` | The label release-please applies while a release is in flight; **stale** when it lingers on a *merged* PR. | `autorelease: pending` |
 
 ## Requirements
 
 - `gh` CLI, authenticated (`gh auth status` must pass) — used to read the release
-  PR, its checks, and merged PRs.
-- `git` — used to read the root `package.json` version, the tags, and the last
-  tag's date.
+  PR, its checks, and the last merged release PR's labels.
+- `git` — used to read the root `package.json` version, the tags, and
+  **commits since the last tag on `origin/<mainBranch>`** for the version preview
+  (merge commits excluded). Keep that remote-tracking ref current
+  (`git fetch origin <mainBranch>`) — a stale or missing `origin/<mainBranch>`
+  understates or fails the preview.
 - Node.js >=22 (ES-module support), for the bundled diagnosis helper. No npm
   dependencies, no build step.
 
@@ -48,11 +51,13 @@ Generate it by running the `initialise-skills` skill, or copy the example to
 The bundled `scripts/release-status.mjs` gathers four independent signals and
 prints a structured report (or `--json`):
 
-1. **Version preview** — the bump and version the merged Conventional-Commit PR
-   titles since the last tag imply (`feat:`→minor, `fix:`/`perf:`/`revert:`→patch,
-   `!`/`BREAKING CHANGE:`→major; `docs`/`chore`/`ci`/… cut no release).
+1. **Version preview** — the bump and version the Conventional-Commit subjects on
+   commits since the last tag on `origin/<mainBranch>` imply (`feat:`→minor,
+   `fix:`/`perf:`/`revert:`→patch, `!`/`BREAKING CHANGE:`→major; `docs`/`chore`/`ci`/…
+   cut no release). Merge commits are excluded. Strongest type wins; a reverted
+   `feat:` still minors (matches release-please — no cancel/netting).
 2. **Release PR** — the open `release-please--branches--main` PR (if any) and its
-   required-check (`🔬 Build & Lint`) status.
+   required-check (`GO/NO GO`) status.
 3. **Stale `autorelease: pending`** — whether the last merged release PR still
    carries the pending label, the recurring stall where release-please aborts and
    releases stop firing.

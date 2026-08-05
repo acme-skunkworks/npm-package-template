@@ -5,11 +5,13 @@ description: >-
   the change-gated lint preflight, author or update the dated changelog entry,
   compose a Conventional Commits PR title (CI + humans; post-merge bump for
   feature PRs comes from landed commit subjects), push, open or update a PR, and
-  transition linked Linear issues to In Review. Use when asked to ship, send it,
+  transition linked Linear issues to In Review, then chain into the `triage-pr`
+  skill to drive the PR to merge-ready. Use when asked to ship, send it,
   finish a branch, open or update a PR for the current work, or wrap up and push.
   A thin orchestrator that delegates the commit step to the `commit` skill, the
-  lint gate to the `preflight` skill, the changelog to the `changelog` skill, and
-  the Linear writeback to the `linear-sync` skill; it owns the branch guard, the
+  lint gate to the `preflight` skill, the changelog to the `changelog` skill, the
+  Linear writeback to the `linear-sync` skill, and the post-PR triage to the
+  `triage-pr` skill; it owns the branch guard, the
   release-type decision (by the change's semantic category), PR-title composition,
   push, and PR. One skill serves monorepos and single-package repos alike.
 license: MIT
@@ -17,13 +19,13 @@ compatibility: >-
   Requires the `git` and `gh` CLIs (`gh` authenticated). Node.js ≥22 for the
   bundled `derive-bump.mjs` / `check-skill-bumps.mjs` helpers (Node built-ins only —
   no npm dependencies, no build step, no tsx). Delegates to the `commit`,
-  `preflight`, `changelog`, and
-  `linear-sync` skills — install them alongside this one. The In Review writeback
-  needs the Linear MCP server (via `linear-sync`); it is skipped if unavailable.
+  `preflight`, `changelog`, `linear-sync`, and `triage-pr` skills — install them
+  alongside this one. A missing `linear-sync` or Linear MCP server skips the In
+  Review writeback silently; a missing `triage-pr` warns and stops at the open PR.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
   author: Rob Easthope
-allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses
+allowed-tools: Write, Read, Edit, Glob, Grep, Bash(git:*), Bash(gh:*), Bash(pnpm:*), Bash(node:*), Bash(npx:*), mcp__linear-server__get_issue, mcp__linear-server__save_issue, mcp__linear-server__list_issue_statuses, mcp__linear-server__list_projects
 ---
 
 # send-it
@@ -51,6 +53,9 @@ composition, push, and the PR — and delegates the rest:
   **every** PR, skipped entirely only when `config.json` sets `changelog: false`).
 - **Linear In Review** → the `linear-sync` skill (resolve state by team name,
   idempotent transition).
+- **Post-PR triage** → the `triage-pr` skill (Phase A CI fix loop and the
+  promote-on-proven-green flip, then Phase B review dispositions up to its human
+  envelope — Step 11, A-1151).
 
 The delegated skills auto-detect their own scope, so monorepo features
 (per-workspace ESLint fan-out, changelog `affected_packages`) no-op cleanly in a
@@ -58,13 +63,14 @@ single-package repo. send-it configures nothing about them.
 
 > **Install the delegated skills alongside `send-it`.** This bundle invokes and
 > links its siblings by relative path (`../commit/SKILL.md`, `../preflight/SKILL.md`,
-> `../changelog/SKILL.md`, `../linear-sync/SKILL.md`), so a `--skill send-it`-only
-> install leaves the commit, lint, changelog, and Linear steps unavailable and those
-> links dangling. Install them together:
+> `../changelog/SKILL.md`, `../linear-sync/SKILL.md`, `../triage-pr/SKILL.md`), so a
+> `--skill send-it`-only install leaves the commit, lint, changelog, Linear, and
+> triage steps unavailable and those links dangling. Install them together:
 >
 > ```bash
 > npx skills add https://github.com/acme-skunkworks/agent-skills \
 >   --skill send-it --skill commit --skill preflight --skill changelog --skill linear-sync \
+>   --skill triage-pr \
 >   --agent claude-code --agent cursor --copy
 > ```
 
@@ -84,6 +90,7 @@ copied `config.json` to match the consuming repo (a neutral
 | `shippableManifestKeys` *(advisory)* | `package.json` keys that form the published-`files` surface — same advisory role as `shippablePaths`, no longer a release gate. | `["name", "version", "files", "publishConfig"]` |
 | `changelog` *(optional)* | Whether to author a dated `changelog/` entry at all (Steps 7–8). Set `false` for repos with **no changelog flow** — no `changelog/` directory and no `changelog` skill installed (e.g. a `private` repo with no release pipeline). When `false`, send-it skips changelog authoring entirely, and the category decision continues to drive only the PR title. **Omit it (or set `true`) whenever the `changelog` skill is installed.** | `true` |
 | `bundleVersioning` *(optional)* | Enables the per-bundle version-bump check (Step 6) for repos that ship many independently-versioned skill bundles. An object `{ root, manifest, skillFile }` naming the bundle parent dir and the manifest / skill-manifest filenames each bundle carries. **Omit it entirely in single-package repos** — the check then no-ops. | unset (disabled) |
+| `triage` *(optional)* | Whether the run chains into the [`triage-pr`](../triage-pr/SKILL.md) skill once the PR is open (Step 11) — the CI fix loop, the promote-on-proven-green flip, then Phase B up to triage-pr's human envelope. `true` (the default) makes one `/send-it` drive the whole pipeline; set `false` in repos that want send-it to stop at the open PR, or where `triage-pr` isn't installed. `--skip-triage` does the same for a single run (A-1151). | `true` |
 
 The team name, issue-ID prefixes, and workspace slug are **not** configured here —
 they live in the `linear-sync` and `changelog` skills' own `config.json` files,
@@ -99,7 +106,12 @@ read by the delegated steps.
 ## Prerequisites
 
 - `gh` CLI installed and authenticated (`gh auth status`).
-- The sibling skills (`commit`, `preflight`, `changelog`, `linear-sync`) installed.
+- The sibling skills (`commit`, `preflight`, `changelog`) installed.
+- `linear-sync` — optional; without it (or the Linear MCP server) the In Review
+  writeback is skipped **silently** (Step 10).
+- `triage-pr` — optional; without it the Step 11 chain **warns** and the run finishes
+  at the open PR. The two behave differently on purpose: a skipped Linear writeback
+  changes nothing about the PR, whereas a skipped triage chain leaves work undone.
 
 ## Process
 
@@ -400,6 +412,13 @@ Follow the [`changelog`](../changelog/SKILL.md) skill to author or update the en
 
 ### Step 8: Commit the changelog entry and push
 
+> **`--dry-run` writes nothing from here on.** Steps 8–11 are the mutating half of the
+> run. Under `--dry-run`, print what each would do and perform **none** of it: no
+> `git commit`, no `git push`, no `gh pr create` / `gh pr edit`, no Linear transition
+> (pass `--dry-run` down to `linear-sync` so `save_issue` is never called), and
+> `--dry-run` on the Step 11 hand-off. A dry run may **read** — `gh pr view`, the
+> triage-pr preview — but it never writes. Then exit 0.
+
 If a `changelog/` entry was written in Step 7 (i.e. `changelog` is not `false`), commit
 only that file:
 
@@ -426,10 +445,14 @@ fan-out automation keep using squash outside this skill.
    "<body>"`. Use `--ready` (the flag) instead of `--draft` if the user passed
    `--ready`.
 3. **If updating:** `gh pr edit <number> --title "<title>" --body "<body>"`.
-4. **If `--merge-when-ready` was passed:** after create/update, run `gh pr merge
-   --auto --merge <number>` to enable auto-merge (merge commit) once requirements
-   are met — the feature-PR path under the dual merge policy (A-1176).
-5. Return the PR URL via `gh pr view --json url -q '.url'`.
+4. Return the PR URL and number via `gh pr view --json url,number`.
+
+> **send-it never arms auto-merge.** It opens and updates the PR; landing it stays a
+> human action (A-1151). The old `--merge-when-ready` flag — which armed
+> `gh pr merge --auto --merge` here — is **gone as of 0.8.0**: from Step 11 onward, a
+> run can be sitting at triage-pr's disposition envelope, and an armed auto-merge
+> could land the branch while that plan is still awaiting approval. Merge by hand, or
+> arm auto-merge yourself once you're happy with the PR.
 
 **PR body template:**
 
@@ -459,11 +482,131 @@ IDs from the branch and commits, resolve the live state ID by team **name** (onc
 and apply the transition idempotently (skip any issue already at or past In Review).
 Skip silently if `linear-sync` or the Linear MCP server is unavailable.
 
+### Step 11: Drive the PR to merge-ready — delegate to the `triage-pr` skill
+
+send-it opens the PR; [`triage-pr`](../triage-pr/SKILL.md) takes it the rest of the
+way (A-1151). **This step is part of the run — not an optional extra.** One
+`/send-it` drives the whole pipeline: Phase A fixes in-scope CI failures and promotes
+the proven-green draft to ready, then Phase B waits for the AI reviewers, verifies
+every finding, and halts at its human envelope. This step runs **after** Step 10 so
+the linked issues are already In Review before triage begins.
+
+1. **Check the opt-out first — before anything else in this step.** If `--skip-triage`
+   was passed, or `config.json` sets `triage: false`, print
+   `ℹ️ triage chain skipped (--skip-triage): <reason>` — or `(triage: false)` — report
+   the PR URL, and **stop the run here**. Do not run the install check, and do not
+   start the cold-start poll: a skipped chain must cost nothing. That is the pre-0.8.0
+   behaviour.
+
+   > **Don't reach for it to finish sooner.** The opt-out exists for the cases where
+   > the chain genuinely cannot work, not as a shortcut, and it is **never** the
+   > default: `triage: true` ships in `config.example.json`, and `initialise-skills`
+   > writes `true` when reconciling a consumer. Skipping leaves the PR un-triaged —
+   > red CI unfixed, bot findings unread — which is the state this step exists to
+   > prevent, so treat it the way Step 5 treats `--skip-preflight`: say **why** in the
+   > report. The legitimate reasons are narrow: the PR changes the chain itself, so
+   > the running prose and the prose on disk disagree (this bundle's own ship runs);
+   > CI is gated on `draft == false`, so a draft never registers a check (prefer
+   > `triage: false` in that repo's config over a per-run flag); or the user asked to
+   > stop at the open PR. A missing `triage-pr` needs no flag — sub-step 2 handles it.
+
+2. **Confirm `triage-pr` is installed** — look for `../triage-pr/SKILL.md` beside this
+   bundle. If it is absent, print
+
+   ```text
+   ⚠️ triage-pr not installed — stopping at the open PR.
+      Install it to chain: npx skills add <repo> --skill triage-pr --agent claude-code --copy
+   ```
+
+   and finish the run normally. A missing sibling **warns, never fails** — the same
+   soft-skip contract Step 10 applies to `linear-sync`.
+
+3. **Wait for CI to register — the cold-start gate.** Step 9 created or updated the PR
+   moments ago, so GitHub Actions may not have registered a single check yet. An empty
+   `statusCheckRollup` handed to a cold `triage-pr` reads as "nothing failing", and with
+   `promoteOnGreen` on (its default) that would flip the draft to ready **before CI ever
+   ran**. triage-pr's "no failures yet is not green" rule guards its own watch loop, not
+   a cold entry — so send-it proves at least one check exists before handing off. Poll
+   every **10 seconds** for up to **3 minutes**, in a **single** shell loop (not 18
+   separate calls — a foreground `sleep` between tool calls is slow and some harnesses
+   refuse it). Stay quiet while polling; no interim "still waiting" pings:
+
+   Capture `gh`'s exit status separately from the count — a failed call returns an
+   empty string, and treating that as "zero checks" would silently convert an auth or
+   API error into a full-window wait and a bogus "CI never started" verdict:
+
+   ```bash
+   for _ in $(seq 1 18); do
+     if ! checks=$(gh pr view <number> --json statusCheckRollup --jq '[.statusCheckRollup[]?] | length'); then
+       echo "gh pr view failed — cannot verify CI has started" >&2
+       exit 1
+     fi
+     [ "$checks" -gt 0 ] && break
+     sleep 10
+   done
+   ```
+
+   - **At least one check registered** → continue to sub-step 4.
+   - **`gh` itself fails** → stop and surface the error (authentication, rate limit, a
+     deleted PR). Do **not** fall through to the no-checks branch: an unverifiable
+     state is not the same as a verified-empty one, and only the latter is safe to
+     hand off.
+   - **Still `0` when the window expires** → CI never started for this PR (a repo with
+     no workflows, a `paths`-filtered or `draft == false`-gated workflow this PR doesn't
+     match, or a stalled Actions queue). Report
+     `⚠️ no checks registered within 3 minutes — handing off with --no-promote` and add
+     `--no-promote` to the hand-off below, so an empty rollup can never be read as a
+     proven green and flip the draft to ready. Nothing else about the chain changes.
+
+4. **Hand off.** **If send-it was run with `--dry-run`, `--dry-run` goes on this
+   command too — always.** A live `triage-pr` commits, pushes, and can flip the draft
+   to ready, so a dry run that omits it stops being a dry run. Follow the
+   [`triage-pr`](../triage-pr/SKILL.md) skill against the PR from Step 9, naming its
+   number explicitly so it never re-resolves to a different PR:
+
+   ```text
+   triage-pr <number> [--dry-run] [--ci-only] [--no-promote] [--auto-apply]
+   ```
+
+   Forward `--dry-run`, `--ci-only`, `--no-promote`, and `--auto-apply` **verbatim**
+   when they were passed to send-it, plus `--no-promote` when sub-step 3's cold-start
+   gate added it — that one is a safety flag this step owns, not a user flag, and
+   dropping it would let an unverified rollup promote a draft. Add nothing beyond
+   those. `triage-pr` reads its own
+   `config.json` (`promoteOnGreen`, `humanEnvelope`, `reviewBots`, `maxCiRounds`, …) —
+   send-it configures nothing about it, exactly as it configures nothing about
+   `commit`, `preflight`, `changelog`, or `linear-sync`.
+
+5. **Run the full chain.** Don't stop between phases: Phase A's fix→push→watch loop,
+   the promotion gate, then Phase B's review wait and verify-then-propose. Halt where
+   `triage-pr` halts — its human envelope, its slow-bot micro-gate, a hard blocker, or
+   `maxCiRounds` exhaustion. The envelope **is** the run's natural stopping point: don't
+   answer it on the user's behalf, and don't print a send-it "all done" over the top of
+   it.
+
+6. **Report once.** `triage-pr`'s own final report is the run's report — prepend
+   send-it's line items (branch, PR URL, changelog entry, Linear transitions) to it
+   rather than emitting a second, competing summary. Respect triage-pr's quiet rule
+   (A-1178): no interim pings around the hand-off.
+
+> **`--dry-run` chains into `triage-pr --dry-run`.** When a PR already exists for the
+> branch, hand off to `triage-pr <number> --dry-run` so the preview covers the failing
+> checks and unresolved findings too. When no PR exists — a dry run creates none —
+> print `no PR to triage yet` and exit 0. A dry run therefore makes **read-only** `gh`
+> calls; it still writes nothing, commits nothing, and pushes nothing.
+>
+> **Re-runs are safe.** A second `/send-it` re-enters the chain against the same PR.
+> `triage-pr` re-fetches threads every pass: resolved threads are filtered out, and
+> proposed-defer threads already carry the non-resolving `defer-pending` marker (A-679),
+> so they arrive as `deferredThreads`, not fresh findings. The envelope therefore
+> re-prompts only for genuinely new bot findings.
+
 ## Flags
 
 - `--dry-run` — print what would be written/submitted (changelog preview, branch,
-  conventional PR title, any version-bump proposals), make no commits, no push, no
-  `gh` calls. Exit 0.
+  conventional PR title, any version-bump proposals), make no commits and no push. It
+  chains into `triage-pr --dry-run` when a PR already exists for the branch (Step 11),
+  so it makes **read-only** `gh` calls but still writes nothing. Exit 0.
 - `--branch=<name>` — override the auto-derived branch name when running on the base
   branch with uncommitted changes.
 - `--issue=<ID>` — prefix the auto-derived slug with a Linear issue ID (e.g.
@@ -479,10 +622,25 @@ Skip silently if `linear-sync` or the Linear MCP server is unavailable.
   drives the changelog entry); send-it **warns** if the supplied type contradicts the
   derived `type`/`releaseTriggering`.
 - `--skip-preflight` — skip the Step 5 lint gate entirely, printing a bypass warning.
+- `--skip-triage` — end the run at the open PR: skip the Step 11 `triage-pr` chain
+  (identical to `config.json` `triage: false`). Restores the pre-0.8.0
+  bounded-finisher behaviour for one run. **Not a shortcut** — it leaves the PR
+  un-triaged; see Step 11 for the narrow cases where it applies, and state the reason
+  in the report.
+- `--ci-only` — forwarded verbatim to `triage-pr` (Step 11): run its Phase A and stop
+  at green, never promoting the draft. **No effect on send-it's own steps.**
+- `--no-promote` — forwarded verbatim to `triage-pr`: never flip the draft to ready;
+  stop at green. send-it also adds this itself when the cold-start gate times out.
+  **No effect on send-it's own steps.** (`--promote` is deliberately *not* forwarded —
+  promotion is already triage-pr's default.)
+- `--auto-apply` — forwarded verbatim to `triage-pr`: skip its Phase B human envelope
+  and restore its legacy auto path (impact-gated fix-now; Linear-only gate for
+  defers). **No effect on send-it's own steps.**
 - `--ready` — open the PR ready-for-review instead of draft (default is draft).
-- `--merge-when-ready` — after create/update, enable `gh pr merge --auto --merge`
-  (merge commit for feature PRs — A-1176).
 - `--worktree=<branch-or-path>` — `cd` into a worktree before running (Step 0).
+
+`--merge-when-ready` was **removed in 0.8.0**. send-it no longer arms
+`gh pr merge --auto --merge`; see the Step 9 callout.
 
 ## Notes
 
@@ -497,8 +655,24 @@ Skip silently if `linear-sync` or the Linear MCP server is unavailable.
   Step 6 bundle-version check moves a changed skill's own `metadata.version`; the
   repo-level npm release stays owned by release-please (feature PRs: landed commit
   subjects; squash paths: squash subject / PR title).
+- **send-it drives the pipeline now, not just the finish (A-1151).** Through 0.7.0 it
+  was a bounded finisher: seconds of work, ending in a report and an open PR. From
+  0.8.0 the default run continues into `triage-pr` (Step 11), so a single `/send-it`
+  can stay unattended for roughly 30 minutes — CI fix rounds plus the review wait —
+  and ends on a **prompt** (triage-pr's disposition envelope), not a report. That is a
+  deliberate shift in what the command is. `--skip-triage`, or `triage: false`,
+  restores the old shape.
+- **send-it never merges, and never arms auto-merge.** Taking the PR to green and
+  ready-for-review is the end of its remit; landing it is a human action.
+- **CI gated on non-draft PRs makes the chain a tax.** send-it opens drafts by
+  default, so a repo whose workflows carry `if: github.event.pull_request.draft ==
+  false` registers zero checks until the PR is ready — the Step 11 cold-start gate
+  then waits its full 3 minutes every run and hands off with `--no-promote` to a
+  triage-pr with nothing to do. Use `--ready`, or set `triage: false`, in those repos.
 - **Idempotent:** re-running send-it updates the existing PR title and changelog
-  entry; the Linear writeback skips issues already In Review or beyond.
+  entry; the Linear writeback skips issues already In Review or beyond; the Step 11
+  chain re-enters `triage-pr` against the same PR, whose `defer-pending` markers
+  (A-679) keep already-dispositioned findings out of the envelope.
 - **send-it does not bump versions or write any `CHANGELOG.md`.** release-please
   ranks Conventional Commits on trunk after merge (merge-commit history for feature
   PRs; squash subject for release/fan-out), bumps the manifest in the release PR, and
@@ -515,3 +689,10 @@ Skip silently if `linear-sync` or the Linear MCP server is unavailable.
 - **Branch push fails** — verify push access; ensure the remote is configured.
 - **PR create/update fails** — verify the PR isn't closed; verify the branch is
   pushed.
+- **`triage-pr` isn't installed** — warn and finish at the open PR (Step 11). A
+  missing sibling never fails a send-it run.
+- **No checks register within the cold-start window** — hand off with `--no-promote`
+  and say why. An empty `statusCheckRollup` must never be read as green.
+- **The triage chain fails, is aborted, or the envelope is declined** — the commits,
+  changelog entry, PR, and Linear transitions from Steps 3–10 all stand. Re-run
+  `/triage-pr <number>` directly rather than re-running the whole of send-it.

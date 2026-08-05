@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-// Release-time finalisation of changelog entries — run by the orchestrator
-// right after `release-please release-pr` (A-380/A-376), so the result is
-// committed into the release PR (no separate workflow, no bot push to main).
-// Reads the just-bumped version from package.json, which release-please updated.
+// Release-time finalisation of changelog entries — published skill source /
+// legacy mirror of `@acme-skunkworks/changelog-core finalise`. Production npm
+// targets run the CLI in-repo via shared-workflows `reusable-changelog-enrich.yml`
+// (`mode: finalise`), which writes enriched entries back as road-runner-bot[bot]
+// after the release PR merges (A-801 — no central orchestrator step).
 //
-// For every entry that isn't finalised yet (empty `version`):
+// Reads the just-bumped version from package.json (release-please updated it on
+// the release branch). For every entry that isn't finalised yet (empty `version`):
 //   1. resolve its merged PR from the `branch` field via `gh` and enrich
 //      (merged_at / commit / pr / merge_strategy / stats);
 //   2. stamp `version` with the just-bumped package.json version;
@@ -14,10 +16,9 @@
 // resolver; main() wires the real `gh`/`git` resolver and walks the directory.
 //
 // Zero-dep: composes the bundle's own modules (lib/enrich, lib/stamp,
-// add-links) and the vendored frontmatter parser — no gray-matter, no tsx — so
-// `pnpm changelog:finalise` runs under bare `node` (the orchestrator runs it
-// with `--ignore-scripts`). The Linear workspace/issue keys come from config.json
-// via add-links, not hardcoded constants.
+// add-links) and the vendored frontmatter parser — no gray-matter, no tsx.
+// The Linear workspace/issue keys come from config.json via add-links, not
+// hardcoded constants.
 
 import { rewriteBody, splitFrontmatter } from "./add-links.mjs";
 import { isCliEntry } from "./lib/cli-entry.mjs";
@@ -221,7 +222,8 @@ export function makeResolver(run) {
 
 const USAGE = `finalise-changelog — release-time enrich + version-stamp the dated changelog/ entries
 
-Run by the release orchestrator right after \`release-please release-pr\`. Reads the
+Published skill source; production npm targets use \`changelog-core finalise\` via
+\`reusable-changelog-enrich.yml\` (mode: finalise) in-repo after merge. Reads the
 just-bumped version from package.json, then for every un-finalised entry: resolves
 its merged PR via \`gh\`/\`git\` to enrich (merged_at/commit/pr/merge_strategy/stats),
 stamps \`version\`, and rewrites bare Linear IDs to links. WRITES to changelog/ files.

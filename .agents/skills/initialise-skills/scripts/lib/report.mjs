@@ -15,6 +15,12 @@ const GITIGNORE_LABEL = {
   "would-create": `will create .gitignore with ${IGNORE_ENTRY}`,
 };
 
+const SKILL_CONFIG_IGNORE_LABEL = {
+  clean: "no erroneous skill-config ignore rules",
+  stripped: "stripped skill-config ignore rules (A-812)",
+  "would-strip": "will strip skill-config ignore rules (A-812)",
+};
+
 /**
  * Human-friendly one-liners for the skills.lock write action (A-616).
  */
@@ -83,6 +89,8 @@ function byStatusThenKey(a, b) {
  *   reconcile result (A-569), or null when preflight is not installed
  * @param {{ path: string, status: string, needsFacts: boolean } | null} [lock] the
  *   skills.lock write result (A-616), or null when no bundles are installed
+ * @param {{ path: string, status: string, removed?: string[] } | null} [skillConfigIgnore]
+ *   strip of erroneous skill-config ignore rules (A-812)
  * @returns {object}
  */
 export function buildReport(
@@ -90,6 +98,7 @@ export function buildReport(
   wrote,
   gitignore = null,
   lock = null,
+  skillConfigIgnore = null,
 ) {
   const totals = {};
   const driftKeys = [];
@@ -143,6 +152,7 @@ export function buildReport(
     manualKeys,
     mode: wrote ? "write" : "dry-run",
     setKeys,
+    skillConfigIgnore,
     skills,
     totals,
   };
@@ -210,6 +220,17 @@ export function formatHuman(report) {
     const detail =
       GITIGNORE_LABEL[report.gitignore.status] ?? report.gitignore.status;
     lines.push(`${report.gitignore.path}: ${detail}`, "");
+  }
+
+  if (report.skillConfigIgnore) {
+    const detail =
+      SKILL_CONFIG_IGNORE_LABEL[report.skillConfigIgnore.status] ??
+      report.skillConfigIgnore.status;
+    const patterns = (report.skillConfigIgnore.removed ?? []).filter(
+      (entry) => !entry.startsWith("#"),
+    );
+    const removed = patterns.length ? ` (${patterns.join(", ")})` : "";
+    lines.push(`${report.skillConfigIgnore.path}: ${detail}${removed}`, "");
   }
 
   if (report.lock) {

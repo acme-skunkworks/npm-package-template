@@ -2,17 +2,17 @@
 name: release-status
 description: >-
   Diagnose the release-please release pipeline, read-only. Preview the next
-  version from the merged Conventional-Commit PR titles since the last tag
+  version from Conventional-Commit subjects on commits since the last tag
   (feat→minor, fix/perf/revert→patch, !/BREAKING→major; docs/chore/ci/refactor/
-  test/build/style→none), show the open release-please--branches--main PR and its
-  required-check (🔬 Build & Lint) status, detect the recurring stale
-  `autorelease: pending` stall on the last merged release PR (where release-please
-  aborts and releases silently stop firing), and confirm tag-vs-version parity
-  (does a v<package.json version> tag already exist, or is publishing pending — the
-  release.yml version-vs-tag gate). Use when asked why a release didn't fire, what
-  version would cut next, whether the release PR is green, whether the pipeline is
-  stalled, or to check release health. Advisory only — it inspects post-merge main
-  and changes nothing.
+  test/build/style→none; merge commits excluded), show the open
+  release-please--branches--main PR and its required-check (GO/NO GO) status,
+  detect the recurring stale `autorelease: pending` stall on the last merged
+  release PR (where release-please aborts and releases silently stop firing),
+  and confirm tag-vs-version parity (does a v<package.json version> tag already
+  exist, or is publishing pending — the release.yml version-vs-tag gate). Use
+  when asked why a release didn't fire, what version would cut next, whether the
+  release PR is green, whether the pipeline is stalled, or to check release
+  health. Advisory only — it inspects post-merge main and changes nothing.
 license: MIT
 compatibility: >-
   Requires the `gh` CLI (authenticated — `gh auth status` must pass) and `git`.
@@ -22,7 +22,7 @@ compatibility: >-
   road-runner-bot `release-orchestrator`), with a publish-only `release.yml`
   gated on a version-vs-tag check.
 metadata:
-  version: 0.1.4
+  version: 0.2.1
   author: Rob Easthope
 allowed-tools: Read, Glob, Grep, Bash(gh:*), Bash(git:*), Bash(node:*)
 ---
@@ -41,14 +41,17 @@ ship flow — it stops at **In Review** (opens the PR, transitions the Linear
 issue). `release-status` picks up **after merge**: it inspects the state of
 `main`, the release PR, and the tags to explain what the release machinery is
 doing. The two never call each other. This skill may reference `send-it` in prose
-(e.g. "the PR title `send-it` composed is the bump signal"), but it never runs it.
+(e.g. how `/send-it` composes a Conventional-Commit PR title from branch
+commits), but it never runs it. Version preview itself reads **commits since the
+last tag** (merge commits excluded) — the same per-commit signal release-please
+uses under multi-commit history (A-824) — not merged PR titles.
 
 ## What it inspects
 
 | Signal | What it answers | How to read / fix it |
 | --- | --- | --- |
-| **Version preview** | What bump and version would the merged Conventional-Commit PR titles since the last tag produce? | `feat:`→minor, `fix:`/`perf:`/`revert:`→patch, `!`/`BREAKING CHANGE:`→major; `docs`/`chore`/`ci`/`refactor`/`test`/`build`/`style`→none. The strongest wins. `none` means nothing release-triggering has merged since the last tag — no release will cut. |
-| **Release PR** | Is the `release-please--branches--main` PR open, and is its required check (`🔬 Build & Lint`) green? | If open and green, the orchestrator can squash-merge it. If the check is pending/red, the merge is blocked — chase that check. If none is open, release-please hasn't opened one (often because nothing release-triggering merged, or the pipeline is stalled — see below). |
+| **Version preview** | What bump and version would the Conventional-Commit subjects on commits since the last tag on `origin/<mainBranch>` produce? | `feat:`→minor, `fix:`/`perf:`/`revert:`→patch, `!`/`BREAKING CHANGE:`→major; `docs`/`chore`/`ci`/`refactor`/`test`/`build`/`style`→none. The strongest wins across **all** commits (merge commits excluded). A `feat:` later `revert:`ed in the same window still implies **minor** — no cancel/netting, matching release-please. `none` means nothing release-triggering has landed since the last tag — no release will cut. |
+| **Release PR** | Is the `release-please--branches--main` PR open, and is its required check (`GO/NO GO`) green? | If open and green, the orchestrator can squash-merge it. If the check is pending/red, the merge is blocked — chase that check. If none is open, release-please hasn't opened one (often because nothing release-triggering merged, or the pipeline is stalled — see below). |
 | **Stale `autorelease: pending`** | Does the **last merged** release PR still carry the `autorelease: pending` label? | This is the recurring stall: when a merged release PR keeps that label, release-please **aborts the next release** and the pipeline silently stops firing. Remediation: remove the label from that PR, then re-run the orchestrator (or wait for its cron tick). |
 | **Tag-vs-version parity** | Does a `v<package.json version>` tag already exist? | This is the `release.yml` **version-vs-tag gate**. Tag exists → clean no-op (this version is already published). Tag missing → **publishing is pending** for that version (the gate would run the publish path on the next `main` push). |
 
@@ -64,7 +67,7 @@ match the consuming repo.
 | --- | --- | --- |
 | `mainBranch` | The trunk release-please releases from. | `main` |
 | `releaseBranch` | The branch release-please opens its release PR on. | `release-please--branches--main` |
-| `requiredCheck` | The exact name (incl. emoji) of the required status check the orchestrator polls before merging the release PR. | `🔬 Build & Lint` |
+| `requiredCheck` | The exact name (incl. emoji) of the required status check the orchestrator polls before merging the release PR. | `GO/NO GO` |
 | `stalePendingLabel` | The label release-please applies to a release PR while a release is in flight; **stale** when it lingers on a *merged* PR. | `autorelease: pending` |
 
 ## Usage
@@ -105,8 +108,12 @@ node scripts/release-status.mjs --self-test
 ### Step 1 — Confirm prerequisites
 
 `gh auth status` must pass, and you must be inside (or pass `--repo` for) the target
-repository. The helper reads the root `package.json` version, the local tags, and
-queries `gh` for the release PR and merged PRs.
+repository. The helper reads the root `package.json` version, local tags, and
+commits since the last tag on `origin/<mainBranch>` via `git`, and queries `gh`
+for the open release PR and the last merged release PR's labels. Ensure
+`origin/<mainBranch>` is up to date (`git fetch origin <mainBranch>`) before
+trusting the version preview — the helper reads the local remote-tracking ref,
+not a live GitHub query.
 
 ### Step 2 — Run the helper and read the four signals
 
