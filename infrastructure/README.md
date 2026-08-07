@@ -4,7 +4,7 @@ Workflow logic extracted from `.github/workflows/*.yml` plus shared dev-tooling 
 
 ## Layout
 
-```
+```text
 infrastructure/
   scripts/                          # executable logic. one file = one purpose
     ensure-yamllint.sh              # CI-unused since A-447 (lint reusable caller installs yamllint); local + reference
