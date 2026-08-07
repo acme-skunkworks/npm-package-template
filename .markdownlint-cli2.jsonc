@@ -1,5 +1,15 @@
 {
+  // Globs intentionally omitted: markdownlint-cli2 v0.18 unions config globs
+  // with CLI file arguments, which makes the lint-staged hook auto-fix every
+  // .md file in the repo on every staged-md run (drive-by churn). The
+  // `lint:md` script in package.json passes its own globs on the CLI, so
+  // config globs are redundant for the standalone case.
+  //
+  // ignores: vendored skill bundles must stay byte-identical to upstream
+  // (agent-skills); markdownlint-config 3.x is stricter (MD040/MD041/MD044/MD049)
+  // and would otherwise fail hundreds of skill-doc findings on every consumer.
   "config": {
     "extends": "@acme-skunkworks/markdownlint-config",
   },
+  "ignores": [".agents/skills/**", ".claude/skills/**"],
 }
