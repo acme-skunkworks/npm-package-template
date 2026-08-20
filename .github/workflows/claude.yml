@@ -19,6 +19,6 @@ permissions:
 
 jobs:
   claude:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-claude.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-claude.yml@v1
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

@@ -46,13 +46,13 @@ jobs:
   # package that changes npmScope / nodeVersionFile / the registry URLs in
   # repo-config.yaml has them flow through here without editing this workflow.
   config:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-load-repo-config.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-load-repo-config.yml@v1
     permissions:
       contents: read
 
   release:
     needs: config
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-pkg-release.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-pkg-release.yml@v1
     with:
       npm-scope: ${{ needs.config.outputs.npm_scope }}
       # Passed from repo-config for flow-through parity even though they equal the
@@ -78,7 +78,7 @@ jobs:
   # Dormant on this template while Release is disabled; generated packages
   # inherit the job when they enable Release.
   changelog-enrich:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-changelog-enrich.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-changelog-enrich.yml@v1
     with:
       mode: finalise
     permissions:
