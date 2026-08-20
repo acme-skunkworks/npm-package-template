@@ -9,7 +9,7 @@ per-pass confirmation gates, with a `--dry-run` preview.
 From any consumer repo:
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill cleanup-repo --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill cleanup-repo --agent claude-code --agent cursor --copy
 ```
 
 `--copy` writes real files so the bundle is portable. Don't use `-g` / `--global`

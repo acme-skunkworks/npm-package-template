@@ -29,7 +29,7 @@ arms auto-merge; merging stays a human action.
 From any consumer repo:
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill send-it --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill send-it --agent claude-code --agent cursor --copy
 ```
 
 `--copy` writes real files so the bundle is portable. Don't use `-g` / `--global`
@@ -41,7 +41,7 @@ changelog, Linear, and triage steps no-op gracefully if a sibling is absent, but
 flow assumes they are present):
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill commit --skill preflight --skill changelog --skill linear-sync --skill triage-pr --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill commit --skill preflight --skill changelog --skill linear-sync --skill triage-pr --agent claude-code --agent cursor --copy
 ```
 
 ## Configure

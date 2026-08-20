@@ -12,7 +12,7 @@ previews a dry-run diff first, and writes only after confirmation.
 From any consumer repo:
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill initialise-skills --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill initialise-skills --agent claude-code --agent cursor --copy
 ```
 
 `--copy` writes real files so the bundle is portable. Don't use `-g` / `--global`
