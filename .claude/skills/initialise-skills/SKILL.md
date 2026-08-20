@@ -105,7 +105,7 @@ at the repo root — a machine-readable inventory of which skill versions are in
 and where they came from:
 
 ```json
-{ "source": "https://github.com/acme-skunkworks/agent-skills", "ref": "main",
+{ "source": "https://github.com/rheged-studio/agent-skills", "ref": "main",
   "skills": { "changelog": "1.2.0", "send-it": "2.1.3", "…": "…" } }
 ```
 
@@ -162,7 +162,7 @@ This is the foundation for detecting which repos are behind — see
    as stdin JSON:
 
    ```bash
-   echo '{"facts":{"linearTeamName":"…","linearWorkspaceSlug":"…","followUpProject":"…","lockSource":"https://github.com/acme-skunkworks/agent-skills","lockRef":"main"},"acceptDrift":{"changelog":["issueKeys"]}}' \
+   echo '{"facts":{"linearTeamName":"…","linearWorkspaceSlug":"…","followUpProject":"…","lockSource":"https://github.com/rheged-studio/agent-skills","lockRef":"main"},"acceptDrift":{"changelog":["issueKeys"]}}' \
      | node <skills-dir>/initialise-skills/scripts/initialise.mjs --write --json
    ```
 

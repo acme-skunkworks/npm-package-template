@@ -10,7 +10,7 @@ decide which repos are behind.
 
 ```json
 {
-  "source": "https://github.com/acme-skunkworks/agent-skills",
+  "source": "https://github.com/rheged-studio/agent-skills",
   "ref": "main",
   "skills": {
     "changelog": "0.9.1",

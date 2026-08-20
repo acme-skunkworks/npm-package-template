@@ -68,7 +68,7 @@ single-package repo. send-it configures nothing about them.
 > triage steps unavailable and those links dangling. Install them together:
 >
 > ```bash
-> npx skills add https://github.com/acme-skunkworks/agent-skills \
+> npx skills add https://github.com/rheged-studio/agent-skills \
 >   --skill send-it --skill commit --skill preflight --skill changelog --skill linear-sync \
 >   --skill triage-pr \
 >   --agent claude-code --agent cursor --copy

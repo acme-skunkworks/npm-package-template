@@ -11,7 +11,7 @@ and confirm tag-vs-version parity — all without changing anything.
 From any consumer repo:
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill release-status --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill release-status --agent claude-code --agent cursor --copy
 ```
 
 `--copy` writes real files so the bundle is portable. Don't use `-g` / `--global`
