@@ -12,13 +12,13 @@
     "release-please",
     "bootstrap"
   ],
-  "homepage": "https://github.com/acme-skunkworks/npm-package-template/tree/main/.claude/skills/initialise-package-repo#readme",
+  "homepage": "https://github.com/rheged-studio/npm-package-template/tree/main/.claude/skills/initialise-package-repo#readme",
   "bugs": {
-    "url": "https://github.com/acme-skunkworks/npm-package-template/issues"
+    "url": "https://github.com/rheged-studio/npm-package-template/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/acme-skunkworks/npm-package-template.git",
+    "url": "https://github.com/rheged-studio/npm-package-template.git",
     "directory": ".claude/skills/initialise-package-repo"
   },
   "license": "MIT",

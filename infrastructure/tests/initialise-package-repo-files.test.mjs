@@ -71,21 +71,21 @@ describe("deriveIdentity + applyIdentity", () => {
     defaultBranchRef: { name: "main" },
     description: "A real package",
     name: "portcullis",
-    owner: { login: "acme-skunkworks" },
+    owner: { login: "rheged-studio" },
   };
 
   it("derives name, scope and URLs from the repo view", () => {
     const id = deriveIdentity(view);
-    expect(id.name).toBe("@acme-skunkworks/portcullis");
-    expect(id.scope).toBe("@acme-skunkworks");
+    expect(id.name).toBe("@rheged-studio/portcullis");
+    expect(id.scope).toBe("@rheged-studio");
     expect(id.homepage).toBe(
-      "https://github.com/acme-skunkworks/portcullis#readme",
+      "https://github.com/rheged-studio/portcullis#readme",
     );
     expect(id.bugsUrl).toBe(
-      "https://github.com/acme-skunkworks/portcullis/issues",
+      "https://github.com/rheged-studio/portcullis/issues",
     );
     expect(id.repositoryUrl).toBe(
-      "https://github.com/acme-skunkworks/portcullis.git",
+      "https://github.com/rheged-studio/portcullis.git",
     );
     expect(id.defaultBranch).toBe("main");
   });
@@ -93,18 +93,16 @@ describe("deriveIdentity + applyIdentity", () => {
   it("falls back to @owner when a scoped override name has no slash", () => {
     // A malformed override like "@foo" must not slice to "@fo" and silently write
     // a broken npmScope downstream.
-    expect(deriveIdentity(view, { name: "@foo" }).scope).toBe(
-      "@acme-skunkworks",
-    );
+    expect(deriveIdentity(view, { name: "@foo" }).scope).toBe("@rheged-studio");
   });
 
   it("honours operator overrides for name/description/keywords", () => {
     const id = deriveIdentity(view, {
       description: "Custom",
       keywords: ["a"],
-      name: "@acme-skunkworks/renamed",
+      name: "@rheged-studio/renamed",
     });
-    expect(id.name).toBe("@acme-skunkworks/renamed");
+    expect(id.name).toBe("@rheged-studio/renamed");
     expect(id.description).toBe("Custom");
     expect(id.keywords).toEqual(["a"]);
   });
@@ -112,14 +110,14 @@ describe("deriveIdentity + applyIdentity", () => {
   it("rewrites the package identity block", () => {
     const pkg = {
       bugs: {
-        url: "https://github.com/acme-skunkworks/npm-package-template/issues",
+        url: "https://github.com/rheged-studio/npm-package-template/issues",
       },
       description: "Template repository",
       keywords: ["template"],
-      name: "@acme-skunkworks/npm-package-template",
+      name: "@rheged-studio/npm-package-template",
       repository: {
         type: "git",
-        url: "https://github.com/acme-skunkworks/npm-package-template.git",
+        url: "https://github.com/rheged-studio/npm-package-template.git",
       },
       version: "0.0.0",
     };
@@ -128,10 +126,10 @@ describe("deriveIdentity + applyIdentity", () => {
       deriveIdentity(view, { keywords: ["css"] }),
     );
     expect(changed).toBe(true);
-    expect(data.name).toBe("@acme-skunkworks/portcullis");
+    expect(data.name).toBe("@rheged-studio/portcullis");
     expect(data.keywords).toEqual(["css"]);
     expect(data.repository.url).toBe(
-      "https://github.com/acme-skunkworks/portcullis.git",
+      "https://github.com/rheged-studio/portcullis.git",
     );
     expect(data.version).toBe("0.0.0"); // untouched — identity only
   });
@@ -139,17 +137,15 @@ describe("deriveIdentity + applyIdentity", () => {
   it("leaves keywords alone when none are supplied", () => {
     const pkg = {
       keywords: ["template"],
-      name: "@acme-skunkworks/npm-package-template",
+      name: "@rheged-studio/npm-package-template",
     };
     const { data } = applyIdentity(pkg, deriveIdentity(view));
     expect(data.keywords).toEqual(["template"]);
   });
 
   it("recognises the placeholder name as the not-yet-renamed signal", () => {
-    expect(isPlaceholderName("@acme-skunkworks/npm-package-template")).toBe(
-      true,
-    );
-    expect(isPlaceholderName("@acme-skunkworks/portcullis")).toBe(false);
+    expect(isPlaceholderName("@rheged-studio/npm-package-template")).toBe(true);
+    expect(isPlaceholderName("@rheged-studio/portcullis")).toBe(false);
   });
 });
 
@@ -157,7 +153,7 @@ describe("reconcileRepoConfigText", () => {
   const yaml = [
     "# a comment",
     "defaultBranch: main",
-    'npmScope: "@acme-skunkworks"',
+    'npmScope: "@rheged-studio"',
     "npmRegistryUrl: https://registry.npmjs.org",
     "",
   ].join("\n");
@@ -165,7 +161,7 @@ describe("reconcileRepoConfigText", () => {
   it("is a no-op for a same-org package (idempotent)", () => {
     const { changes, text } = reconcileRepoConfigText(yaml, {
       defaultBranch: "main",
-      npmScope: "@acme-skunkworks",
+      npmScope: "@rheged-studio",
     });
     expect(changes).toEqual({});
     expect(text).toBe(yaml);

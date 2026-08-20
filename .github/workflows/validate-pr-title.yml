@@ -21,5 +21,5 @@ jobs:
   # `pr-title / Validate PR title is a Conventional Commit` that one required-check
   # rule pins across the estate (A-400/A-405). Do not rename.
   pr-title:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-pr-title.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-validate-pr-title.yml@v1
     secrets: inherit

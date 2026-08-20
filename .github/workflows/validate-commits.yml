@@ -26,4 +26,4 @@ jobs:
   # boundary matching reusable-validate-pr-title's no-secrets model except that
   # the commits gate forbids inherit explicitly).
   commits:
-    uses: acme-skunkworks/shared-workflows/.github/workflows/reusable-validate-commits.yml@v1
+    uses: rheged-studio/shared-workflows/.github/workflows/reusable-validate-commits.yml@v1

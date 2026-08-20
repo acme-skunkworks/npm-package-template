@@ -13,13 +13,13 @@
     "conventional-commits",
     "changelog"
   ],
-  "homepage": "https://github.com/acme-skunkworks/agent-skills/tree/main/skills/send-it#readme",
+  "homepage": "https://github.com/rheged-studio/agent-skills/tree/main/skills/send-it#readme",
   "bugs": {
-    "url": "https://github.com/acme-skunkworks/agent-skills/issues"
+    "url": "https://github.com/rheged-studio/agent-skills/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/acme-skunkworks/agent-skills.git",
+    "url": "https://github.com/rheged-studio/agent-skills.git",
     "directory": "skills/send-it"
   },
   "license": "MIT",
