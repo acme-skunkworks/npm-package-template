@@ -1,5 +1,5 @@
 {
-  "name": "@acme-skunkworks/skill-cleanup-repo",
+  "name": "@rheged-studio/skill-cleanup-repo",
   "version": "0.4.1",
   "private": true,
   "description": "Agent skill: clean up merged Git branches and worktrees, plus a filesystem-hygiene pass (empty directories and orphan node_modules).",

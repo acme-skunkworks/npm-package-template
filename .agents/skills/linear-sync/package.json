@@ -1,5 +1,5 @@
 {
-  "name": "@acme-skunkworks/skill-linear-sync",
+  "name": "@rheged-studio/skill-linear-sync",
   "version": "0.3.4",
   "private": true,
   "description": "Agent skill: transition the Linear issues linked to the current branch through their workflow states (In Progress / In Review / Done), resolving state IDs by team name and applying transitions idempotently.",

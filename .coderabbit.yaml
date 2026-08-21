@@ -41,7 +41,7 @@ reviews:
     - "!pnpm-lock.yaml"
     - "!**/dist/**"
     - "!**/node_modules/**"
-    - "!.claude/skills/**" # re-vendored @acme-skunkworks/agent-skills bundles
+    - "!.claude/skills/**" # re-vendored @rheged-studio/agent-skills bundles
     - "!.agents/skills/**" # Cursor mirror of the same bundles
 
   # Encode estate policy as reviewer guidance for the paths it applies to.

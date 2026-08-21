@@ -10,7 +10,7 @@ changelog contract.
 From any consumer repo:
 
 ```bash
-npx skills add https://github.com/acme-skunkworks/agent-skills --skill changelog --agent claude-code --agent cursor --copy
+npx skills add https://github.com/rheged-studio/agent-skills --skill changelog --agent claude-code --agent cursor --copy
 ```
 
 `--copy` writes real files so the bundle is portable. Don't use `-g` / `--global`
@@ -69,11 +69,11 @@ the skill runs (`set-affected-packages`, `add-links`, `preflight-changelog-ci`,
 scripts (`finalise-changelog` for npm targets, `enrich-changelog` for deploy
 targets, `check-changelog-completeness`) remain in the bundle as **published
 source**, but the estate now runs that logic from the published
-[`@acme-skunkworks/changelog-core`](https://www.npmjs.com/package/@acme-skunkworks/changelog-core)
+[`@rheged-studio/changelog-core`](https://www.npmjs.com/package/@rheged-studio/changelog-core)
 package — invoked in-repo by the shared `reusable-changelog-enrich.yml`
 (`mode: enrich | finalise`) and by CI (`changelog-core validate` /
 `check-completeness`), not by a central orchestrator or cron. See the SKILL.md
 "Implementation" section for detail. Every script takes `--help` (usage, exit 0)
 and `--self-test` (an offline smoke test of its pure logic). Their **unit tests are
-maintained in the [`agent-skills`](https://github.com/acme-skunkworks/agent-skills)
+maintained in the [`agent-skills`](https://github.com/rheged-studio/agent-skills)
 repo**, not bundled into the skill — see that repo's test suite for coverage.

@@ -36,7 +36,7 @@ node .claude/skills/initialise-package-repo/scripts/initialise-package-repo.mjs 
 changelog-poisoning fix), re-seeds `.release-please-manifest.json` to the starting
 `package.json` version, rewrites the `package.json` identity and
 `infrastructure/repo-config.yaml` from the repo's own facts (`gh repo view`),
-**pulls the shared skills** from `acme-skunkworks/agent-skills` into both agent
+**pulls the shared skills** from `rheged-studio/agent-skills` into both agent
 trees (`--copy`), and **clears the template-seed skill-config gitignore** (A-812)
 so resolved per-skill `config.json` files are trackable and committed in the
 consumer.

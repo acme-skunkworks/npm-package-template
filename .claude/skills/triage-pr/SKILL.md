@@ -217,7 +217,7 @@ git diff --name-only origin/<base>...HEAD   # files this PR actually touches
 - **Fix the code, never the lint surface.** For a lint / format / static-analysis
   failure the preference order is: (1) fix the offending **code**; (2) if the rule
   itself is genuinely wrong, the remedy is a change to the **shared config package**
-  (`@acme-skunkworks/eslint-config`, `@acme-skunkworks/markdownlint-config`, …),
+  (`@rheged-studio/eslint-config`, `@rheged-studio/markdownlint-config`, …),
   proposed to the developer — not landed here; (3) a local config override or an
   ignore / disable directive only with the developer's sign-off. You never take (2)
   or (3) on your own initiative — classify it as gated (Step 3) and keep going.
@@ -432,7 +432,7 @@ Phase B disposition plan (nothing applied yet):
   2. [decline] Suggested rewrite is YAGNI — …
   3. [defer] Extract retry helper — draft: "Add retry backoff to fetch layer"
   4. [gated] Would need `eslint.config.mjs` rule change — your call; prefer a
-     change to @acme-skunkworks/eslint-config
+     change to @rheged-studio/eslint-config
   Bots still outstanding at wait end: cursor (if any)
 Apply this plan? [y/N]
   (optional overrides: "yes except decline #1, defer #2 as …")

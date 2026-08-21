@@ -9,7 +9,7 @@
   // (agent-skills); markdownlint-config 3.x is stricter (MD040/MD041/MD044/MD049)
   // and would otherwise fail hundreds of skill-doc findings on every consumer.
   "config": {
-    "extends": "@acme-skunkworks/markdownlint-config",
+    "extends": "@rheged-studio/markdownlint-config",
   },
   "ignores": [".agents/skills/**", ".claude/skills/**"],
 }

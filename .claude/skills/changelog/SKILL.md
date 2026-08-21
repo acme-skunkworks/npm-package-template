@@ -32,7 +32,7 @@ This skill is the single source of truth for **what a valid changelog entry is**
 — the frontmatter schema, the field-ownership boundaries, idempotent
 update-vs-create, and the validation gate. The same contract is enforced
 downstream by a consumer repo's CI and by the post-merge enricher that fills the
-post-merge fields (`@acme-skunkworks/changelog-core`, run in-repo by
+post-merge fields (`@rheged-studio/changelog-core`, run in-repo by
 `reusable-changelog-enrich.yml` — no longer a central release-orchestrator step),
 so the authoring rules live here once.
 
@@ -248,9 +248,9 @@ test of its pure logic); the file-writing scripts also take `--check` /
 - `scripts/preflight-changelog-ci.mjs` — optional Node/lockfile CI-parity check (pnpm).
 - `scripts/validate-changelog.mjs` — validates the entry against the contract.
 
-**Post-merge finalisation and the CI gate — now run from `@acme-skunkworks/changelog-core`.**
+**Post-merge finalisation and the CI gate — now run from `@rheged-studio/changelog-core`.**
 The finalise/enrich/completeness logic has been extracted into the published
-[`@acme-skunkworks/changelog-core`](https://www.npmjs.com/package/@acme-skunkworks/changelog-core)
+[`@rheged-studio/changelog-core`](https://www.npmjs.com/package/@rheged-studio/changelog-core)
 package (CLI: `validate | enrich | finalise | set-affected-packages | add-links |
 backfill-commits | check-completeness`). In-repo post-merge enrichment runs via the
 shared-workflows `reusable-changelog-enrich.yml` (`mode: finalise` for npm targets,

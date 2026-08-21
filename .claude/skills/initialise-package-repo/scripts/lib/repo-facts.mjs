@@ -11,7 +11,7 @@ import { spawnSync } from "node:child_process";
 /**
  * The scoped name the template ships with — its presence means "not yet renamed".
  */
-export const PLACEHOLDER_NAME = "@acme-skunkworks/npm-package-template";
+export const PLACEHOLDER_NAME = "@rheged-studio/npm-package-template";
 
 /**
  * Map a `gh repo view` payload onto the package-identity fields, layering any

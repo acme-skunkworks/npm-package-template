@@ -114,7 +114,7 @@ land.
 Two reasons it stays with the human:
 
 - **The shared-config model.** Estate lint rules live in packages
-  (`@acme-skunkworks/eslint-config`, `@acme-skunkworks/markdownlint-config`, …). A
+  (`@rheged-studio/eslint-config`, `@rheged-studio/markdownlint-config`, …). A
   per-repo override is usually the wrong place for a rule change — it forks the
   estate's lint behaviour one repo at a time.
 - **Cumulative surface degradation.** Every ignore line and every loosened local rule
