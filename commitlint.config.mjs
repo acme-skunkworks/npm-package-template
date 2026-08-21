@@ -1,3 +1,3 @@
 export default {
-  extends: ["@acme-studio/commitlint-config"],
+  extends: ["@rheged-studio/commitlint-config"],
 };

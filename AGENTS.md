@@ -1,5 +1,5 @@
 <!--
-  Managed upstream in acme-studio/shared-agents-md and vendored into estate repos by the
+  Managed upstream in rheged-studio/shared-agents-md and vendored into estate repos by the
   release-orchestrator fan-out (fanout-agents-md.yml). Do NOT edit this copy — edit the canonical
   AGENTS.md in shared-agents-md; changes here are overwritten on the next fan-out.
 -->

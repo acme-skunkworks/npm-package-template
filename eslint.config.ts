@@ -1,4 +1,4 @@
-import { base, typescript } from "@acme-studio/eslint-config";
+import { base, typescript } from "@rheged-studio/eslint-config";
 import { defineConfig } from "eslint/config";
 
 /**
@@ -10,7 +10,7 @@ import { defineConfig } from "eslint/config";
  * type-checked against the preset's shipped types, rather than only failing
  * when ESLint runs. Generated packages extend this with the opt-in presets they
  * need — e.g. `testing`, `frameworkRouting`, `astro`, `sanity`, `storybook`,
- * `tableComponents` — all re-exported from `@acme-studio/eslint-config`.
+ * `tableComponents` — all re-exported from `@rheged-studio/eslint-config`.
  */
 export default defineConfig([
   // The vendored agent-skill bundles are mirrored into `.claude/skills/` (already

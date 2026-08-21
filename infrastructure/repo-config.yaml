@@ -10,5 +10,5 @@ npmRegistryUrl: https://registry.npmjs.org
 # Secondary publish target (A-323). GitHub Packages' npm registry; npmScope
 # must equal the owning GitHub org so setup-node scopes .npmrc correctly.
 # npmScope intentionally stale pending @rheged-studio npm migration (A-1222).
-npmScope: "@acme-studio"
+npmScope: "@rheged-studio"
 githubPackagesRegistryUrl: https://npm.pkg.github.com
