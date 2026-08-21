@@ -16,7 +16,7 @@ stats:
   files_changed: 0
   loc_added: 0
   loc_removed: 0
-  commits: []
+  commits: 0
 ---
 
 ## Changed
