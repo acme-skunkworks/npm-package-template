@@ -4,19 +4,19 @@ release_note: ""
 created_at: "2026-08-21T10:47:14Z"
 merged_at: ""
 branch: a-1414-sweep-rheged-studio-identifiers
-pr: 83
+pr:
 commit: ""
-author: rob@rhegedstudio.io
+author: rob.studio
 co_authors: []
 category: chore
 breaking: false
 issues:
   - A-1414
 stats:
-  files_changed: 0
-  loc_added: 0
-  loc_removed: 0
-  commits: 0
+  files_changed:
+  loc_added:
+  loc_removed:
+  commits:
 ---
 
 ## Changed
