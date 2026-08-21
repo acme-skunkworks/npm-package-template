@@ -114,7 +114,7 @@ describe("deriveIdentity + applyIdentity", () => {
       },
       description: "Template repository",
       keywords: ["template"],
-      name: "@acme-skunkworks/npm-package-template",
+      name: "@acme-studio/npm-package-template",
       repository: {
         type: "git",
         url: "https://github.com/rheged-studio/npm-package-template.git",
@@ -137,17 +137,17 @@ describe("deriveIdentity + applyIdentity", () => {
   it("leaves keywords alone when none are supplied", () => {
     const pkg = {
       keywords: ["template"],
-      name: "@acme-skunkworks/npm-package-template",
+      name: "@acme-studio/npm-package-template",
     };
     const { data } = applyIdentity(pkg, deriveIdentity(view));
     expect(data.keywords).toEqual(["template"]);
   });
 
   it("recognises the placeholder name as the not-yet-renamed signal", () => {
-    expect(isPlaceholderName("@acme-skunkworks/npm-package-template")).toBe(
+    expect(isPlaceholderName("@acme-studio/npm-package-template")).toBe(
       true,
     );
-    expect(isPlaceholderName("@acme-skunkworks/portcullis")).toBe(false);
+    expect(isPlaceholderName("@acme-studio/portcullis")).toBe(false);
   });
 });
 
@@ -155,7 +155,7 @@ describe("reconcileRepoConfigText", () => {
   const yaml = [
     "# a comment",
     "defaultBranch: main",
-    'npmScope: "@acme-skunkworks"',
+    'npmScope: "@acme-studio"',
     "npmRegistryUrl: https://registry.npmjs.org",
     "",
   ].join("\n");
@@ -163,7 +163,7 @@ describe("reconcileRepoConfigText", () => {
   it("is a no-op for a same-org package (idempotent)", () => {
     const { changes, text } = reconcileRepoConfigText(yaml, {
       defaultBranch: "main",
-      npmScope: "@acme-skunkworks",
+      npmScope: "@acme-studio",
     });
     expect(changes).toEqual({});
     expect(text).toBe(yaml);

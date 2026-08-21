@@ -1,3 +1,3 @@
 export default {
-  extends: ["@acme-skunkworks/commitlint-config"],
+  extends: ["@acme-studio/commitlint-config"],
 };

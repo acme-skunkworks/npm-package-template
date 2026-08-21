@@ -117,13 +117,13 @@ Without this environment the OIDC release jobs have nowhere to deploy from and t
 
 ### Release-orchestrator onboarding
 
-Hands-off releases are driven by the **private** `acme-skunkworks/release-orchestrator` repo, which
+Hands-off releases are driven by the **private** `acme-studio/release-orchestrator` repo, which
 holds the bot key, runs `release-please release-pr`, and merges the release PR. Post-merge changelog
-enrichment runs in-repo via `pkg-release.yml`'s `changelog-enrich` job (`@acme-skunkworks/changelog-core`,
+enrichment runs in-repo via `pkg-release.yml`'s `changelog-enrich` job (`@acme-studio/changelog-core`,
 A-808). Without onboarding, the repo never gets its automatic release PRs.
 
 The template already ships everything the orchestrator needs on the repo side — release-please
-config + manifest, `@acme-skunkworks/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
+config + manifest, `@acme-studio/changelog-core`, `.nvmrc`, a publish-only `pkg-release.yml`
 (with the enricher caller), and `GO/NO GO` running on the `release-please--*` branch. And since
 2026-07-13 road-runner-bot is installed **org-wide** on every Rheged Studio repo, with its
 `ROADRUNNER_*` credentials provisioned at org level — the `ROADRUNNER_PRIVATE_KEY` secret granted
@@ -216,7 +216,7 @@ gh workflow enable Release
 
 ### Org-level one-time bootstrap
 
-_Template maintainer only — set once for the `acme-skunkworks` organisation. These protect the
+_Template maintainer only — set once for the `acme-studio` organisation. These protect the
 release identity across every repo; a spawned-package owner can skip this section._
 
 - [ ] `ROADRUNNER_PRIVATE_KEY` (org **secret**) → **Selected repositories = the config-estate
