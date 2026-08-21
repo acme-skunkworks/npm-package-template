@@ -79,7 +79,7 @@ Three owners, never overlapping:
    so an in-flight PR never shows numbers that drift as commits land. `pr` is
    resolved from the merged PR by the entry's `branch:` (the same branch-resolution
    used for the other post-merge fields) — the ship flow never writes it. This runs
-   from `@acme-skunkworks/changelog-core`, invoked in-repo by the shared
+   from `@rheged-studio/changelog-core`, invoked in-repo by the shared
    `reusable-changelog-enrich.yml` and written back as `road-runner-bot[bot]` — no
    central orchestrator or cron (A-801). npm targets use `mode: finalise` (fills the
    fields **and** stamps `version`); deploy targets, never checked out during the

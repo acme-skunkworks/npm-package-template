@@ -3,7 +3,7 @@
 // The lock is a committed, machine-readable record of which skill versions a
 // consumer has installed, plus the `source` repo + `ref` they were installed from:
 //
-//   { "source": "https://github.com/acme-skunkworks/agent-skills",
+//   { "source": "https://github.com/rheged-studio/agent-skills",
 //     "ref": "main",
 //     "skills": { "changelog": "1.2.0", "send-it": "2.1.3", … } }
 //
@@ -14,7 +14,7 @@
 // Provenance is FACTS-ONLY. skills.sh records nowhere where a consumer's skills
 // came from (no `--ref` flag; installs track the source's default branch), and
 // this reconciler is generic/shippable — it must not hardcode or guess the
-// acme-skunkworks URL. So `source`/`ref` are supplied by the SKILL.md
+// rheged-studio URL. So `source`/`ref` are supplied by the SKILL.md
 // orchestration as stdin facts (`lockSource`/`lockRef`), exactly like the Linear
 // team name / workspace slug it already can't derive. An existing lock's values
 // are preserved when the facts omit them, so a re-run without re-supplying them is

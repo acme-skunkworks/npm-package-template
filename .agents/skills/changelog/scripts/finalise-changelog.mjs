@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Release-time finalisation of changelog entries — published skill source /
-// legacy mirror of `@acme-skunkworks/changelog-core finalise`. Production npm
+// legacy mirror of `@rheged-studio/changelog-core finalise`. Production npm
 // targets run the CLI in-repo via shared-workflows `reusable-changelog-enrich.yml`
 // (`mode: finalise`), which writes enriched entries back as road-runner-bot[bot]
 // after the release PR merges (A-801 — no central orchestrator step).

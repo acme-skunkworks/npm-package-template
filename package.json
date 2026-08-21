@@ -1,7 +1,7 @@
 {
-  "name": "@acme-skunkworks/npm-package-template",
+  "name": "@rheged-studio/npm-package-template",
   "version": "0.0.0",
-  "description": "Template repository for Acme Skunkworks npm packages — rename and fill src/ when generating a new package.",
+  "description": "Template repository for Rheged Studio npm packages — rename and fill src/ when generating a new package.",
   "keywords": [
     "template",
     "npm-package",
@@ -85,10 +85,10 @@
     ]
   },
   "devDependencies": {
-    "@acme-skunkworks/changelog-core": "^1.1.1",
-    "@acme-skunkworks/commitlint-config": "^1.0.1",
-    "@acme-skunkworks/eslint-config": "^1.1.3",
-    "@acme-skunkworks/markdownlint-config": "^3.0.0",
+    "@rheged-studio/changelog-core": "^1.1.1",
+    "@rheged-studio/commitlint-config": "^1.0.1",
+    "@rheged-studio/eslint-config": "^1.1.3",
+    "@rheged-studio/markdownlint-config": "^3.0.0",
     "@commitlint/cli": "^21.2.1",
     "@types/node": "^25.6.0",
     "bats": "1.13.0",

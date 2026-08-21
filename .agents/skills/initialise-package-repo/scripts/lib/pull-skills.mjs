@@ -2,7 +2,7 @@
 //
 // The template keeps committed skill bundles as bootstrap so the scaffolder can
 // run immediately after "Use this template". At scaffold time this module refreshes
-// the locked shared set from acme-skunkworks/agent-skills via `npx skills add … --copy`
+// the locked shared set from rheged-studio/agent-skills via `npx skills add … --copy`
 // into both agent trees — pull-on-instantiation, not hourly push fan-out.
 //
 // Repo-local `initialise-package-repo` is deliberately absent from the skill list
@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 
 /** Source repo for the shared skill bundles (skills.sh / npx skills). */
 export const AGENT_SKILLS_SOURCE =
-  "https://github.com/acme-skunkworks/agent-skills";
+  "https://github.com/rheged-studio/agent-skills";
 
 /**
  * Shared skills that match `skills-lock.json` on the template. Order is stable for

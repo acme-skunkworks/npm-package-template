@@ -9,7 +9,7 @@
 //
 //   node scripts/initialise-package-repo.mjs [--dry-run|--write] [--json]
 //        [--repo-root <path>] [--files-only|--github-only]
-//   echo '{"facts":{"name":"@acme-skunkworks/portcullis","description":"…",
+//   echo '{"facts":{"name":"@rheged-studio/portcullis","description":"…",
 //          "keywords":["a","b"]}}' \
 //     | node scripts/initialise-package-repo.mjs --write --json
 //

@@ -20,7 +20,7 @@ infrastructure/
 ```
 
 Changelog validate / completeness / enrich / finalise live in
-`@acme-skunkworks/changelog-core` (`pnpm exec changelog-core …`); post-merge
+`@rheged-studio/changelog-core` (`pnpm exec changelog-core …`); post-merge
 write-back is `reusable-changelog-enrich.yml` via the `changelog-enrich` job in
 `pkg-release.yml` (A-808 / A-821).
 

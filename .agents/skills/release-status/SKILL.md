@@ -91,7 +91,7 @@ node scripts/release-status.mjs --json
 **Explicit repo** — when not run from inside the target checkout:
 
 ```bash
-node scripts/release-status.mjs --repo acme-skunkworks/agent-skills
+node scripts/release-status.mjs --repo rheged-studio/agent-skills
 ```
 
 **Self-test** — run the bundled offline assertions (no network, no `gh`); a quick
